@@ -1,36 +1,33 @@
 # Use CoalMine with any AI coding agent
 
-Each skill is a standard `SKILL.md` — so CoalMine travels. Two tiers of support:
+`SKILL.md` is an **open standard** — as of 2026 it's read by **16+ agents**. CoalMine's five skills are `SKILL.md` folders, so they drop in **near-natively** almost everywhere; only the install path differs.
 
-## Tier 1 — near-native (same `SKILL.md` format, ~zero changes)
+## Near-native (drop the `skills/<name>/` folder in)
 
-| Agent | How |
+| Agent | Skills location |
 |---|---|
-| **Claude Code** | the plugin: `/plugin install coalmine@coalmine` → `/coalmine:<name>` (+ rotcanary auto-cadence) |
-| **Google Antigravity** | copy each `skills/<name>/` folder → your project's `.agents/skills/<name>/` (Antigravity uses the same skill-folder + `SKILL.md` format). It also reads `AGENTS.md`. |
+| **Claude Code** | the plugin (`/plugin install coalmine@coalmine` → `/coalmine:<name>`), or `~/.claude/skills/` |
+| **Google Antigravity** | `.agents/skills/<name>/` (also reads `AGENTS.md`) |
+| **GitHub Copilot** | `.github/skills/<name>/` (Copilot CLI · VS Code agent mode) |
+| **OpenAI Codex** | Codex skills dir (+ an `openai.yaml` metadata file alongside) |
+| **Gemini CLI** | its skills location |
+| **Cursor** | place the `SKILL.md`; invoke manually (no auto-discovery) |
+| **Cline · Windsurf · OpenCode · Amp · Goose · Junie · Letta · …** | their skills dir (16+ tools support the format) |
 
-## Tier 2 — paste as rules (any agent that reads an instructions file)
+Each tool may add extras (Claude Code: context forking + the auto-cadence hooks; Codex: `openai.yaml`), but the core `SKILL.md` body works across all. Frontmatter fields can differ slightly per tool — tweak `name`/`description` if a tool complains; the body is the substance.
 
-Copy the body of `skills/<name>/SKILL.md` into the agent's rules file; strip the YAML frontmatter; replace `/coalmine:<name>` with "run the &lt;name&gt; audit".
+## Fallback — paste as rules
 
-| Agent | Where |
-|---|---|
-| **Cursor** | `.cursor/rules/<name>.mdc` |
-| **GitHub Copilot** | `.github/copilot-instructions.md` or `.github/prompts/<name>.prompt.md` |
-| **Codex / other AGENTS.md hosts** | a section per skill in `AGENTS.md` |
-| **Gemini CLI** | `GEMINI.md` or a custom command |
-| **Windsurf · Cline · Aider · others** | their rules/instructions file |
-
-> Many tools read **`AGENTS.md`** (incl. Antigravity) — drop a skill there once and every AGENTS.md-aware agent picks it up.
+For any agent that reads an instructions file but lacks skill discovery: copy a skill's body into its rules / `AGENTS.md`, strip the YAML frontmatter, replace `/coalmine:<name>` with "run the &lt;name&gt; audit". Many tools (incl. Antigravity, Codex) read **`AGENTS.md`** — drop it there once and they all pick it up.
 
 ## Portable vs not
 
 | Part | Portable? |
 |---|---|
-| The 5 skills (the audits) | ✅ everywhere — as `SKILL.md` or pasted rules |
+| The 5 skills (the audits) | ✅ 16+ agents via `SKILL.md` |
 | Sub-agent fan-out + model-aware tiers | ✅ on any host with a sub-agent system; inline otherwise |
 | rotcanary **auto-cadence** (per-edit + session-end hooks) | ⛔ Claude-Code-native; elsewhere run on demand, or port the Node hooks in [`hooks/`](hooks/) to the host's hook system |
 
 ## Auto-cadence elsewhere
 
-Only rotcanary has it. If your agent has a hook / command-on-event system, mirror the cross-platform Node hooks in [`hooks/`](hooks/) (per-edit → record touched files; session-end → run rotcanary). No hook system → run manually (e.g. pre-commit). Adapters welcome.
+Only rotcanary has it. Mirror the cross-platform Node hooks in [`hooks/`](hooks/) to your agent's hook/command-on-event system (per-edit → record touched files; session-end → run rotcanary), or run manually (e.g. pre-commit).

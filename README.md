@@ -5,7 +5,7 @@
 **5 quality canaries for your AI coding agent** — catch dead code, weak standards, hallucinations, supply-chain rot, and fragile failure paths before they bite.
 
 ![license](https://img.shields.io/badge/license-MIT-blue)
-![agents](https://img.shields.io/badge/agents-Claude_Code,_Antigravity,_any-success)
+![SKILL.md](https://img.shields.io/badge/SKILL.md-open_standard_·_16%2B_agents-success)
 ![skills](https://img.shields.io/badge/skills-5-success)
 
 </div>
@@ -41,11 +41,10 @@ Then: `/coalmine:rotcanary` · `/coalmine:gold-standard` · `/coalmine:source-gr
 
 ## Other agents
 
-The skills use the standard `SKILL.md` format, so they travel:
-- **Antigravity** — drop the skill folders into `.agents/skills/` (same format, near-native). It also reads `AGENTS.md`.
-- **Cursor · Copilot · Codex · Gemini · others** — paste a skill's body into the agent's rules / `AGENTS.md`.
+`SKILL.md` is an **open standard read by 16+ agents** (2026) — drop the skill folder into each tool's skills dir:
+Claude Code · Antigravity (`.agents/skills/`) · GitHub Copilot (`.github/skills/`) · OpenAI Codex · Gemini CLI · Cursor · Cline · Windsurf · OpenCode · Amp · Goose · Junie · Letta · …
 
-Auto-cadence (rotcanary's hooks) is Claude-Code-only. Full guide: [USE-WITH-ANY-AGENT.md](USE-WITH-ANY-AGENT.md).
+Auto-cadence (rotcanary's hooks) is Claude-Code-only; elsewhere run on demand. Full guide: [USE-WITH-ANY-AGENT.md](USE-WITH-ANY-AGENT.md).
 
 ---
 
