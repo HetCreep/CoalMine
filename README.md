@@ -56,9 +56,21 @@ On hosts with a sub-agent / parallel-worker system (e.g. Claude Code), a DEEP or
 | Per release / merge | per release | QUICK | manual / CI |
 | Milestone / ~5 releases | rare | DEEP | manual (`DEPTH=DEEP`) |
 
-## Kill switch
+## Modes — auto / manual / off
 
-Create `~/.claude/.rotcanary-off` to disable the per-session auto-scan; delete it to re-enable. (The per-edit tripwire stays cheap and silent regardless.)
+Set the mode with an optional one-word file `~/.claude/.rotcanary-mode`:
+
+| Mode | per-edit tripwire | auto session-end scan | `/rotcanary:scan` on demand | How to set |
+|---|---|---|---|---|
+| **auto** (default) | ✅ | ✅ | ✅ | absent, or `auto` |
+| **manual** | ✅ (records touched files so your manual scan is precise) | ❌ | ✅ | `echo manual > ~/.claude/.rotcanary-mode` |
+| **off** | ❌ | ❌ | ✅ | `echo off > ~/.claude/.rotcanary-mode` |
+
+- **auto** — zero-action: edits are tracked, the audit fires at session end.
+- **manual** — you drive: nothing fires by itself, but touched files are still tracked so `/rotcanary:scan` knows what changed. Run it when you want (or in CI).
+- **off** — fully silent.
+
+Back-compat: the file `~/.claude/.rotcanary-off` (any contents) forces **off**. Return to auto by deleting both files.
 
 ## Requirements & platforms
 

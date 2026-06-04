@@ -96,7 +96,7 @@ This plugin **bundles** the two auto tiers — when the plugin is enabled they a
 | Per release / merge | per release | QUICK | run manually / in CI on the diff + the security category + a dependency audit |
 | Milestone / ~5 releases | rare | DEEP | run manually at DEPTH=DEEP, whole repo |
 
-**Requires Node.js on PATH** (bundled with the npm install of Claude Code). The hooks are cross-platform Node scripts. No Node? Use the PowerShell scripts in `alt/powershell/`, or just invoke this skill manually. **Kill switch:** create `~/.claude/.rotcanary-off` to disable the auto tier.
+**Requires Node.js on PATH** (bundled with the npm install of Claude Code). The hooks are cross-platform Node scripts. No Node? Use the PowerShell scripts in `alt/powershell/`, or just invoke this skill manually. **Modes** — `~/.claude/.rotcanary-mode` = `auto` (default: tripwire + auto scan) / `manual` (tripwire only, no auto scan — you run `/rotcanary:scan`) / `off` (silent). `/rotcanary:scan` works in every mode. (`.rotcanary-off` = off, back-compat.)
 
 ## Tooling by stack (run the build-warn + dead-code + lint columns)
 | Stack | build / warnings | dead-code / unused | lint / type |

@@ -7,8 +7,23 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+// Mode: ~/.claude/.rotcanary-mode = auto|manual|off (absent = auto). .rotcanary-off = off (back-compat).
+// Only AUTO emits the session-end nudge (manual/off do not).
+function rcMode() {
+  try {
+    const dir = path.join(os.homedir(), '.claude');
+    if (fs.existsSync(path.join(dir, '.rotcanary-off'))) return 'off';
+    const f = path.join(dir, '.rotcanary-mode');
+    if (fs.existsSync(f)) {
+      const v = fs.readFileSync(f, 'utf8').trim().toLowerCase();
+      if (v === 'off' || v === 'manual' || v === 'auto') return v;
+    }
+  } catch {}
+  return 'auto';
+}
+
 function main() {
-  if (fs.existsSync(path.join(os.homedir(), '.claude', '.rotcanary-off'))) return;
+  if (rcMode() !== 'auto') return;
 
   let raw = '';
   try { raw = fs.readFileSync(0, 'utf8'); } catch { return; }

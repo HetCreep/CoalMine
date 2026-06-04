@@ -19,9 +19,15 @@ These PowerShell versions are a **fallback** for Windows setups that don't have 
 
 > If you have Node, ignore this folder — just install the plugin (see the root README) and the Node hooks handle everything with no manual wiring.
 
-## Kill switch
+## Modes — auto / manual / off
 
-Create the file `~/.claude/.rotcanary-off` to disable the per-session auto-scan. Delete it to re-enable. (The per-edit tripwire stays cheap and silent either way.)
+Set `~/.claude/.rotcanary-mode` to one word — these PowerShell hooks honor it just like the Node hooks:
+
+- **auto** (default, or absent) — tripwire records edits + the `Stop` hook runs the audit at session end.
+- **manual** — tripwire still records touched files, but the `Stop` hook does **not** auto-run; you run the audit yourself.
+- **off** — silent (tripwire records nothing, no auto-run).
+
+Back-compat: `~/.claude/.rotcanary-off` (any contents) forces **off**.
 
 ## How the loop guard works
 

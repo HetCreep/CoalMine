@@ -5,6 +5,21 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+// Mode: ~/.claude/.rotcanary-mode = auto|manual|off (absent = auto). .rotcanary-off = off (back-compat).
+// off → record nothing. auto & manual → record touched files (the tripwire).
+function rcMode() {
+  try {
+    const dir = path.join(os.homedir(), '.claude');
+    if (fs.existsSync(path.join(dir, '.rotcanary-off'))) return 'off';
+    const f = path.join(dir, '.rotcanary-mode');
+    if (fs.existsSync(f)) {
+      const v = fs.readFileSync(f, 'utf8').trim().toLowerCase();
+      if (v === 'off' || v === 'manual' || v === 'auto') return v;
+    }
+  } catch {}
+  return 'auto';
+}
+
 const CODE_EXT = new Set([
   '.cs', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.rs', '.go',
   '.java', '.kt', '.kts', '.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.rb',
@@ -12,6 +27,7 @@ const CODE_EXT = new Set([
 ]);
 
 function main() {
+  if (rcMode() === 'off') return;
   let raw = '';
   try { raw = fs.readFileSync(0, 'utf8'); } catch { return; }
   if (!raw) return;

@@ -2,8 +2,16 @@
 # At a natural stop, if code was edited this session, nudge the agent to run /rotcanary QUICK
 # on the touched files. Loop-guarded (stop_hook_active), one-shot per edit-batch, kill-switchable.
 $ErrorActionPreference = 'SilentlyContinue'
+function Get-RcMode {
+  # ~/.claude/.rotcanary-mode = auto|manual|off (absent = auto). .rotcanary-off = off (back-compat).
+  $dir = Join-Path $env:USERPROFILE '.claude'
+  if (Test-Path (Join-Path $dir '.rotcanary-off')) { return 'off' }
+  $f = Join-Path $dir '.rotcanary-mode'
+  if (Test-Path $f) { $v = ([System.IO.File]::ReadAllText($f)).Trim().ToLower(); if ('auto','manual','off' -contains $v) { return $v } }
+  return 'auto'
+}
 try {
-  if ([System.IO.File]::Exists("$env:USERPROFILE\.claude\.rotcanary-off")) { exit 0 }
+  if ((Get-RcMode) -ne 'auto') { exit 0 }
   $raw = [Console]::In.ReadToEnd()
   if (-not $raw) { exit 0 }
   $in = $raw | ConvertFrom-Json
