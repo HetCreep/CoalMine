@@ -46,6 +46,12 @@ Claude Code · Antigravity (`.agents/skills/`) · GitHub Copilot (`.github/skill
 
 Auto-cadence (rotcanary's hooks) is Claude-Code-only; elsewhere run on demand. Full guide: [USE-WITH-ANY-AGENT.md](USE-WITH-ANY-AGENT.md).
 
+**Bulk install / verify** (cross-platform, needs Node):
+```
+node scripts/install.mjs <claude|antigravity|copilot|codex|PATH>   # copy all 5 skills into a target
+node scripts/verify.mjs  [target]                                  # check repo + (optional) target
+```
+
 ---
 
 <div align="center">
