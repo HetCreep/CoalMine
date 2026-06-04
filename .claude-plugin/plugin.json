@@ -1,0 +1,10 @@
+{
+  "name": "rotcanary",
+  "version": "1.0.0",
+  "description": "Language-agnostic code-health audit skill + auto-cadence hooks (per-edit tripwire, per-session-end QUICK scan). Finds dead/unwired/bug-prone/duplicated/leaky/racy/silently-failing/insecure code + doc rot.",
+  "author": { "name": "HetCreep" },
+  "homepage": "https://github.com/HetCreep/rotcanary",
+  "repository": "https://github.com/HetCreep/rotcanary",
+  "license": "MIT",
+  "keywords": ["code-review", "code-health", "dead-code", "static-analysis", "hooks", "skill", "audit"]
+}

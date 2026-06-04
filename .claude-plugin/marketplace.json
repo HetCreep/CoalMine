@@ -1,0 +1,12 @@
+{
+  "name": "rotcanary",
+  "owner": { "name": "HetCreep" },
+  "description": "Code-health audit skill + auto-cadence hooks for Claude Code.",
+  "plugins": [
+    {
+      "name": "rotcanary",
+      "source": "./",
+      "description": "Language-agnostic code-health audit skill + auto-cadence hooks (per-edit tripwire + per-session-end QUICK scan)."
+    }
+  ]
+}
