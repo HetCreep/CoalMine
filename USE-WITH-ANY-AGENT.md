@@ -1,29 +1,29 @@
-# Use rotcanary with any AI coding agent
+# Use CoalMine with any AI coding agent
 
-rotcanary ships as a Claude Code plugin (skill + auto-cadence hooks), but the **audit itself is just a prompt** — [`skills/scan/SKILL.md`](skills/scan/SKILL.md) is portable. You can run it on any agent.
+CoalMine ships as a Claude Code plugin, but each skill is **just a prompt** — `skills/<name>/SKILL.md` is portable. Run any of the five on any agent.
 
-## Portable part vs Claude-Code-only part
+## Portable vs Claude-Code-only
 
 | Part | Portable to other agents? |
 |---|---|
-| The audit Brief — categories, verify rules, severity, output, per-stack tooling | ✅ it's prompt text |
-| **Sub-agent fan-out + model-aware distribution** (SKILL §5) | ✅ on any host that HAS a sub-agent system; runs inline otherwise |
-| **Auto-cadence** — per-edit tripwire + per-session-end auto-run | ⛔ Claude Code only (needs its `PostToolUse`/`Stop` hooks) |
+| The 5 skills (rotcanary · gold-standard · source-grounding · supply-chain-audit · resilience-audit) — categories, verify rules, output | ✅ prompt text |
+| Sub-agent fan-out + model-aware distribution | ✅ on any host that HAS a sub-agent system; inline otherwise |
+| rotcanary **auto-cadence** (per-edit tripwire + session-end auto-run) | ⛔ Claude Code only (needs `PostToolUse`/`Stop` hooks) |
 
-On other agents you get the full audit **on demand** — you trigger it yourself instead of it firing automatically.
+On other agents you run each skill **on demand**.
 
-## Install the Brief per agent
+## Install a skill's Brief per agent
 
-Copy the body of `skills/scan/SKILL.md` into the agent's rules/instructions file. Strip the YAML frontmatter (Claude-Code-specific) and replace any `/rotcanary:scan` with "run the rotcanary audit".
+Copy the body of the relevant `skills/<name>/SKILL.md` into the agent's rules/instructions file. Strip the YAML frontmatter (Claude-Code-specific); replace `/coalmine:<name>` with "run the &lt;name&gt; audit".
 
 | Agent | Where | Trigger |
 |---|---|---|
-| **Cursor** | `.cursor/rules/rotcanary.mdc` (Agent-requestable rule) | "run rotcanary" / @rotcanary |
-| **GitHub Copilot** | `.github/copilot-instructions.md` or `.github/prompts/rotcanary.prompt.md` | invoke the prompt |
-| **Codex / AGENTS.md hosts** | a section in `AGENTS.md` or `docs/rotcanary.md` referenced from it | "run the rotcanary audit" |
-| **Gemini CLI** | `GEMINI.md` or a custom command/extension | "run the rotcanary audit" |
-| **Windsurf / Cline / Aider / others** | their rules/instructions file | "run the rotcanary audit" |
+| **Cursor** | `.cursor/rules/<name>.mdc` (Agent-requestable rule) | "run <name>" / @<name> |
+| **GitHub Copilot** | `.github/copilot-instructions.md` or `.github/prompts/<name>.prompt.md` | invoke the prompt |
+| **Codex / AGENTS.md hosts** | a section in `AGENTS.md` or `docs/<name>.md` referenced from it | "run the <name> audit" |
+| **Gemini CLI** | `GEMINI.md` or a custom command/extension | "run the <name> audit" |
+| **Windsurf / Cline / Aider / others** | their rules/instructions file | "run the <name> audit" |
 
-## Want auto-cadence on a non-Claude-Code agent?
+## Auto-cadence on a non-Claude-Code agent?
 
-If your agent has a hook / command-on-event system, mirror the two cross-platform Node hooks in [`hooks/`](hooks/) to its event model (per-edit → record touched files; session-end → run the audit on them). No hook system → run the Brief manually (e.g. before each commit). A contributed adapter for another agent's hook system is welcome — see the repo README.
+Only **rotcanary** has it. If your agent has a hook / command-on-event system, mirror the cross-platform Node hooks in [`hooks/`](hooks/) to its event model (per-edit → record touched files; session-end → run rotcanary on them). No hook system → run manually (e.g. pre-commit). A contributed adapter for another agent's hook system is welcome.

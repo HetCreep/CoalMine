@@ -1,10 +1,10 @@
 {
-  "name": "rotcanary",
+  "name": "coalmine",
   "version": "1.0.0",
-  "description": "Language-agnostic code-health audit skill + auto-cadence hooks (per-edit tripwire, per-session-end QUICK scan). Finds dead/unwired/bug-prone/duplicated/leaky/racy/silently-failing/insecure code + doc rot.",
+  "description": "CoalMine — a suite of 5 quality meta-skills for coding agents: rotcanary (code-health audit + auto-cadence hooks), gold-standard (world-class completeness; fills & adopts rules), source-grounding (anti-hallucination sourcing), supply-chain-audit (deps/build/artifact trust), resilience-audit (failure-mode FMEA). Sub-agent + model-aware, cross-platform, report-not-fix.",
   "author": { "name": "HetCreep" },
-  "homepage": "https://github.com/HetCreep/rotcanary",
-  "repository": "https://github.com/HetCreep/rotcanary",
+  "homepage": "https://github.com/HetCreep/CoalMine",
+  "repository": "https://github.com/HetCreep/CoalMine",
   "license": "MIT",
-  "keywords": ["code-review", "code-health", "dead-code", "static-analysis", "hooks", "skill", "audit"]
+  "keywords": ["code-review", "code-health", "quality", "audit", "dead-code", "supply-chain", "resilience", "hallucination", "skills", "hooks"]
 }

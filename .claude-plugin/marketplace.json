@@ -1,12 +1,12 @@
 {
-  "name": "rotcanary",
+  "name": "coalmine",
   "owner": { "name": "HetCreep" },
-  "description": "Code-health audit skill + auto-cadence hooks for Claude Code.",
+  "description": "CoalMine — a quality meta-skills suite for coding agents (canary-in-the-coal-mine early warning).",
   "plugins": [
     {
-      "name": "rotcanary",
+      "name": "coalmine",
       "source": "./",
-      "description": "Language-agnostic code-health audit skill + auto-cadence hooks (per-edit tripwire + per-session-end QUICK scan)."
+      "description": "5 quality meta-skills: rotcanary (code-health), gold-standard (world-class completeness), source-grounding (anti-hallucination), supply-chain-audit (deps/build/artifact), resilience-audit (failure-mode). rotcanary adds cross-platform auto-cadence hooks."
     }
   ]
 }

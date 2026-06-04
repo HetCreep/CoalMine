@@ -1,5 +1,5 @@
 ---
-name: scan
+name: rotcanary
 description: Language-agnostic code-health audit — finds dead code, unwired/disconnected code, bug-prone logic, duplication, resource leaks, concurrency bugs, silent failures, input-boundary security issues, and doc rot. Use when reviewing code after writing or refactoring, before a commit or release, or for a periodic deep sweep. Auto-invoked at session end after code edits by this plugin's Stop hook. Fans out to sub-agents with model-aware task distribution when the host supports them; runs inline otherwise. Reports findings; does not fix unless asked.
 ---
 
@@ -96,7 +96,7 @@ This plugin **bundles** the two auto tiers — when the plugin is enabled they a
 | Per release / merge | per release | QUICK | run manually / in CI on the diff + the security category + a dependency audit |
 | Milestone / ~5 releases | rare | DEEP | run manually at DEPTH=DEEP, whole repo |
 
-**Requires Node.js on PATH** (bundled with the npm install of Claude Code). The hooks are cross-platform Node scripts. No Node? Use the PowerShell scripts in `alt/powershell/`, or just invoke this skill manually. **Modes** — `~/.claude/.rotcanary-mode` = `auto` (default: tripwire + auto scan) / `manual` (tripwire only, no auto scan — you run `/rotcanary:scan`) / `off` (silent). `/rotcanary:scan` works in every mode. (`.rotcanary-off` = off, back-compat.)
+**Requires Node.js on PATH** (bundled with the npm install of Claude Code). The hooks are cross-platform Node scripts. No Node? Use the PowerShell scripts in `alt/powershell/`, or just invoke this skill manually. **Modes** — `~/.claude/.rotcanary-mode` = `auto` (default: tripwire + auto scan) / `manual` (tripwire only, no auto scan — you run `/coalmine:rotcanary`) / `off` (silent). `/coalmine:rotcanary` works in every mode. (`.rotcanary-off` = off, back-compat.)
 
 ## Tooling by stack (run the build-warn + dead-code + lint columns)
 | Stack | build / warnings | dead-code / unused | lint / type |
