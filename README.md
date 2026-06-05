@@ -24,6 +24,8 @@
 
 *Every skill: model-aware sub-agent fan-out · cites evidence · no inflation · reports, never edits unless asked.*
 
+> **Tip — make grounding always-on:** skills fire on relevance, not every turn. For version-sensitive facts that go stale (API signatures, library versions, CVEs), also drop a one-line standing rule into your agent's global instructions (`CLAUDE.md` / `AGENTS.md`): *"verify version-sensitive facts against the live source, or flag `⚠️ unverified`."* The skill gives depth on demand; the standing rule guarantees the discipline is seen every turn.
+
 ## Install
 
 ```
