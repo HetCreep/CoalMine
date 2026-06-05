@@ -22,9 +22,22 @@
 | `supply-chain-audit` | CVEs · licenses · phone-home · CI integrity · artifact signing |
 | `resilience-audit` | failure modes — partial / rollback / idempotency, no silent-success |
 
-*Every skill: model-aware sub-agent fan-out · cites evidence · no inflation · report-first — an opt-in, choice-gated **fix mode** applies only safe fixes behind a git checkpoint + build/test verify-loop (auto-revert on red); risky fixes need an explicit pick.*
+*Every skill: cites evidence · no inflation · report-first. Fix mode is opt-in, choice-gated: checkpoint → apply safe fix → build+test → auto-revert if newly red. Risky fixes need an explicit pick.*
 
-> **Tip — make grounding always-on:** skills fire on relevance, not every turn. For version-sensitive facts that go stale (API signatures, library versions, CVEs), also drop a one-line standing rule into your agent's global instructions (`CLAUDE.md` / `AGENTS.md`): *"verify version-sensitive facts against the live source, or flag `⚠️ unverified`."* The skill gives depth on demand; the standing rule guarantees the discipline is seen every turn.
+## Always-on vs on-demand
+
+| Mode | Skills | How |
+|---|---|---|
+| **Always-on** | `rotcanary` (Stop hook) · `source-grounding` (standing rule) | Fire automatically — no command needed |
+| **Keyword trigger** | `gold-standard` | "audit rules" / "fill gaps" / "are we world-class" / "conform old code" |
+| **On-demand** | `supply-chain-audit` · `resilience-audit` | Invoke manually when relevant |
+
+Recommended setup — add to `CLAUDE.md` / `AGENTS.md`:
+```
+# rotcanary: Stop hook auto-scans touched files. "fix it" → choice-gated fix menu.
+# source-grounding: verify version-sensitive facts (API/SDK · versions · CVEs · auth) vs authoritative source, or flag ⚠️ unverified.
+# gold-standard: fires on keywords above — fills missing rules, adopts as binding, offers conform.
+```
 
 ## Install
 
@@ -35,9 +48,9 @@
 
 Then: `/coalmine:rotcanary` · `/coalmine:gold-standard` · `/coalmine:source-grounding` · `/coalmine:supply-chain-audit` · `/coalmine:resilience-audit`
 
-## Auto mode (rotcanary only)
+## Auto mode (rotcanary)
 
-`rotcanary` runs itself — records your edits, audits the touched files at session end. Cross-platform Node hooks, no `settings.json` editing. Modes via `~/.claude/.rotcanary-mode`: `auto` (default) · `manual` · `off`.
+`rotcanary` runs itself — records edits via PostToolUse hook, audits touched files at session end (Stop hook). No `settings.json` editing required.
 
 > Hooks need Node on `PATH` (ships with Claude Code's npm install; no Node → [`alt/powershell/`](alt/powershell/)). The other 4 skills are on-demand, zero deps.
 
