@@ -109,6 +109,22 @@ This plugin **bundles** the two auto tiers — when the plugin is enabled they a
 
 If a tool isn't installed, say so and fall back to grep-based reachability — never skip silently.
 
+## Fix mode (opt-in — choice-gated)
+Default = **report only** (does not fix unless asked). To act, never auto-edit silently — after the report, **pop a selectable choice** (host choice UI, e.g. AskUserQuestion):
+- **Fix safe now** — auto-apply only SAFE / mechanical / reversible findings: removing a symbol/import proven dead by §2 (zero reachability via ALL routes), deleting a commented-out block, a format-only cleanup. Each goes through the harness below.
+- **Let me pick** — list the findings; apply only the ones the user selects (safe or risky).
+- **Report only** (default) — change nothing.
+
+NEVER in "Fix safe now" (needs an explicit pick): any fix on a live/reachable path · a "bug" fix that changes logic · an "API looks wrong" fix (ground it via source-grounding first — a stale-API "fix" breaks working code) · code that may be framework-wired (reflection/DI/route) and only *looks* dead.
+
+**Safety harness — every applied fix:**
+1. **Checkpoint first** — make a restore point before touching anything (git branch or commit; `git stash` if the tree is dirty). **No git / no restore point possible → do NOT auto-apply** (report-only, or one fix then stop for explicit confirm) — never run the verify-loop without a way to revert. If any harness step itself fails (build won't run, revert fails) → **stop the whole run, restore the checkpoint, and report** — don't keep applying.
+2. **One fix → re-run** the build + the tests that cover it.
+3. **Verify-loop** — green ⇒ keep · red ⇒ **auto-revert that fix** and downgrade it to "report only".
+4. **Diff summary** at the end — every change (kept + reverted) with `path:line`.
+
+⚠️ A fix **no test covers** can't be verify-loop-checked → apply only if structurally trivial (e.g. an unreferenced import); otherwise leave it to "pick" with an "untested path" warning.
+
 ## Proportionality — don't overkill
 Match effort to the task's size and stakes. **Default to the cheapest path that actually answers**: a small or low-stakes input → run **inline + QUICK**, no sub-agents, no DEEP pass, no fetch-everything. Escalate to fan-out / DEEP / strict **only** when size or risk justifies it. A 2-file change doesn't need a multi-agent sweep; a stable, well-known fact doesn't need three sources. When unsure, do the small version first and expand only if it surfaces something.
 

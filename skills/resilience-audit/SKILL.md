@@ -62,6 +62,22 @@ Ask of every operation: **"what happens when this FAILS?"** Walk each failure po
 ## Depth / sub-agents
 DEEP on a host with sub-agents: fan out **one failure-category per worker** (I/O · storage · concurrency · partial/crash · resource). Strong model judges data-loss / corruption / rollback correctness; cheap model lists missing timeouts/validation. Synthesize, then an adversarial pass: **"what failure mode did we NOT consider?"** Single-model / no sub-agents → inline.
 
+## Fix mode (opt-in — choice-gated)
+Default = **report only** (does not fix unless asked). To act, never auto-edit silently — after the report, **pop a selectable choice** (host choice UI, e.g. AskUserQuestion):
+- **Fix safe now** — auto-apply only SAFE / additive / reversible guards: add a missing timeout, add boundary / null / input validation, add a clear error message + log on an unhandled path. Each goes through the harness below.
+- **Let me pick** — list the findings; apply only the ones the user selects.
+- **Report only** (default) — change nothing.
+
+NEVER in "Fix safe now" (needs an explicit pick): changing **retry / rollback / recovery / atomicity logic**, or restructuring an operation — semantic changes can introduce *new* failure modes (the very thing this audit guards against). These get proposed, picked, then verified — never blind-applied.
+
+**Safety harness — every applied fix:**
+1. **Checkpoint first** — make a restore point before touching anything (git branch or commit; `git stash` if the tree is dirty). **No git / no restore point possible → do NOT auto-apply** (report-only, or one fix then stop for explicit confirm) — never run the verify-loop without a way to revert. If any harness step itself fails (build won't run, revert fails) → **stop the whole run, restore the checkpoint, and report** — don't keep applying.
+2. **One fix → re-run** the build + the tests that cover it (incl. the failure-path test if one exists).
+3. **Verify-loop** — green ⇒ keep · red ⇒ **auto-revert that fix** and downgrade it to "report only".
+4. **Diff summary** at the end — every change (kept + reverted) with `path:line`.
+
+⚠️ Failure paths are rarely tested (see Discipline) → a guard with no covering test can't be verify-looped. Add the test alongside, or leave the fix to "pick" with an "untested failure path" warning.
+
 ## Proportionality — don't overkill
 Match effort to the task's size and stakes. **Default to the cheapest path that actually answers**: a small or low-stakes input → run **inline + QUICK**, no sub-agents, no DEEP pass, no fetch-everything. Escalate to fan-out / DEEP / strict **only** when size or risk justifies it. A 2-file change doesn't need a multi-agent sweep; a stable, well-known fact doesn't need three sources. When unsure, do the small version first and expand only if it surfaces something.
 

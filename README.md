@@ -22,7 +22,7 @@
 | `supply-chain-audit` | CVEs · licenses · phone-home · CI integrity · artifact signing |
 | `resilience-audit` | failure modes — partial / rollback / idempotency, no silent-success |
 
-*Every skill: model-aware sub-agent fan-out · cites evidence · no inflation · reports, never edits unless asked.*
+*Every skill: model-aware sub-agent fan-out · cites evidence · no inflation · report-first — an opt-in, choice-gated **fix mode** applies only safe fixes behind a git checkpoint + build/test verify-loop (auto-revert on red); risky fixes need an explicit pick.*
 
 > **Tip — make grounding always-on:** skills fire on relevance, not every turn. For version-sensitive facts that go stale (API signatures, library versions, CVEs), also drop a one-line standing rule into your agent's global instructions (`CLAUDE.md` / `AGENTS.md`): *"verify version-sensitive facts against the live source, or flag `⚠️ unverified`."* The skill gives depth on demand; the standing rule guarantees the discipline is seen every turn.
 
