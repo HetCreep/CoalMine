@@ -115,15 +115,19 @@ Default = **report only** (does not fix unless asked). To act, never auto-edit s
 - **Let me pick** — list the findings; apply only the ones the user selects (safe or risky).
 - **Report only** (default) — change nothing.
 
-NEVER in "Fix safe now" (needs an explicit pick): any fix on a live/reachable path · a "bug" fix that changes logic · an "API looks wrong" fix (ground it via source-grounding first — a stale-API "fix" breaks working code) · code that may be framework-wired (reflection/DI/route) and only *looks* dead.
+**No interactive choice surface** (non-interactive / CI / Stop-hook / piped session, or AskUserQuestion unavailable) → **stay report-only**: never treat an un-answerable choice as consent — no edits, no reverts. (The session-end auto-scan is non-interactive → it only ever reports.)
+
+NEVER in "Fix safe now" (needs an explicit pick): any fix on a live/reachable path · a "bug" fix that changes logic · an "API looks wrong" fix (ground it via source-grounding first — a stale-API "fix" breaks working code) · code that may be framework-wired (reflection/DI/route) and only *looks* dead · any finding marked SUSPECTED/unverified (only CONFIRMED findings are auto-eligible).
 
 **Safety harness — every applied fix:**
-1. **Checkpoint first** — make a restore point before touching anything (git branch or commit; `git stash` if the tree is dirty). **No git / no restore point possible → do NOT auto-apply** (report-only, or one fix then stop for explicit confirm) — never run the verify-loop without a way to revert. If any harness step itself fails (build won't run, revert fails) → **stop the whole run, restore the checkpoint, and report** — don't keep applying.
+0. **Baseline gate (before any fix)** — run the build + covering tests ONCE on the untouched checkpoint and record the result. Baseline already RED (build fails, tests fail, or the tool is absent/errors) → do NOT auto-apply (the loop can't tell your fix from a pre-existing failure): report-only + name the failure. Only a green baseline licenses the loop; afterward **"red" = NEWLY red vs baseline** (a test already failing at baseline doesn't count against the fix).
+1. **Checkpoint first** — make a restore point before touching anything (git branch or commit). **No git / no restore point → do NOT auto-apply** (report-only) — never run the verify-loop without a way to revert. **Never silently stash the user's work:** if the tree is dirty, branch/commit off as-is, or stash only with a findable label (`git stash push -m "coalmine-fix <UTC>"`), tell the user + the pop command, and restore it as the run's last step (on success AND abort). Any harness step failing (build won't run, revert fails) → **stop the run, restore the checkpoint, report.**
 2. **One fix → re-run** the build + the tests that cover it.
-3. **Verify-loop** — green ⇒ keep · red ⇒ **auto-revert that fix** and downgrade it to "report only".
-4. **Diff summary** at the end — every change (kept + reverted) with `path:line`.
+3. **Verify-loop** — newly-red vs baseline ⇒ **auto-revert that fix** (only files this fix itself wrote) + downgrade to "report only" · green ⇒ keep. A target file changed on disk since the checkpoint → don't apply/revert it; skip + downgrade ("file changed during run").
+4. **Batch re-run** — after the last fix in a batch (>1 fix), run build + the covering suite ONCE MORE on the cumulative result; a baseline-green test now red = fixes interacted → revert the most-recently-kept until green + report the conflict. Per-fix green ≠ batch green.
+5. **Diff summary** at the end — every change (kept + reverted) with `path:line`.
 
-⚠️ A fix **no test covers** can't be verify-loop-checked → apply only if structurally trivial (e.g. an unreferenced import); otherwise leave it to "pick" with an "untested path" warning.
+⚠️ A fix **no test covers** — or whose covering test stays green *without executing the changed lines* — can't be verify-loop-checked → apply only if structurally trivial (e.g. an unreferenced import); otherwise leave it to "pick" with an "untested path" warning.
 
 ## Proportionality — don't overkill
 Match effort to the task's size and stakes. **Default to the cheapest path that actually answers**: a small or low-stakes input → run **inline + QUICK**, no sub-agents, no DEEP pass, no fetch-everything. Escalate to fan-out / DEEP / strict **only** when size or risk justifies it. A 2-file change doesn't need a multi-agent sweep; a stable, well-known fact doesn't need three sources. When unsure, do the small version first and expand only if it surfaces something.

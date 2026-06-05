@@ -68,15 +68,19 @@ Default = **report only** (does not fix unless asked). To act, never auto-edit s
 - **Let me pick** — list the findings; apply only the ones the user selects.
 - **Report only** (default) — change nothing.
 
-NEVER in "Fix safe now" (needs an explicit pick): changing **retry / rollback / recovery / atomicity logic**, or restructuring an operation — semantic changes can introduce *new* failure modes (the very thing this audit guards against). These get proposed, picked, then verified — never blind-applied.
+**No interactive choice surface** (non-interactive / CI / piped session, or AskUserQuestion unavailable) → **stay report-only**: never treat an un-answerable choice as consent — no edits, no reverts.
+
+NEVER in "Fix safe now" (needs an explicit pick): changing **retry / rollback / recovery / atomicity logic**, or restructuring an operation — semantic changes can introduce *new* failure modes (the very thing this audit guards against) · any finding marked SUSPECTED/unverified (only CONFIRMED are auto-eligible). These get proposed, picked, then verified — never blind-applied.
 
 **Safety harness — every applied fix:**
-1. **Checkpoint first** — make a restore point before touching anything (git branch or commit; `git stash` if the tree is dirty). **No git / no restore point possible → do NOT auto-apply** (report-only, or one fix then stop for explicit confirm) — never run the verify-loop without a way to revert. If any harness step itself fails (build won't run, revert fails) → **stop the whole run, restore the checkpoint, and report** — don't keep applying.
+0. **Baseline gate (before any fix)** — run the build + covering tests ONCE on the untouched checkpoint and record the result. Baseline already RED (build fails, tests fail, or the tool is absent/errors) → do NOT auto-apply (the loop can't tell your fix from a pre-existing failure): report-only + name the failure. Only a green baseline licenses the loop; afterward **"red" = NEWLY red vs baseline**.
+1. **Checkpoint first** — make a restore point before touching anything (git branch or commit). **No git / no restore point → do NOT auto-apply** (report-only) — never run the verify-loop without a way to revert. **Never silently stash the user's work:** if the tree is dirty, branch/commit off as-is, or stash only with a findable label (`git stash push -m "coalmine-fix <UTC>"`), tell the user + the pop command, restore it as the run's last step (success AND abort). Any harness step failing → **stop the run, restore the checkpoint, report.**
 2. **One fix → re-run** the build + the tests that cover it (incl. the failure-path test if one exists).
-3. **Verify-loop** — green ⇒ keep · red ⇒ **auto-revert that fix** and downgrade it to "report only".
-4. **Diff summary** at the end — every change (kept + reverted) with `path:line`.
+3. **Verify-loop** — newly-red vs baseline ⇒ **auto-revert that fix** (only files this fix wrote) + downgrade to "report only" · green ⇒ keep. A target file changed on disk since the checkpoint → skip + downgrade ("file changed during run").
+4. **Batch re-run** — after the last fix in a batch (>1 fix), run build + the covering suite ONCE MORE on the cumulative result; a baseline-green test now red = fixes interacted → revert the most-recently-kept until green + report. Per-fix green ≠ batch green.
+5. **Diff summary** at the end — every change (kept + reverted) with `path:line`.
 
-⚠️ Failure paths are rarely tested (see Discipline) → a guard with no covering test can't be verify-looped. Add the test alongside, or leave the fix to "pick" with an "untested failure path" warning.
+⚠️ Failure paths are rarely tested (see Discipline) → a guard with no covering test (or whose test stays green *without executing the changed lines*) can't be verify-looped. Add the test alongside, or leave the fix to "pick" with an "untested failure path" warning.
 
 ## Proportionality — don't overkill
 Match effort to the task's size and stakes. **Default to the cheapest path that actually answers**: a small or low-stakes input → run **inline + QUICK**, no sub-agents, no DEEP pass, no fetch-everything. Escalate to fan-out / DEEP / strict **only** when size or risk justifies it. A 2-file change doesn't need a multi-agent sweep; a stable, well-known fact doesn't need three sources. When unsure, do the small version first and expand only if it surfaces something.

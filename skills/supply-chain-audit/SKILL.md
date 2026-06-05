@@ -69,17 +69,21 @@ DEEP on a host with sub-agents: fan out **one worker per ecosystem** (or per dim
 
 ## Fix mode (opt-in — choice-gated)
 Default = **report only** (do NOT change deps unless asked). To act, never auto-edit silently — after the report, **pop a selectable choice** (host choice UI, e.g. AskUserQuestion):
-- **Fix safe now** — auto-apply only SAFE / additive / reversible fixes: commit or regenerate the lockfile, pin a CI action to its current commit SHA, add a missing checksum / SBOM / provenance step. Each goes through the harness below.
+- **Fix safe now** — auto-apply only SAFE / additive / reversible fixes: commit an **already-present, unchanged** lockfile, pin a CI action to its current commit SHA, add a missing checksum / SBOM / provenance step. Each goes through the harness below.
 - **Let me pick** — list the findings; apply only the ones the user selects.
 - **Report only** (default) — change nothing.
 
-NEVER in "Fix safe now" (needs an explicit pick): **any dependency version bump or removal** — a bump can break the build or behavior, may need code changes, and must be followed by an install + test. Ground the fixed-version against the advisory (source-grounding) before proposing it.
+**No interactive choice surface** (non-interactive / CI / piped session, or AskUserQuestion unavailable) → **stay report-only**: never treat an un-answerable choice as consent — no edits, no reverts.
+
+NEVER in "Fix safe now" (needs an explicit pick): **any dependency version bump or removal** — a bump can break the build or behavior, may need code changes, and must be followed by an install + test; ground the fixed-version against the advisory (source-grounding) first. **Regenerating / refreshing a lockfile** also → pick: it re-resolves the whole transitive tree (can pull a newly-vulnerable transitive dep) and build+test won't catch it — prefer a frozen resolve (`npm ci` / `--locked` / `--frozen-lockfile`); if regenerated, diff the resolved tree + re-run the auditor on the new lock. Only CONFIRMED findings are auto-eligible.
 
 **Safety harness — every applied fix:**
-1. **Checkpoint first** — make a restore point before touching anything (git branch or commit; `git stash` if the tree is dirty). **No git / no restore point possible → do NOT auto-apply** (report-only, or one fix then stop for explicit confirm) — never run the verify-loop without a way to revert. If any harness step itself fails (reinstall/build won't run, revert fails) → **stop the whole run, restore the checkpoint + the old lockfile/manifest, and report** — don't keep applying.
+0. **Baseline gate (before any fix)** — run the build + tests ONCE on the untouched checkpoint and record the result. Baseline already RED (build fails, tests fail, or the auditor/tool is absent/errors) → do NOT auto-apply: report-only + name the failure. Only a green baseline licenses the loop; afterward **"red" = NEWLY red vs baseline**.
+1. **Checkpoint first** — make a restore point before touching anything (git branch or commit). **No git / no restore point → do NOT auto-apply** (report-only). **Never silently stash the user's work:** dirty tree → branch/commit off as-is, or stash with a findable label (`git stash push -m "coalmine-fix <UTC>"`), tell the user + the pop command, restore last (success AND abort). Any harness step failing (reinstall/build won't run, revert fails) → **stop the run, restore the checkpoint + the old lockfile/manifest, report.**
 2. **One fix → re-install + re-run** the build + tests (a lockfile/dep change must reinstall first).
-3. **Verify-loop** — green ⇒ keep · red ⇒ **auto-revert that fix** (restore the old lockfile/manifest) and downgrade it to "report only".
-4. **Diff summary** at the end — every change (kept + reverted) with the file + the exact version delta.
+3. **Verify-loop** — newly-red vs baseline ⇒ **auto-revert that fix** (restore the old lockfile/manifest; only files this fix wrote) + downgrade to "report only" · green ⇒ keep.
+4. **Batch re-run** — after the last fix in a batch (>1 fix), reinstall + run build + tests ONCE MORE on the cumulative result; a baseline-green test now red = fixes interacted → revert the most-recently-kept until green + report.
+5. **Diff summary** at the end — every change (kept + reverted) with the file + the exact version delta.
 
 ⚠️ No lockfile or no test coverage → a dep change can't be safely verify-looped; leave it to "pick" with a "no safety net" warning.
 
