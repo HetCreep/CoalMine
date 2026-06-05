@@ -1,6 +1,6 @@
 ---
 name: gold-standard
-description: World-class completeness audit — given a project and its function, judge whether its rules, standards, and features are complete versus the best-in-class programs in its category. Names the bar (cited exemplars), derives the 100% checklist, scores by dimension, lists prioritized gaps — then, on request, FILLS the missing rules into the project's rules home (each citing its exemplar) and ADOPTS the completed ruleset as a binding compliance gate for further work. Use to answer "are our rules/standards 100% vs world-class — and if not, complete them and work by them." Fills rules, not code; code changes still need approval.
+description: World-class completeness audit — given a project and its function, judge whether its rules, standards, and features are complete versus the best-in-class programs in its category. Names the bar (cited exemplars), derives the 100% checklist, scores by dimension, lists prioritized gaps — then, on request, FILLS the missing rules into the project's rules home (each citing its exemplar) and ADOPTS the completed ruleset as a binding compliance gate for further work. Use to answer "are our rules/standards 100% vs world-class — and if not, complete them and work by them." Fills rules, not code; can then CONFORM existing code to the adopted rules (offered as a selectable choice). Code changes always need approval.
 ---
 
 # Gold Standard — world-class completeness audit
@@ -9,7 +9,7 @@ Answer one question rigorously:
 
 > **"For a project that does THIS, measured against the best-in-class programs in its category — are the rules / standards / features 100% complete? If not, what's missing?"**
 
-Three acts, stop at any: **audit** the gap → **fill** the missing rules into the project's rule files → **adopt** them as binding. Filling writes RULES / standards (not code); code changes still need the user's go.
+Four acts, stop at any: **audit** the gap → **fill** the missing rules → **adopt** them as binding → **conform** the existing code to them. Filling writes RULES / standards (not code); conform + any code change still needs the user's go.
 
 ## Input (infer if not given)
 - **PROJECT** — what it is + its core function. Read README / AGENTS / docs / code.
@@ -46,16 +46,21 @@ Correctness & reliability · Security & privacy · Performance & resource use ·
 5. **Verdict** — one line: how far from world-class, and the top 3 moves to close it.
 6. **Not assessed** — dimensions skipped + why.
 
-## Actions — audit → fill → adopt
-Up to three acts; stop at any. The rules-completeness use case usually wants all three.
+## Actions — audit → fill → adopt → conform
+Up to four acts; stop at any. The first three complete + bind the rules; CONFORM extends them onto the existing code.
 
 1. **AUDIT** (default) — score the gaps vs the bar (Method + Output above).
 2. **FILL** — author the missing **MUST-HAVE** rules/standards into the project's rules home, in its existing style + voice, each citing the exemplar that justifies it — **grounded in the exemplar's authoritative source** (invoke source-grounding: cite the real doc/spec/standard, never memory). Writes RULES/standards docs — does **not** change code.
    - Rules home (detect, first that exists): `.claude/rules/**` · `AGENTS.md` / `CLAUDE.md` · `CONTRIBUTING.md` / `STANDARDS.md` / `docs/` — else create `STANDARDS.md`. **Extend** existing rules; never duplicate one already present. Match the project's format.
    - After filling, restate (or link) the now-complete ruleset so it can be adopted.
 3. **ADOPT** — treat the completed ruleset as **binding** for the rest of the session: every subsequent change must pass it (a compliance gate, like `AGENTS.md`'s). Re-audit after major changes. Code work still follows the normal flow (propose → user approves) — adoption governs *how* you work, it does not license auto-editing code.
+4. **CONFORM** (retrofit existing code) — adoption binds *future* work only; the existing codebase may still violate the new rules. After ADOPT, **offer this as a selectable choice** (use the host's choice UI — e.g. AskUserQuestion — not a free-text question):
+   - **Conform now** — scan the existing project against the adopted ruleset, report each violation (`path:line` · rule · evidence), then fix **on approval** (per file).
+   - **Report only** — list the violations; change nothing.
+   - **Skip** — forward-only; leave existing code as-is.
+   Conform/Report = a **rule-driven** scan (criteria = the adopted rules, not generic categories). Proportional: QUICK = the files a rule plausibly touches · DEEP = whole repo; on a sub-agent host, fan out one rule (or rule-group) per worker. **Never auto-fix code** — every fix needs approval.
 
-Triggers: "audit / are we 100%" → AUDIT · "fill in / complete the rules" → FILL · "work by these rules / follow them from now on" → ADOPT. Asking the full question usually means: AUDIT, then offer FILL → ADOPT.
+Triggers: "audit / are we 100%" → AUDIT · "fill in / complete the rules" → FILL · "work by these rules / follow them from now on" → ADOPT · "fix the old code to the rules / conform / retrofit" → CONFORM. Asking the full question usually means: AUDIT → offer FILL → ADOPT → then offer CONFORM (as a selectable choice).
 
 **One-shot (command → fill → ready to work):** when the user wants it in one go ("complete the rules and proceed" / `ACTION=fill-adopt`), run AUDIT (quick) → FILL the must-have gaps → post a SHORT "rules added" summary (visible, not silent — a wrong rule gets caught) → ADOPT as binding → continue straight into the task. No blocking confirm; the summary is the review window.
 
