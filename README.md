@@ -24,6 +24,22 @@
 
 *Every skill: cites evidence · no inflation · report-first. Fix mode is opt-in, choice-gated: checkpoint → apply safe fix → build+test → auto-revert if newly red. Risky fixes need an explicit pick.*
 
+## Adaptive tiers
+
+Scan skills (rotcanary · gold-standard · supply-chain-audit · resilience-audit) auto-detect scope and select the right execution tier — no configuration needed:
+
+| Tier | Trigger | Mechanism |
+|---|---|---|
+| **Light** | small scope · few files · QUICK | Single agent — fast, low cost |
+| **Medium** | module scope · 6–20 files · DEEP | Parallel agents per category |
+| **Heavy** | whole-repo · >20 files · release/critical | Full multi-agent orchestration + adversarial verify |
+
+The skill announces the detected tier before starting and accepts override: `light` / `medium` / `heavy`.
+
+## Language-aware menus
+
+All choice menus, escalation prompts, and status messages mirror the user's writing language — Thai → Thai, English → English, Japanese → Japanese, etc. No setup required.
+
 ## Always-on vs on-demand
 
 | Mode | Skills | How |
