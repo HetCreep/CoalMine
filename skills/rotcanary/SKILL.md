@@ -62,26 +62,19 @@ Manual: whole-repo DEEP sweep when needed.
 | Rust | `cargo build` | `cargo machete` | `cargo clippy` |
 | Go | `go build`, `go vet` | `deadcode`, `staticcheck` | `staticcheck` |
 
-## Escalation — multi-agent mode
+## Escalation — adaptive tiers
 
-Auto-escalate when ANY condition met:
-- DEPTH = DEEP
-- SCOPE ≥ whole-repo (no explicit scope, or > 20 files)
-- Finding count mid-scan ≥ 15
+Auto-select tier from scope and complexity signals:
 
-**Claude Code** — spawn parallel Agent calls, one per category (dead-code · leaks · races · silent-fail · doc-rot …). Synthesize in a final agent. ultracode (Workflow tool) preferred when user opts in for deeper adversarial verify passes.
+| Tier | Trigger | Claude Code | Other agents |
+|---|---|---|---|
+| **Light** | ≤5 files · QUICK · touched files | Single agent | Single session/chat |
+| **Medium** | 6–20 files · module scope · DEEP | Parallel Agents per category (Agent tool) | Multi-file mode / multiple composers |
+| **Heavy** | >20 files · whole-repo · DEEP+verify · "release"/"critical" | Workflow (ultracode) — one agent per category + adversarial verify pass | Copilot Workspace · Cursor Background Agents · full Cascade · full orchestration |
 
-**Other agents** — top-tier orchestration equivalent:
-| Agent | Equivalent |
-|---|---|
-| GitHub Copilot | Copilot Workspace (parallel agents) |
-| Cursor | Background Agents (⌘E / Ctrl+E) |
-| Windsurf | Cascade multi-agent |
-| Cline · Amp · Junie · Goose | parallel tool chains / concurrent instances |
-| Gemini CLI | multi-agent dispatch |
-| OpenAI Codex | parallel task runners |
-
-Announce in the user's language before escalating:
-- Thai: "scope ใหญ่ — ใช้ multi-agent ไหม? ([N] scanners parallel → synthesize) (ลุย / เบา ๆ)"
-- English: "Large scope — multi-agent? ([N] parallel scanners → synthesize) (yes, fan out / keep focused)"
+Announce in user's language before starting:
+- Thai: "งาน [N files] → [Light/Medium/Heavy] scan. (เปลี่ยน tier: light / medium / heavy)"
+- English: "Scope [N files] → [Light/Medium/Heavy] scan. (override: light / medium / heavy)"
 - Other: translate naturally.
+
+User can always override the auto-selected tier.

@@ -55,25 +55,19 @@ After report, pop choice:
 
 NEVER auto-fix: dep version bump, lockfile regen (re-resolves entire transitive tree). Non-interactive → report only.
 
-## Escalation — multi-agent mode
+## Escalation — adaptive tiers
 
-Auto-escalate when:
-- Full audit across all 3 sections (deps + build + artifact)
-- Dep tree > 20 packages
+Auto-select tier from dep-tree size and audit scope:
 
-**Claude Code** — 3 parallel Agents: deps scan · build/CI · artifact integrity → merge results. ultracode (Workflow tool) preferred when user opts in.
+| Tier | Trigger | Claude Code | Other agents |
+|---|---|---|---|
+| **Light** | 1 section only · ≤10 packages | Single agent | Single session/chat |
+| **Medium** | 2 sections · 11–20 packages | Parallel Agents: deps + build/CI (Agent tool) | Multi-file mode / multiple composers |
+| **Heavy** | All 3 sections · >20 packages · "release"/"pre-ship" | Workflow (ultracode) — 3 parallel agents + adversarial verify on CRITICAL findings | Copilot Workspace · Cursor Background Agents · full Cascade · full orchestration |
 
-**Other agents:**
-| Agent | Equivalent |
-|---|---|
-| GitHub Copilot | Copilot Workspace (parallel agents) |
-| Cursor | Background Agents (⌘E / Ctrl+E) |
-| Windsurf | Cascade multi-agent |
-| Cline · Amp · Junie · Goose | parallel tool chains / concurrent instances |
-| Gemini CLI | multi-agent dispatch |
-| OpenAI Codex | parallel task runners |
-
-Announce in the user's language:
-- Thai: "audit ครบ 3 section — ใช้ multi-agent ไหม? (deps / build / artifact parallel) (ลุย / เบา ๆ)"
-- English: "Full audit — multi-agent? (deps / build / artifact in parallel) (yes, fan out / keep focused)"
+Announce in user's language before starting:
+- Thai: "งาน [N packages / N sections] → [Light/Medium/Heavy] audit. (เปลี่ยน tier: light / medium / heavy)"
+- English: "Scope [N packages / N sections] → [Light/Medium/Heavy] audit. (override: light / medium / heavy)"
 - Other: translate naturally.
+
+User can always override the auto-selected tier.

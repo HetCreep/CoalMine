@@ -47,30 +47,19 @@ Correctness · Security · Performance · UX/DX · Docs/onboarding · Testing/CI
 4. Gaps — criterion · exemplar · effort · impact
 5. Verdict — 1 line + top 3 moves
 
-## Escalation — multi-agent mode
+## Escalation — adaptive tiers
 
-Auto-escalate when:
-- AUDIT + CONFORM on codebase > 15 files
-- DEPTH = DEEP
+Auto-select tier from codebase size and task scope:
 
-**Claude Code** — fan out:
-- AUDIT: parallel Agent per dimension (security · test · error-handling · style · perf · docs)
-- FILL: parallel Agent per gap rule to write
-- CONFORM: parallel Agent per file batch
+| Tier | Trigger | Claude Code | Other agents |
+|---|---|---|---|
+| **Light** | ≤5 files · AUDIT only · quick gap check | Single agent | Single session/chat |
+| **Medium** | 6–20 files · AUDIT+FILL · module scope | Parallel Agents per dimension (Agent tool) | Multi-file mode / multiple composers |
+| **Heavy** | >20 files · full AUDIT+FILL+ADOPT+CONFORM · "release"/"world-class" | Workflow (ultracode) — parallel per dimension + parallel CONFORM per file batch | Copilot Workspace · Cursor Background Agents · full Cascade · full orchestration |
 
-Synthesize with a final agent. ultracode (Workflow tool) preferred when user opts in.
-
-**Other agents:**
-| Agent | Equivalent |
-|---|---|
-| GitHub Copilot | Copilot Workspace (parallel agents) |
-| Cursor | Background Agents (⌘E / Ctrl+E) |
-| Windsurf | Cascade multi-agent |
-| Cline · Amp · Junie · Goose | parallel tool chains / concurrent instances |
-| Gemini CLI | multi-agent dispatch |
-| OpenAI Codex | parallel task runners |
-
-Announce in the user's language:
-- Thai: "codebase ใหญ่ — ใช้ multi-agent ไหม? ([N] parallel auditors) (ลุย / เบา ๆ)"
-- English: "Large codebase — multi-agent? ([N] parallel auditors) (yes, fan out / keep focused)"
+Announce in user's language before starting:
+- Thai: "งาน [N files] → [Light/Medium/Heavy] audit. (เปลี่ยน tier: light / medium / heavy)"
+- English: "Scope [N files] → [Light/Medium/Heavy] audit. (override: light / medium / heavy)"
 - Other: translate naturally.
+
+User can always override the auto-selected tier.

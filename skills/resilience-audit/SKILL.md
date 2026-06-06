@@ -46,25 +46,18 @@ After report, pop choice:
 
 NEVER auto-fix: retry/rollback/recovery/atomicity logic (semantic changes can introduce new failure modes). Non-interactive → report only.
 
-## Escalation — multi-agent mode
+## Escalation — adaptive tiers
 
-Auto-escalate when:
-- DEPTH = DEEP
-- Codebase > 15 files or full system audit
+Auto-select tier from scope and category breadth:
 
-**Claude Code** — 8 parallel Agents, one per failure category. Synthesize in a final agent. ultracode (Workflow tool) preferred when user opts in.
+| Tier | Trigger | Claude Code | Other agents |
+|---|---|---|---|
+| **Light** | few files · 1-3 failure categories | Single agent | Single session/chat |
+| **Medium** | 6-20 files · 4-6 categories · DEEP | Parallel Agents per category (Agent tool) | Multi-file mode / multiple composers |
+| **Heavy** | many files · all 8 categories · DEEP+verify · release/critical | Workflow (ultracode) — 8 parallel agents + adversarial verify | Copilot Workspace · Cursor Background Agents · full Cascade |
 
-**Other agents:**
-| Agent | Equivalent |
-|---|---|
-| GitHub Copilot | Copilot Workspace (parallel agents) |
-| Cursor | Background Agents (⌘E / Ctrl+E) |
-| Windsurf | Cascade multi-agent |
-| Cline · Amp · Junie · Goose | parallel tool chains / concurrent instances |
-| Gemini CLI | multi-agent dispatch |
-| OpenAI Codex | parallel task runners |
+Announce in user's language before starting:
+- Thai: "งาน [N files] → [Light/Medium/Heavy] audit. (เปลี่ยน tier: light / medium / heavy)"
+- English: "Scope [N files] → [Light/Medium/Heavy] audit. (override: light / medium / heavy)"
 
-Announce in the user's language:
-- Thai: "audit เต็ม — ใช้ multi-agent ไหม? (8 failure categories parallel) (ลุย / เบา ๆ)"
-- English: "Full resilience audit — multi-agent? (8 parallel failure-category agents) (yes, fan out / keep focused)"
-- Other: translate naturally.
+User can always override the auto-selected tier.
