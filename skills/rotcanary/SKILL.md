@@ -57,3 +57,24 @@ Manual: whole-repo DEEP sweep when needed.
 | Python | `python -W error` | `vulture`, `ruff F401/F841` | `mypy`, `ruff` |
 | Rust | `cargo build` | `cargo machete` | `cargo clippy` |
 | Go | `go build`, `go vet` | `deadcode`, `staticcheck` | `staticcheck` |
+
+## Escalation — multi-agent mode
+
+Auto-escalate when ANY condition met:
+- DEPTH = DEEP
+- SCOPE ≥ whole-repo (no explicit scope, or > 20 files)
+- Finding count mid-scan ≥ 15
+
+**Claude Code** — spawn parallel Agent calls, one per category (dead-code · leaks · races · silent-fail · doc-rot …). Synthesize in a final agent. ultracode (Workflow tool) preferred when user opts in for deeper adversarial verify passes.
+
+**Other agents** — top-tier orchestration equivalent:
+| Agent | Equivalent |
+|---|---|
+| GitHub Copilot | Copilot Workspace (parallel agents) |
+| Cursor | Background Agents (⌘E / Ctrl+E) |
+| Windsurf | Cascade multi-agent |
+| Cline · Amp · Junie · Goose | parallel tool chains / concurrent instances |
+| Gemini CLI | multi-agent dispatch |
+| OpenAI Codex | parallel task runners |
+
+Announce before escalating: "Scope triggers multi-agent — [N] parallel scanners → synthesize."

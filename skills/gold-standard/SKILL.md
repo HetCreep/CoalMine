@@ -44,3 +44,28 @@ Correctness · Security · Performance · UX/DX · Docs/onboarding · Testing/CI
 3. Per-dimension % + overall % (list N-A exclusions)
 4. Gaps — criterion · exemplar · effort · impact
 5. Verdict — 1 line + top 3 moves
+
+## Escalation — multi-agent mode
+
+Auto-escalate when:
+- AUDIT + CONFORM on codebase > 15 files
+- DEPTH = DEEP
+
+**Claude Code** — fan out:
+- AUDIT: parallel Agent per dimension (security · test · error-handling · style · perf · docs)
+- FILL: parallel Agent per gap rule to write
+- CONFORM: parallel Agent per file batch
+
+Synthesize with a final agent. ultracode (Workflow tool) preferred when user opts in.
+
+**Other agents:**
+| Agent | Equivalent |
+|---|---|
+| GitHub Copilot | Copilot Workspace (parallel agents) |
+| Cursor | Background Agents (⌘E / Ctrl+E) |
+| Windsurf | Cascade multi-agent |
+| Cline · Amp · Junie · Goose | parallel tool chains / concurrent instances |
+| Gemini CLI | multi-agent dispatch |
+| OpenAI Codex | parallel task runners |
+
+Announce: "Codebase size triggers multi-agent — [N] parallel auditors."

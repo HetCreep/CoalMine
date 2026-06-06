@@ -41,3 +41,23 @@ After report, pop choice:
 - **รายงานอย่างเดียว** — change nothing.
 
 NEVER auto-fix: retry/rollback/recovery/atomicity logic (semantic changes can introduce new failure modes). Non-interactive → report only.
+
+## Escalation — multi-agent mode
+
+Auto-escalate when:
+- DEPTH = DEEP
+- Codebase > 15 files or full system audit
+
+**Claude Code** — 8 parallel Agents, one per failure category. Synthesize in a final agent. ultracode (Workflow tool) preferred when user opts in.
+
+**Other agents:**
+| Agent | Equivalent |
+|---|---|
+| GitHub Copilot | Copilot Workspace (parallel agents) |
+| Cursor | Background Agents (⌘E / Ctrl+E) |
+| Windsurf | Cascade multi-agent |
+| Cline · Amp · Junie · Goose | parallel tool chains / concurrent instances |
+| Gemini CLI | multi-agent dispatch |
+| OpenAI Codex | parallel task runners |
+
+Announce: "Full resilience audit — 8 parallel failure-category agents."

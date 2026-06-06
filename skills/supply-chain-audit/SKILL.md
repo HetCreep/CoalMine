@@ -50,3 +50,23 @@ After report, pop choice:
 - **รายงานอย่างเดียว** — change nothing.
 
 NEVER auto-fix: dep version bump, lockfile regen (re-resolves entire transitive tree). Non-interactive → report only.
+
+## Escalation — multi-agent mode
+
+Auto-escalate when:
+- Full audit across all 3 sections (deps + build + artifact)
+- Dep tree > 20 packages
+
+**Claude Code** — 3 parallel Agents: deps scan · build/CI · artifact integrity → merge results. ultracode (Workflow tool) preferred when user opts in.
+
+**Other agents:**
+| Agent | Equivalent |
+|---|---|
+| GitHub Copilot | Copilot Workspace (parallel agents) |
+| Cursor | Background Agents (⌘E / Ctrl+E) |
+| Windsurf | Cascade multi-agent |
+| Cline · Amp · Junie · Goose | parallel tool chains / concurrent instances |
+| Gemini CLI | multi-agent dispatch |
+| OpenAI Codex | parallel task runners |
+
+Announce: "Full supply-chain audit — 3 parallel agents (deps / build / artifact)."
