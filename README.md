@@ -7,6 +7,7 @@
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![SKILL.md](https://img.shields.io/badge/SKILL.md-open_standard_·_16%2B_agents-success)
 ![skills](https://img.shields.io/badge/skills-5-success)
+![agents](https://img.shields.io/badge/works_with-Claude_·_Copilot_·_Cursor_·_Windsurf_·_Cline_·_Gemini_·_Codex_·_more-informational)
 
 </div>
 
@@ -26,7 +27,7 @@
 
 ## Adaptive tiers
 
-Scan skills (rotcanary · gold-standard · supply-chain-audit · resilience-audit) auto-detect scope and select the right execution tier — no configuration needed:
+Scan skills auto-detect scope and select the right execution tier — no configuration needed:
 
 | Tier | Trigger | Mechanism |
 |---|---|---|
@@ -40,6 +41,35 @@ The skill announces the detected tier before starting and accepts override: `lig
 
 All choice menus, escalation prompts, and status messages mirror the user's writing language — Thai → Thai, English → English, Japanese → Japanese, etc. No setup required.
 
+---
+
+## Works with any agent
+
+`SKILL.md` is an **open standard** — drop the skill folder into your agent's skills directory:
+
+| Agent | Skills directory | Install shortcut |
+|---|---|---|
+| **Claude Code** | `~/.claude/skills/` | `/plugin install coalmine@coalmine` |
+| **GitHub Copilot** | `.github/skills/` | `node scripts/install.mjs copilot` |
+| **Cursor** | `.cursor/skills/` | `node scripts/install.mjs PATH` |
+| **Windsurf** | `.windsurf/skills/` | `node scripts/install.mjs PATH` |
+| **Cline · Amp · Goose · Junie** | `.agents/skills/` | `node scripts/install.mjs PATH` |
+| **OpenAI Codex** | `.codex/skills/` | `node scripts/install.mjs codex` |
+| **Gemini CLI** | `.gemini/skills/` | `node scripts/install.mjs PATH` |
+| **Any SKILL.md-compatible agent** | agent's skills dir | copy skill folder manually |
+
+**Bulk install / verify** (cross-platform, needs Node):
+```
+node scripts/install.mjs <claude|copilot|codex|PATH>   # copy all 5 skills into a target
+node scripts/verify.mjs  [target]                       # check repo + (optional) target
+```
+
+Full guide for non-Claude agents: [USE-WITH-ANY-AGENT.md](USE-WITH-ANY-AGENT.md)
+
+> Auto-cadence (rotcanary runs at session end via Stop hook) is **Claude Code only**. All other agents: run skills on demand.
+
+---
+
 ## Always-on vs on-demand
 
 | Mode | Skills | How |
@@ -48,40 +78,23 @@ All choice menus, escalation prompts, and status messages mirror the user's writ
 | **Keyword trigger** | `gold-standard` | "audit rules" / "fill gaps" / "are we world-class" / "conform old code" |
 | **On-demand** | `supply-chain-audit` · `resilience-audit` | Invoke manually when relevant |
 
-Recommended setup — add to `CLAUDE.md` / `AGENTS.md`:
-```
-# rotcanary: Stop hook auto-scans touched files. "fix it" → choice-gated fix menu.
-# source-grounding: verify version-sensitive facts (API/SDK · versions · CVEs · auth) vs authoritative source, or flag ⚠️ unverified.
-# gold-standard: fires on keywords above — fills missing rules, adopts as binding, offers conform.
-```
-
-## Install
+## Claude Code — quick setup
 
 ```
 /plugin marketplace add HetCreep/CoalMine
 /plugin install coalmine@coalmine
 ```
 
-Then: `/coalmine:rotcanary` · `/coalmine:gold-standard` · `/coalmine:source-grounding` · `/coalmine:supply-chain-audit` · `/coalmine:resilience-audit`
-
-## Auto mode (rotcanary)
-
-`rotcanary` runs itself — records edits via PostToolUse hook, audits touched files at session end (Stop hook). No `settings.json` editing required.
-
-> Hooks need Node on `PATH` (ships with Claude Code's npm install; no Node → [`alt/powershell/`](alt/powershell/)). The other 4 skills are on-demand, zero deps.
-
-## Other agents
-
-`SKILL.md` is an **open standard read by 16+ agents** (2026) — drop the skill folder into each tool's skills dir:
-Claude Code · Antigravity (`.agents/skills/`) · GitHub Copilot (`.github/skills/`) · OpenAI Codex · Gemini CLI · Cursor · Cline · Windsurf · OpenCode · Amp · Goose · Junie · Letta · …
-
-Auto-cadence (rotcanary's hooks) is Claude-Code-only; elsewhere run on demand. Full guide: [USE-WITH-ANY-AGENT.md](USE-WITH-ANY-AGENT.md).
-
-**Bulk install / verify** (cross-platform, needs Node):
+Then add to `CLAUDE.md` / `AGENTS.md`:
 ```
-node scripts/install.mjs <claude|antigravity|copilot|codex|PATH>   # copy all 5 skills into a target
-node scripts/verify.mjs  [target]                                  # check repo + (optional) target
+# rotcanary: Stop hook auto-scans touched files at session end. "fix it" → choice-gated fix menu.
+# source-grounding: verify version-sensitive facts (API/SDK · versions · CVEs · auth) vs authoritative source, or flag ⚠️ unverified.
+# gold-standard: fires on keywords above — fills missing rules, adopts as binding, offers conform.
 ```
+
+`rotcanary` records edits via PostToolUse hook and audits at session end (Stop hook) — no `settings.json` editing required.
+
+> Hooks need Node on `PATH` (ships with Claude Code's npm install; no Node → [`alt/powershell/`](alt/powershell/)).
 
 ---
 
