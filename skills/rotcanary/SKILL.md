@@ -5,6 +5,8 @@ description: Code-health scan — dead code, bug-prone logic, resource leaks, co
 
 # Rotcanary
 
+**Language:** Mirror the user's current writing language for ALL menus, choice labels, escalation prompts, and status messages. Detect from their input — Thai → Thai, English → English, Japanese → Japanese, etc. Never hardcode one language.
+
 Scan code for rot. Report CONFIRMED findings. Fix on request.
 
 ## Parameters
@@ -33,6 +35,8 @@ Default = report only. After report, pop choice:
 - **แก้ที่ปลอดภัยเลย** — safe/mechanical/reversible only (dead import, commented block, format). Each: checkpoint (git stash/commit) → apply → re-run build+tests → revert if newly red.
 - **ให้ฉันเลือก** — list findings; apply only user-selected.
 - **รายงานอย่างเดียว** — change nothing.
+
+(Translate choice labels to user's language — English: "fix safe ones" / "let me pick" / "report only". Present the menu in whatever language the user is writing in.)
 
 Non-interactive / CI / Stop-hook → report only, always.
 
@@ -77,4 +81,7 @@ Auto-escalate when ANY condition met:
 | Gemini CLI | multi-agent dispatch |
 | OpenAI Codex | parallel task runners |
 
-Announce before escalating: "Scope triggers multi-agent — [N] parallel scanners → synthesize."
+Announce in the user's language before escalating:
+- Thai: "scope ใหญ่ — ใช้ multi-agent ไหม? ([N] scanners parallel → synthesize) (ลุย / เบา ๆ)"
+- English: "Large scope — multi-agent? ([N] parallel scanners → synthesize) (yes, fan out / keep focused)"
+- Other: translate naturally.

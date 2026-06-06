@@ -5,6 +5,8 @@ description: Software supply chain audit — dependencies (CVEs, maintenance, li
 
 # Supply-Chain Audit
 
+**Language:** Mirror the user's current writing language for ALL menus, choice labels, escalation prompts, and status messages. Detect from their input — Thai → Thai, English → English, Japanese → Japanese, etc. Never hardcode one language.
+
 Audit what the project trusts: deps, build pipeline, shipped artifact. Report; do NOT change deps unless asked.
 
 ## 1. Dependencies
@@ -49,6 +51,8 @@ After report, pop choice:
 - **ให้ฉันเลือก** — user-selected fixes only.
 - **รายงานอย่างเดียว** — change nothing.
 
+(Translate choice labels to user's language — English: "pin safe now" / "let me pick" / "report only". Thai: as above.)
+
 NEVER auto-fix: dep version bump, lockfile regen (re-resolves entire transitive tree). Non-interactive → report only.
 
 ## Escalation — multi-agent mode
@@ -69,4 +73,7 @@ Auto-escalate when:
 | Gemini CLI | multi-agent dispatch |
 | OpenAI Codex | parallel task runners |
 
-Announce: "Full supply-chain audit — 3 parallel agents (deps / build / artifact)."
+Announce in the user's language:
+- Thai: "audit ครบ 3 section — ใช้ multi-agent ไหม? (deps / build / artifact parallel) (ลุย / เบา ๆ)"
+- English: "Full audit — multi-agent? (deps / build / artifact in parallel) (yes, fan out / keep focused)"
+- Other: translate naturally.

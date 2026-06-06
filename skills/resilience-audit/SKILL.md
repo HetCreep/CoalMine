@@ -5,6 +5,8 @@ description: Failure-mode audit (FMEA for software) — for each way the system 
 
 # Resilience Audit
 
+**Language:** Mirror the user's current writing language for ALL menus, choice labels, escalation prompts, and status messages. Detect from their input — Thai → Thai, English → English, Japanese → Japanese, etc. Never hardcode one language.
+
 For every operation: **"what happens when this FAILS?"** Report; do NOT fix unless asked.
 
 ## Failure categories
@@ -40,6 +42,8 @@ After report, pop choice:
 - **ให้ฉันเลือก** — user-selected fixes only.
 - **รายงานอย่างเดียว** — change nothing.
 
+(Translate choice labels to user's language — English: "fix safe ones" / "let me pick" / "report only". Present the menu in whatever language the user is writing in.)
+
 NEVER auto-fix: retry/rollback/recovery/atomicity logic (semantic changes can introduce new failure modes). Non-interactive → report only.
 
 ## Escalation — multi-agent mode
@@ -60,4 +64,7 @@ Auto-escalate when:
 | Gemini CLI | multi-agent dispatch |
 | OpenAI Codex | parallel task runners |
 
-Announce: "Full resilience audit — 8 parallel failure-category agents."
+Announce in the user's language:
+- Thai: "audit เต็ม — ใช้ multi-agent ไหม? (8 failure categories parallel) (ลุย / เบา ๆ)"
+- English: "Full resilience audit — multi-agent? (8 parallel failure-category agents) (yes, fan out / keep focused)"
+- Other: translate naturally.

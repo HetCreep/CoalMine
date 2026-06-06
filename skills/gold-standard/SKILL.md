@@ -5,6 +5,8 @@ description: World-class completeness audit — score a project's rules/standard
 
 # Gold Standard
 
+**Language:** Mirror the user's current writing language for ALL menus, choice labels, escalation prompts, and status messages. Detect from their input — Thai → Thai, English → English, Japanese → Japanese, etc. Never hardcode one language.
+
 Answer: **"For a project that does THIS — are rules/standards/features 100% vs world-class? If not, what's missing?"**
 
 Four acts: **AUDIT** → **FILL** → **ADOPT** → **CONFORM**. Stop at any.
@@ -68,4 +70,7 @@ Synthesize with a final agent. ultracode (Workflow tool) preferred when user opt
 | Gemini CLI | multi-agent dispatch |
 | OpenAI Codex | parallel task runners |
 
-Announce: "Codebase size triggers multi-agent — [N] parallel auditors."
+Announce in the user's language:
+- Thai: "codebase ใหญ่ — ใช้ multi-agent ไหม? ([N] parallel auditors) (ลุย / เบา ๆ)"
+- English: "Large codebase — multi-agent? ([N] parallel auditors) (yes, fan out / keep focused)"
+- Other: translate naturally.
