@@ -126,6 +126,77 @@ function upsertConfig(destFile, tplFile) {
   }
 }
 
+// ─── Git Hooks Installation ──────────────────────────────────────────────────
+function installGitHooks() {
+  try {
+    const gitDir = path.join(process.cwd(), '.git');
+    if (!fs.existsSync(gitDir)) {
+      console.log('\nGit repository not detected at current directory — skipping git hooks installation.');
+      return;
+    }
+
+    const hooksDir = path.join(gitDir, 'hooks');
+    fs.mkdirSync(hooksDir, { recursive: true });
+
+    const hooks = {
+      'pre-commit': '#!/bin/sh\n# CoalMine pre-commit hook\nif [ -f scripts/verify.mjs ]; then\n  node scripts/verify.mjs\n  exit $?\nfi\nexit 0\n',
+      'pre-push': '#!/bin/sh\n# CoalMine pre-push hook\nif [ -f scripts/verify.mjs ]; then\n  node scripts/verify.mjs\n  exit $?\nfi\nexit 0\n'
+    };
+
+    for (const [hookName, hookContent] of Object.entries(hooks)) {
+      const hookPath = path.join(hooksDir, hookName);
+      fs.writeFileSync(hookPath, hookContent, { mode: 0o755 });
+      console.log(`  installed git hook: ${hookName} → ${hookPath}`);
+    }
+  } catch (e) {
+    console.warn(`  [warn] failed to install git hooks: ${e.message}`);
+  }
+}
+
+// ─── GitHub Actions Installation ─────────────────────────────────────────────
+function installGitHubActions() {
+  try {
+    const gitDir = path.join(process.cwd(), '.git');
+    if (!fs.existsSync(gitDir)) return;
+
+    const actionTpl = path.join(platformDir, 'github-action.yml.template');
+    if (!fs.existsSync(actionTpl)) return;
+
+    const actionDestDir = path.join(process.cwd(), '.github', 'workflows');
+    fs.mkdirSync(actionDestDir, { recursive: true });
+
+    const actionDest = path.join(actionDestDir, 'coalmine.yml');
+    fs.copyFileSync(actionTpl, actionDest);
+    console.log(`  created GitHub Action workflow: ${path.relative(process.cwd(), actionDest)}`);
+  } catch (e) {
+    console.warn(`  [warn] failed to create GitHub Action workflow: ${e.message}`);
+  }
+}
+
+// ─── Dependabot Installation ──────────────────────────────────────────────────
+function installDependabot() {
+  try {
+    const gitDir = path.join(process.cwd(), '.git');
+    if (!fs.existsSync(gitDir)) return;
+
+    const dbTpl = path.join(platformDir, 'dependabot.yml.template');
+    if (!fs.existsSync(dbTpl)) return;
+
+    const dbDestDir = path.join(process.cwd(), '.github');
+    fs.mkdirSync(dbDestDir, { recursive: true });
+
+    const dbDest = path.join(dbDestDir, 'dependabot.yml');
+    if (!fs.existsSync(dbDest)) {
+      fs.copyFileSync(dbTpl, dbDest);
+      console.log(`  created Dependabot config: ${path.relative(process.cwd(), dbDest)}`);
+    } else {
+      console.log(`  Dependabot config already exists: ${path.relative(process.cwd(), dbDest)}`);
+    }
+  } catch (e) {
+    console.warn(`  [warn] failed to configure Dependabot: ${e.message}`);
+  }
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 const arg = process.argv[2];
 if (!arg) {
@@ -189,6 +260,12 @@ if (cfg) {
 } else {
   console.log(`  (no platform config template for "${arg}" — skills only)`);
 }
+
+// Install git hooks and CI/CD tools if git is initialized
+console.log('\nConfiguring git hooks and GitHub integration...');
+installGitHooks();
+installGitHubActions();
+installDependabot();
 
 console.log(`\nDone: ${n} skill(s) → ${dest}`);
 console.log(`Verify: node scripts/verify.mjs`);

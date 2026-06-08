@@ -40,6 +40,7 @@ Audit what the project trusts: deps, build pipeline, shipped artifact. Report; d
 - Ground every CVE/fixed-version in an advisory. Never from memory.
 - Don't auto-change deps — report + recommend; user decides (bumps break builds).
 - State what was NOT scanned.
+- **Offline & Dependabot Fallback:** If active network vulnerability scans or package registry audits are blocked by local sandbox constraints (`N-A`), the agent MUST fallback to inspecting local dependency lockfiles (`package-lock.json`, `pnpm-lock.yaml`, `Cargo.lock`, etc.) and auditing locally stored Dependabot logs or GitHub Security Alerts if present.
 
 ## Output
 `| package | direct/transitive | issue | severity | advisory | fixed-in | action |`
