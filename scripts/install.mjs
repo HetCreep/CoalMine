@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import readline from 'node:readline';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const skillsSrc = path.join(repo, 'skills');
@@ -136,6 +137,20 @@ function hasGitHubRemote() {
   } catch {
     return false;
   }
+}
+
+// Ask interactive question on terminal
+function askQuestion(query) {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+    rl.question(query, (ans) => {
+      rl.close();
+      resolve(ans.trim().toLowerCase());
+    });
+  });
 }
 
 // ─── Git Hooks Installation ──────────────────────────────────────────────────
@@ -284,8 +299,25 @@ if (cfg) {
 // Install git hooks and CI/CD tools if git is initialized
 console.log('\nConfiguring git hooks and GitHub integration...');
 installGitHooks();
-installGitHubActions();
-installDependabot();
+
+if (hasGitHubRemote()) {
+  if (process.stdin.isTTY) {
+    console.log('\nGitHub remote repository detected.');
+    const ans = await askQuestion('Do you want to configure GitHub integration (GitHub Actions Verification + Dependabot)? [Y/n]: ');
+    if (ans === 'n' || ans === 'no') {
+      console.log('  Skipping GitHub integration (Actions & Dependabot).');
+    } else {
+      installGitHubActions();
+      installDependabot();
+    }
+  } else {
+    // Non-interactive: default to installing silently
+    installGitHubActions();
+    installDependabot();
+  }
+} else {
+  console.log('  No GitHub remote detected — skipping GitHub Actions and Dependabot.');
+}
 
 console.log(`\nDone: ${n} skill(s) → ${dest}`);
 console.log(`Verify: node scripts/verify.mjs`);
