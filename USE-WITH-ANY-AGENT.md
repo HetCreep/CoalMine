@@ -1,6 +1,6 @@
 # Use CoalMine with any AI coding agent
 
-`SKILL.md` is an **open standard** — as of 2026 it's read by **16+ agents**. CoalMine's five skills are `SKILL.md` folders, so they drop in **near-natively** almost everywhere; only the install path differs.
+`SKILL.md` is an **open standard** — as of 2026 it's read by **12+ leading agents**. CoalMine's 9 skills are conformed `SKILL.md` folders, so they drop in **near-natively** almost everywhere; only the install path differs.
 
 ## Near-native (drop the `skills/<name>/` folder in)
 
@@ -10,11 +10,12 @@
 | **Google Antigravity** | `.agents/skills/<name>/` (also reads `AGENTS.md`) |
 | **GitHub Copilot** | `.github/skills/<name>/` (Copilot CLI · VS Code agent mode) |
 | **OpenAI Codex** | Codex skills dir (+ an `openai.yaml` metadata file alongside) |
-| **Gemini CLI** | its skills location |
-| **Cursor** | place the `SKILL.md`; invoke manually (no auto-discovery) |
-| **Cline · Windsurf · OpenCode · Amp · Goose · Junie · Letta · …** | their skills dir (16+ tools support the format) |
+| **Gemini CLI** | `.gemini/skills/` |
+| **Cursor** | `.cursor/skills/` (manually placed or via `install.mjs`) |
+| **Windsurf** | `.windsurf/skills/` |
+| **Cline · Roo Code · Amp · Goose · Junie · Letta** | `.agents/skills/` |
 
-Each tool may add extras (Claude Code: context forking + the auto-cadence hooks; Codex: `openai.yaml`), but the core `SKILL.md` body works across all. Frontmatter fields can differ slightly per tool — tweak `name`/`description` if a tool complains; the body is the substance.
+Each tool may add extras (Claude Code/Antigravity: context forking + the auto-cadence hooks), but the core `SKILL.md` body works across all. Frontmatter fields can differ slightly per tool — tweak `name`/`description` if a tool complains; the body is the substance.
 
 ## Fallback — paste as rules
 
@@ -24,7 +25,7 @@ For any agent that reads an instructions file but lacks skill discovery: copy a 
 
 | Part | Portable? |
 |---|---|
-| The 5 skills (the audits) | ✅ 16+ agents via `SKILL.md` |
+| The 9 skills (the audits) | ✅ 12+ agents via `SKILL.md` |
 | Sub-agent fan-out + model-aware tiers | ✅ on any host with a sub-agent system; inline otherwise |
 | rotcanary **auto-cadence** (per-edit + session-end hooks) | ⛔ Claude-Code-native; elsewhere run on demand, or port the Node hooks in [`hooks/`](hooks/) to the host's hook system |
 

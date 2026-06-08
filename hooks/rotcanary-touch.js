@@ -45,7 +45,10 @@ function main() {
 
   let existing = [];
   try { existing = fs.readFileSync(touched, 'utf8').split('\n').filter(Boolean); } catch {}
-  if (!existing.includes(f)) { try { fs.appendFileSync(touched, f + '\n'); } catch {} }
+  const isWin = process.platform === 'win32';
+  const fCompare = isWin ? f.toLowerCase() : f;
+  const existingCompare = isWin ? existing.map((x) => x.toLowerCase()) : existing;
+  if (!existingCompare.includes(fCompare)) { try { fs.appendFileSync(touched, f + '\n'); } catch {} }
 
   let lines;
   try { lines = fs.readFileSync(f, 'utf8').split(/\r?\n/); } catch { return; }
@@ -54,7 +57,7 @@ function main() {
   if (lines.some((l) => /^(<<<<<<< |>>>>>>> |=======$)/.test(l))) smells.push('merge-conflict markers');
   if (lines.length > 800) smells.push(`file >800 lines (${lines.length})`);
   if (smells.length) {
-    try { fs.appendFileSync(base + '.smells', `${f}: ${smells.join('; ')}\n`); } catch {}
+    try { fs.appendFileSync(base + '.smells', `${f}: ${smells.join('\n')}\n`); } catch {}
   }
 }
 

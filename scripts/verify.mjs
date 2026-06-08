@@ -19,7 +19,7 @@ const fail = (m) => { ok = false; console.log('  FAIL ' + m); };
 // 1. skills
 const skillsSrc = path.join(repo, 'skills');
 const skills = fs.existsSync(skillsSrc)
-  ? fs.readdirSync(skillsSrc, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name)
+  ? fs.readdirSync(skillsSrc, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith('_')).map((d) => d.name)
   : [];
 console.log(`skills (${skills.length} found):`);
 for (const s of skills) {
@@ -31,7 +31,7 @@ for (const s of skills) {
   else if (!/\bdescription:\s*\S/.test(head)) fail(`${s}: frontmatter 'description:' missing`);
   else pass(`${s}`);
 }
-if (skills.length !== 5) fail(`expected 5 skills, found ${skills.length}`);
+if (skills.length !== 9) fail(`expected 9 skills, found ${skills.length}`);
 
 // 2. manifests (valid JSON)
 console.log('manifests:');
@@ -55,11 +55,29 @@ if (arg) {
     antigravity: path.join(process.cwd(), '.agents', 'skills'),
     copilot:     path.join(process.cwd(), '.github', 'skills'),
     codex:       path.join(os.homedir(), '.codex', 'skills'),
+    cursor:      path.join(process.cwd(), '.cursor', 'skills'),
+    windsurf:    path.join(process.cwd(), '.windsurf', 'skills'),
+    cline:       path.join(process.cwd(), '.agents', 'skills'),
+    amp:         path.join(process.cwd(), '.agents', 'skills'),
+    goose:       path.join(process.cwd(), '.agents', 'skills'),
+    junie:       path.join(process.cwd(), '.agents', 'skills'),
+    gemini:      path.join(process.cwd(), '.gemini', 'skills'),
+    roocode:     path.join(process.cwd(), '.agents', 'skills'),
   };
   const dest = TARGETS[arg] ?? path.resolve(arg);
   console.log(`target ${dest}:`);
   for (const s of skills) {
-    fs.existsSync(path.join(dest, s, 'SKILL.md')) ? pass(`${s} installed`) : fail(`${s} NOT at target`);
+    const targetMd = path.join(dest, s, 'SKILL.md');
+    if (!fs.existsSync(targetMd)) {
+      fail(`${s} NOT at target`);
+      continue;
+    }
+    const content = fs.readFileSync(targetMd, 'utf8');
+    if (content.includes('<!-- SHARED:')) {
+      fail(`${s} at target contains unresolved template markers!`);
+    } else {
+      pass(`${s} installed and conformed`);
+    }
   }
 }
 

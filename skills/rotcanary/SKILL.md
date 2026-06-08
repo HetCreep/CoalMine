@@ -1,11 +1,11 @@
 ---
 name: rotcanary
-description: Code-health scan — dead code, bug-prone logic, resource leaks, concurrency bugs, silent failures, input-boundary issues, doc rot. Auto-runs at session end on touched files (QUICK, report only). Run manually for fix mode. Reports; fixes on request via choice-gated menu.
+description: Code-health scan — dead code, bug-prone logic, resource leaks, concurrency bugs, silent failures, input-boundary issues, doc rot. Triggers on: "/rotcanary", "rotcanary", "code-health". Auto-runs at session end on touched files (QUICK, report only). Run manually for fix mode. Reports; fixes on request via choice-gated menu.
 ---
 
 # Rotcanary
 
-**Language:** Mirror the user's current writing language for ALL menus, choice labels, escalation prompts, and status messages. Detect from their input — Thai → Thai, English → English, Japanese → Japanese, etc. Never hardcode one language.
+<!-- SHARED:LANGUAGE_HEADER -->
 
 Scan code for rot. Report CONFIRMED findings. Fix on request.
 
@@ -30,15 +30,20 @@ Scan code for rot. Report CONFIRMED findings. Fix on request.
 - Cite evidence (file:line, call-site count, the absent catch).
 - "Dead" = zero reachability via ALL routes (reflection, DI, events, public API, tests).
 
+## Contexts & Execution Modes
+
+- **Hook Context (Non-Interactive / Stop-Hook):** When triggered automatically by the session-end CLI hook, the agent must run the scan in report-only mode (QUICK depth) and output a brief severity table. Do not ask questions or make modifications.
+- **Agent Context (Interactive / Chat / Manual):** When invoked manually by the user, the agent runs in interactive mode. If code issues are found, the agent **MUST** present the Fix Mode choice menu to the user.
+
 ## Fix mode (choice-gated)
-Default = report only. After report, pop choice:
-- **แก้ที่ปลอดภัยเลย** — safe/mechanical/reversible only (dead import, commented block, format). Each: checkpoint (git stash/commit) → apply → re-run build+tests → revert if newly red.
-- **ให้ฉันเลือก** — list findings; apply only user-selected.
-- **รายงานอย่างเดียว** — change nothing.
 
-(Translate choice labels to user's language — English: "fix safe ones" / "let me pick" / "report only". Present the menu in whatever language the user is writing in.)
+In **Agent Context**, after presenting the scan report, you **MUST** call the `ask_question` tool (if supported by your platform) to present the following options. Adapt the question title and options to mirror the user's active language:
 
-Non-interactive / CI / Stop-hook → report only, always.
+- **Apply safe fixes:** Apply safe, mechanical, and fully reversible edits (e.g., dead imports, commented-out blocks, formatting). For each fix: checkpoint (git stash/commit) → apply → re-run build + tests → auto-revert if tests fail.
+- **Let me pick:** List the findings and let the user select specific fixes.
+- **Report only:** Exit without making any changes.
+
+If the `ask_question` tool is not supported, present these choices as a standard text-based list and wait for the user's response in the chat.
 
 NEVER auto-fix: live/reachable path · logic change · "API looks wrong" (ground via source-grounding first) · framework-wired code that only *looks* dead · SUSPECTED findings.
 
@@ -62,19 +67,17 @@ Manual: whole-repo DEEP sweep when needed.
 | Rust | `cargo build` | `cargo machete` | `cargo clippy` |
 | Go | `go build`, `go vet` | `deadcode`, `staticcheck` | `staticcheck` |
 
-## Escalation — adaptive tiers
+## Escalation — Scope & Model Quality
 
-Auto-select tier from scope and complexity signals:
+**Before starting**, assess scope (volume, complexity, criticality of the work), then call `ask_question` once with 3 options (localized to user's language). Mark the recommended option `✓` dynamically based on your assessment — never hardcode the recommendation.
 
-| Tier | Trigger | Claude Code | Other agents |
+**Recommendation logic (use judgment, not just file count):**
+- Small scope · low complexity · non-critical → recommend **Light**
+- Medium scope · moderate complexity → recommend **Standard**
+- Large scope · high complexity · release · security · critical path → recommend **Heavy**
+
+| Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|
-| **Light** | ≤5 files · QUICK · touched files | Single agent | Single session/chat |
-| **Medium** | 6–20 files · module scope · DEEP | Parallel Agents per category (Agent tool) | Multi-file mode / multiple composers |
-| **Heavy** | >20 files · whole-repo · DEEP+verify · "release"/"critical" | Workflow (ultracode) — one agent per category + adversarial verify pass | Copilot Workspace · Cursor Background Agents · full Cascade · full orchestration |
+<!-- SHARED:ORCHESTRATION -->
 
-Announce in user's language before starting:
-- Thai: "งาน [N files] → [Light/Medium/Heavy] scan. (เปลี่ยน tier: light / medium / heavy)"
-- English: "Scope [N files] → [Light/Medium/Heavy] scan. (override: light / medium / heavy)"
-- Other: translate naturally.
-
-User can always override the auto-selected tier.
+<!-- SHARED:ESCALATION_FOOTER -->

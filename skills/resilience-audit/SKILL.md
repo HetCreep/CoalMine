@@ -1,11 +1,11 @@
 ---
 name: resilience-audit
-description: Failure-mode audit (FMEA for software) — for each way the system can fail (network, storage, partial completion, crash, concurrency, bad input), check whether code DETECTS, HANDLES, RECOVERS, and COMMUNICATES it. Flags data loss, silent-success-on-failure, missing rollback/retry/idempotency. Reports; does not fix unless asked.
+description: Failure-mode audit (FMEA for software) — for each way the system can fail (network, storage, partial completion, crash, concurrency, bad input), check whether code DETECTS, HANDLES, RECOVERS, and COMMUNICATES it. Triggers on: "/resilience-audit", "resilience-audit", "FMEA audit". Flags data loss, silent-success-on-failure, missing rollback/retry/idempotency. Reports; does not fix unless asked.
 ---
 
 # Resilience Audit
 
-**Language:** Mirror the user's current writing language for ALL menus, choice labels, escalation prompts, and status messages. Detect from their input — Thai → Thai, English → English, Japanese → Japanese, etc. Never hardcode one language.
+<!-- SHARED:LANGUAGE_HEADER -->
 
 For every operation: **"what happens when this FAILS?"** Report; do NOT fix unless asked.
 
@@ -46,18 +46,17 @@ After report, pop choice:
 
 NEVER auto-fix: retry/rollback/recovery/atomicity logic (semantic changes can introduce new failure modes). Non-interactive → report only.
 
-## Escalation — adaptive tiers
+## Escalation — Scope & Model Quality
 
-Auto-select tier from scope and category breadth:
+**Before starting**, assess scope (volume, failure category breadth, criticality of the system), then call `ask_question` once with 3 options (localized to user's language). Mark the recommended option `✓` dynamically based on your assessment — never hardcode the recommendation.
 
-| Tier | Trigger | Claude Code | Other agents |
+**Recommendation logic (use judgment, not just file count):**
+- Small scope · few failure categories · non-critical → recommend **Light**
+- Medium scope · several failure categories → recommend **Standard**
+- Large scope · all 8 categories · release · critical system → recommend **Heavy**
+
+| Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|
-| **Light** | few files · 1-3 failure categories | Single agent | Single session/chat |
-| **Medium** | 6-20 files · 4-6 categories · DEEP | Parallel Agents per category (Agent tool) | Multi-file mode / multiple composers |
-| **Heavy** | many files · all 8 categories · DEEP+verify · release/critical | Workflow (ultracode) — 8 parallel agents + adversarial verify | Copilot Workspace · Cursor Background Agents · full Cascade |
+<!-- SHARED:ORCHESTRATION -->
 
-Announce in user's language before starting:
-- Thai: "งาน [N files] → [Light/Medium/Heavy] audit. (เปลี่ยน tier: light / medium / heavy)"
-- English: "Scope [N files] → [Light/Medium/Heavy] audit. (override: light / medium / heavy)"
-
-User can always override the auto-selected tier.
+<!-- SHARED:ESCALATION_FOOTER -->

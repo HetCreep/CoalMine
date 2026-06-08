@@ -1,9 +1,11 @@
 ---
 name: source-grounding
-description: Verify version-sensitive facts against live authoritative sources before asserting them in code or answers. Standing rule — always active via CLAUDE.md. Invoke for deep verification work (API signatures, CVEs, model IDs, auth flows, deprecated patterns, security advisories).
+description: Verify version-sensitive facts against live authoritative sources before asserting them in code or answers. Triggers on: "/source-grounding", "source-grounding", "sourcing". Standing rule — always active via CLAUDE.md. Invoke for deep verification work (API signatures, CVEs, model IDs, auth flows, deprecated patterns, security advisories).
 ---
 
 # Source Grounding
+
+<!-- SHARED:LANGUAGE_HEADER -->
 
 Standing rule — active every response. No invocation needed for routine use.
 
@@ -25,6 +27,11 @@ Standing rule — active every response. No invocation needed for routine use.
 4. Single blog — weak; corroborate first
 5. Training memory — weakest for volatile facts
 
+## Contexts & Execution Modes
+
+- **Hook Context (Non-Interactive):** When triggered automatically or as a background task, log unverified claims encountered as `⚠️ UNVERIFIED` entries in the output without blocking execution.
+- **Agent Context (Interactive / Chat):** When invoked in chat, you **MUST** use the `ask_question` tool (if supported, otherwise text prompt) to present the findings and confirm how to proceed when sources cannot be fetched at that moment.
+
 ## Output
 - Verified: `✅ [claim] — source: [link/file]`
 - Unverified: `⚠️ unverified — check [exact source]`
@@ -33,3 +40,18 @@ Standing rule — active every response. No invocation needed for routine use.
 ## AUTHORITATIVE vs DIVERSE
 - **AUTHORITATIVE** (one ground truth): API/version/config/spec → go to the actual source code or official docs.
 - **DIVERSE** (triangulate ≥ 3): "what's best" / landscape / patterns → multiple repos + docs + community; note conflicts.
+
+## Escalation — Scope & Model Quality
+
+**Before starting**, assess scope (volume of claims, source complexity, criticality), then call `ask_question` once with 3 options (localized to user's language). Mark the recommended option `✓` dynamically based on your assessment — never hardcode the recommendation.
+
+**Recommendation logic (use judgment, not just claim count):**
+- Few claims · single source type · non-critical → recommend **Light**
+- Multiple claims · mixed sources · moderate complexity → recommend **Standard**
+- Many claims · CVE cross-check · security-critical · release → recommend **Heavy**
+
+| Level | Intent | Orchestration | Token Cost |
+|---|---|---|---|
+<!-- SHARED:ORCHESTRATION -->
+
+<!-- SHARED:ESCALATION_FOOTER -->

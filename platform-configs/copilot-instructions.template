@@ -1,0 +1,10 @@
+<!-- COALMINE:START -->
+## CoalMine — Auto-trigger Rules
+
+At the end of every coding session, before marking work complete:
+1. Identify all files modified in this session
+2. If any code files were modified, run `/rotcanary` on those files (Light tier, report only)
+3. Surface any CRITICAL or HIGH findings before finishing
+
+Do not block work — run in background and surface findings inline.
+<!-- COALMINE:END -->

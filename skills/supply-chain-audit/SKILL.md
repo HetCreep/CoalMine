@@ -1,11 +1,11 @@
 ---
 name: supply-chain-audit
-description: Software supply chain audit — dependencies (CVEs, maintenance, licenses, transitive risk), build/CI integrity (SHA-pinned actions, lockfile, CI-only release), artifact integrity (checksums, signing, SBOM). Run before adding a dep, before a release, or for periodic review. Reports; does not change deps unless asked.
+description: Software supply chain audit — dependencies (CVEs, maintenance, licenses, transitive risk), build/CI integrity (SHA-pinned actions, lockfile, CI-only release), artifact integrity (checksums, signing, SBOM). Triggers on: "/supply-chain-audit", "supply-chain-audit", "dependency audit". Run before adding a dep, before a release, or for periodic review. Reports; does not change deps unless asked.
 ---
 
 # Supply-Chain Audit
 
-**Language:** Mirror the user's current writing language for ALL menus, choice labels, escalation prompts, and status messages. Detect from their input — Thai → Thai, English → English, Japanese → Japanese, etc. Never hardcode one language.
+<!-- SHARED:LANGUAGE_HEADER -->
 
 Audit what the project trusts: deps, build pipeline, shipped artifact. Report; do NOT change deps unless asked.
 
@@ -55,19 +55,17 @@ After report, pop choice:
 
 NEVER auto-fix: dep version bump, lockfile regen (re-resolves entire transitive tree). Non-interactive → report only.
 
-## Escalation — adaptive tiers
+## Escalation — Scope & Model Quality
 
-Auto-select tier from dep-tree size and audit scope:
+**Before starting**, assess scope (sections to audit, dependency tree size, release criticality), then call `ask_question` once with 3 options (localized to user's language). Mark the recommended option `✓` dynamically based on your assessment — never hardcode the recommendation.
 
-| Tier | Trigger | Claude Code | Other agents |
+**Recommendation logic (use judgment, not just package count):**
+- Single section · small dep tree · non-critical → recommend **Light**
+- Multiple sections · moderate dep tree → recommend **Standard**
+- All 3 sections · large dep tree · release · pre-ship → recommend **Heavy**
+
+| Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|
-| **Light** | 1 section only · ≤10 packages | Single agent | Single session/chat |
-| **Medium** | 2 sections · 11–20 packages | Parallel Agents: deps + build/CI (Agent tool) | Multi-file mode / multiple composers |
-| **Heavy** | All 3 sections · >20 packages · "release"/"pre-ship" | Workflow (ultracode) — 3 parallel agents + adversarial verify on CRITICAL findings | Copilot Workspace · Cursor Background Agents · full Cascade · full orchestration |
+<!-- SHARED:ORCHESTRATION -->
 
-Announce in user's language before starting:
-- Thai: "งาน [N packages / N sections] → [Light/Medium/Heavy] audit. (เปลี่ยน tier: light / medium / heavy)"
-- English: "Scope [N packages / N sections] → [Light/Medium/Heavy] audit. (override: light / medium / heavy)"
-- Other: translate naturally.
-
-User can always override the auto-selected tier.
+<!-- SHARED:ESCALATION_FOOTER -->
