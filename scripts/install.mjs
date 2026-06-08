@@ -126,6 +126,18 @@ function upsertConfig(destFile, tplFile) {
   }
 }
 
+// Check if repository has a remote pointing to GitHub
+function hasGitHubRemote() {
+  try {
+    const gitConfigPath = path.join(process.cwd(), '.git', 'config');
+    if (!fs.existsSync(gitConfigPath)) return false;
+    const config = fs.readFileSync(gitConfigPath, 'utf8');
+    return config.includes('github.com');
+  } catch {
+    return false;
+  }
+}
+
 // ─── Git Hooks Installation ──────────────────────────────────────────────────
 function installGitHooks() {
   try {
@@ -158,6 +170,10 @@ function installGitHubActions() {
   try {
     const gitDir = path.join(process.cwd(), '.git');
     if (!fs.existsSync(gitDir)) return;
+    if (!hasGitHubRemote()) {
+      console.log('  No GitHub remote detected — skipping GitHub Actions workflow creation.');
+      return;
+    }
 
     const actionTpl = path.join(platformDir, 'github-action.yml.template');
     if (!fs.existsSync(actionTpl)) return;
@@ -178,6 +194,10 @@ function installDependabot() {
   try {
     const gitDir = path.join(process.cwd(), '.git');
     if (!fs.existsSync(gitDir)) return;
+    if (!hasGitHubRemote()) {
+      console.log('  No GitHub remote detected — skipping Dependabot configuration.');
+      return;
+    }
 
     const dbTpl = path.join(platformDir, 'dependabot.yml.template');
     if (!fs.existsSync(dbTpl)) return;
