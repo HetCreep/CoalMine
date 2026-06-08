@@ -15,7 +15,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import readline from 'node:readline';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const skillsSrc = path.join(repo, 'skills');
@@ -127,32 +126,6 @@ function upsertConfig(destFile, tplFile) {
   }
 }
 
-// Check if repository has a remote pointing to GitHub
-function hasGitHubRemote() {
-  try {
-    const gitConfigPath = path.join(process.cwd(), '.git', 'config');
-    if (!fs.existsSync(gitConfigPath)) return false;
-    const config = fs.readFileSync(gitConfigPath, 'utf8');
-    return config.includes('github.com');
-  } catch {
-    return false;
-  }
-}
-
-// Ask interactive question on terminal
-function askQuestion(query) {
-  return new Promise((resolve) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout
-    });
-    rl.question(query, (ans) => {
-      rl.close();
-      resolve(ans.trim().toLowerCase());
-    });
-  });
-}
-
 // ─── Git Hooks Installation ──────────────────────────────────────────────────
 function installGitHooks() {
   try {
@@ -177,58 +150,6 @@ function installGitHooks() {
     }
   } catch (e) {
     console.warn(`  [warn] failed to install git hooks: ${e.message}`);
-  }
-}
-
-// ─── GitHub Actions Installation ─────────────────────────────────────────────
-function installGitHubActions() {
-  try {
-    const gitDir = path.join(process.cwd(), '.git');
-    if (!fs.existsSync(gitDir)) return;
-    if (!hasGitHubRemote()) {
-      console.log('  No GitHub remote detected — skipping GitHub Actions workflow creation.');
-      return;
-    }
-
-    const actionTpl = path.join(platformDir, 'github-action.yml.template');
-    if (!fs.existsSync(actionTpl)) return;
-
-    const actionDestDir = path.join(process.cwd(), '.github', 'workflows');
-    fs.mkdirSync(actionDestDir, { recursive: true });
-
-    const actionDest = path.join(actionDestDir, 'coalmine.yml');
-    fs.copyFileSync(actionTpl, actionDest);
-    console.log(`  created GitHub Action workflow: ${path.relative(process.cwd(), actionDest)}`);
-  } catch (e) {
-    console.warn(`  [warn] failed to create GitHub Action workflow: ${e.message}`);
-  }
-}
-
-// ─── Dependabot Installation ──────────────────────────────────────────────────
-function installDependabot() {
-  try {
-    const gitDir = path.join(process.cwd(), '.git');
-    if (!fs.existsSync(gitDir)) return;
-    if (!hasGitHubRemote()) {
-      console.log('  No GitHub remote detected — skipping Dependabot configuration.');
-      return;
-    }
-
-    const dbTpl = path.join(platformDir, 'dependabot.yml.template');
-    if (!fs.existsSync(dbTpl)) return;
-
-    const dbDestDir = path.join(process.cwd(), '.github');
-    fs.mkdirSync(dbDestDir, { recursive: true });
-
-    const dbDest = path.join(dbDestDir, 'dependabot.yml');
-    if (!fs.existsSync(dbDest)) {
-      fs.copyFileSync(dbTpl, dbDest);
-      console.log(`  created Dependabot config: ${path.relative(process.cwd(), dbDest)}`);
-    } else {
-      console.log(`  Dependabot config already exists: ${path.relative(process.cwd(), dbDest)}`);
-    }
-  } catch (e) {
-    console.warn(`  [warn] failed to configure Dependabot: ${e.message}`);
   }
 }
 
@@ -296,28 +217,9 @@ if (cfg) {
   console.log(`  (no platform config template for "${arg}" — skills only)`);
 }
 
-// Install git hooks and CI/CD tools if git is initialized
-console.log('\nConfiguring git hooks and GitHub integration...');
+// Install git hooks if git is initialized
+console.log('\nConfiguring git hooks...');
 installGitHooks();
-
-if (hasGitHubRemote()) {
-  if (process.stdin.isTTY) {
-    console.log('\nGitHub remote repository detected.');
-    const ans = await askQuestion('Do you want to configure GitHub integration (GitHub Actions Verification + Dependabot)? [Y/n]: ');
-    if (ans === 'n' || ans === 'no') {
-      console.log('  Skipping GitHub integration (Actions & Dependabot).');
-    } else {
-      installGitHubActions();
-      installDependabot();
-    }
-  } else {
-    // Non-interactive: default to installing silently
-    installGitHubActions();
-    installDependabot();
-  }
-} else {
-  console.log('  No GitHub remote detected — skipping GitHub Actions and Dependabot.');
-}
 
 console.log(`\nDone: ${n} skill(s) → ${dest}`);
 console.log(`Verify: node scripts/verify.mjs`);
