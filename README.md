@@ -104,10 +104,17 @@ Canaries offer flexible execution tiers based on work complexity to optimize tok
 
 ---
 
-## 🚀 Installation & Verification
+## 🚀 Installation & Verification (via Release v1.0.0)
 
-### 1. Land the Skills in Your Agent's Workspace
-Run the installer script providing your target agent name (from the table above) or a custom folder path:
+### 1. Download or Clone the Stable Release v1.0.0
+To ensure stability and prevent breaking changes from ongoing development in the `main` branch, download the release archive or clone the specific `v1.0.0` tag:
+```bash
+git clone -b v1.0.0 https://github.com/HetCreep/CoalMine.git
+cd CoalMine
+```
+
+### 2. Land the Skills in Your Agent's Workspace
+Run the conformed installer script, providing your target agent name (from the table above) or a custom folder path:
 ```bash
 node scripts/install.mjs <agent|PATH>
 ```
@@ -116,8 +123,8 @@ node scripts/install.mjs <agent|PATH>
 node scripts/install.mjs antigravity
 ```
 
-### 2. Verify Installation
-Ensure all 9 skills have landed correctly without template markers:
+### 3. Verify Installation
+Verify that all 9 skills have landed correctly without unresolved template markers:
 ```bash
 node scripts/verify.mjs <agent|PATH>
 ```
@@ -126,8 +133,8 @@ node scripts/verify.mjs <agent|PATH>
 node scripts/verify.mjs antigravity
 ```
 
-### 3. Manual Fallback (If Skill Discovery is Unsupported)
-If your agent does not support auto-discovery of skills, simply copy the body of the conformed `SKILL.md` (stripping the YAML frontmatter) directly into your workspace rules file (e.g., `.cursorrules`, `clinerules`, or `AGENTS.md`).
+### 4. Manual Fallback (If Skill Discovery is Unsupported)
+If your agent does not support auto-discovery of skills, copy the body of the conformed `SKILL.md` (excluding the YAML frontmatter) directly into your workspace rules file (e.g., `.cursorrules`, `.windsurfrules`, `.clinerules`, or `AGENTS.md`).
 
 ---
 

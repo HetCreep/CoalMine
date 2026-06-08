@@ -26,7 +26,7 @@ Four acts: **AUDIT** → **FILL** → **ADOPT** → **CONFORM**. Stop at any.
 - **Agent Context (Interactive):** When invoked in chat, you **MUST** call the `ask_question` tool (if supported, otherwise fallback to text prompts) to confirm rule adoption (**ADOPT**) or approve applying specific fixes (**CONFORM**). Adapt options dynamically to the user's active language.
 
 1. **AUDIT** — pick 3–5 named exemplars, derive the 100% checklist per dimension, score (✅/🟡/❌/N-A), give overall %.
-2. **FILL** — write missing MUST-HAVE rules into project's rules home (`.claude/rules/` → `AGENTS.md` → `STANDARDS.md`). Match project style + voice. Cite the exemplar. Invoke source-grounding for version-sensitive claims. Extend existing; never duplicate.
+2. **FILL** — write missing MUST-HAVE rules into project's rules home (`.claude/rules/` → `AGENTS.md` → `STANDARDS.md`). Match project style + voice. Cite the exemplar. Invoke source-grounding for version-sensitive claims. Extend existing; never duplicate. Never generate overkill or unnecessary rules — only write rules that are essential, practical, and highly saturated (หลีกเลี่ยงการสร้างกฎแบบ Overkill ที่ฟุ่มเฟือยเกินจำเป็น).
 3. **ADOPT** — treat completed ruleset as binding for rest of session. Code changes still need user approval — adoption governs *how* to work, not license to auto-edit.
 4. **CONFORM** — scan existing code against adopted rules; report violations (`path:line` · rule · evidence). Fix on approval: checkpoint → one fix → build+tests → revert if newly red. When resolving style or pattern inconsistencies (Style Drift), if multiple styles are mixed, always conform the minority patterns to match the most dominant/frequent style (highest average usage) in the project to minimize churn.
 
