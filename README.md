@@ -104,12 +104,12 @@ Canaries offer flexible execution tiers based on work complexity to optimize tok
 
 ---
 
-## 🚀 Installation & Verification (via Release v1.0.0)
+## 🚀 Installation & Verification
 
-### 1. Download or Clone the Stable Release v1.0.0
-To ensure stability and prevent breaking changes from ongoing development in the `main` branch, download the release archive or clone the specific `v1.0.0` tag:
+### 1. Clone the Repository
+Clone the repository and navigate into the project root:
 ```bash
-git clone -b v1.0.0 https://github.com/HetCreep/CoalMine.git
+git clone https://github.com/HetCreep/CoalMine.git
 cd CoalMine
 ```
 
