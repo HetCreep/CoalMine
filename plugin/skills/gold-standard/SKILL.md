@@ -6,7 +6,7 @@ description: >-
 
 # Gold Standard
 
-<!-- SHARED:LANGUAGE_HEADER -->
+**Language:** Mirror the user's current writing language for ALL menus, choice labels, escalation prompts, and status messages. Detect from their input — Thai → Thai, English → English, Japanese → Japanese, etc. Never hardcode one language.
 
 Answer: **"For a project that does THIS — are rules/standards/features 100% vs world-class? If not, what's missing?"**
 
@@ -65,6 +65,10 @@ Correctness · Security · Performance · UX/DX · Docs/onboarding · Testing/CI
 
 | Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|
-<!-- SHARED:ORCHESTRATION -->
+| **Light** | Quick gap check, AUDIT only | Single agent, no sub-agents. Use your platform's most economical mode. | Low |
+| **Standard** | Balanced audit, AUDIT+FILL | Spawn focused sub-agents per category if your platform supports it. Use your platform's balanced mode. | Balanced |
+| **Heavy** | Full audit cycle, AUDIT+FILL+ADOPT+CONFORM | Spawn sub-agents at maximum capacity if your platform supports it. Use your platform's most powerful mode and largest available context. | High |
 
-<!-- SHARED:ESCALATION_FOOTER -->
+**Agent Context (Interactive):** Call `ask_question` after scope assessment. Do not start work until user confirms.
+
+**Hook Context (Non-Interactive / Stop-Hook):** Auto-select Light. Skip `ask_question`. Run report-only, no fixes. No sub-agents.

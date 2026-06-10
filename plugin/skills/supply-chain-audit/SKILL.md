@@ -6,7 +6,7 @@ description: >-
 
 # Supply-Chain Audit
 
-<!-- SHARED:LANGUAGE_HEADER -->
+**Language:** Mirror the user's current writing language for ALL menus, choice labels, escalation prompts, and status messages. Detect from their input — Thai → Thai, English → English, Japanese → Japanese, etc. Never hardcode one language.
 
 Audit what the project trusts: deps, build pipeline, shipped artifact. Report; do NOT change deps unless asked.
 
@@ -68,6 +68,10 @@ NEVER auto-fix: dep version bump, lockfile regen (re-resolves entire transitive 
 
 | Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|
-<!-- SHARED:ORCHESTRATION -->
+| **Light** | Single-section check, spot audit | Single agent, no sub-agents. Use your platform's most economical mode. | Low |
+| **Standard** | Multi-section balanced audit | Spawn focused sub-agents per category if your platform supports it. Use your platform's balanced mode. | Balanced |
+| **Heavy** | Full 3-section audit + adversarial CVE verify | Spawn sub-agents at maximum capacity if your platform supports it. Use your platform's most powerful mode and largest available context. | High |
 
-<!-- SHARED:ESCALATION_FOOTER -->
+**Agent Context (Interactive):** Call `ask_question` after scope assessment. Do not start work until user confirms.
+
+**Hook Context (Non-Interactive / Stop-Hook):** Auto-select Light. Skip `ask_question`. Run report-only, no fixes. No sub-agents.

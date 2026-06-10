@@ -6,7 +6,7 @@ description: >-
 
 # Rotcanary
 
-<!-- SHARED:LANGUAGE_HEADER -->
+**Language:** Mirror the user's current writing language for ALL menus, choice labels, escalation prompts, and status messages. Detect from their input — Thai → Thai, English → English, Japanese → Japanese, etc. Never hardcode one language.
 
 Scan code for rot. Report CONFIRMED findings. Fix on request.
 
@@ -79,6 +79,10 @@ Manual: whole-repo DEEP sweep when needed.
 
 | Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|
-<!-- SHARED:ORCHESTRATION -->
+| **Light** | Fast scan, minimal coverage | Single agent, no sub-agents. Use your platform's most economical mode. | Low |
+| **Standard** | Balanced scan, module-level coverage | Spawn focused sub-agents per category if your platform supports it. Use your platform's balanced mode. | Balanced |
+| **Heavy** | Full scan, maximum coverage | Spawn sub-agents at maximum capacity if your platform supports it. Use your platform's most powerful mode and largest available context. | High |
 
-<!-- SHARED:ESCALATION_FOOTER -->
+**Agent Context (Interactive):** Call `ask_question` after scope assessment. Do not start work until user confirms.
+
+**Hook Context (Non-Interactive / Stop-Hook):** Auto-select Light. Skip `ask_question`. Run report-only, no fixes. No sub-agents.

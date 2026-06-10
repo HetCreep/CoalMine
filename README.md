@@ -106,14 +106,25 @@ Canaries offer flexible execution tiers based on work complexity to optimize tok
 
 ## 🚀 Installation & Verification
 
-### 1. Clone the Repository
+### Option A — Claude Code Plugin Marketplace (no clone needed)
+```text
+/plugin marketplace add HetCreep/CoalMine
+/plugin install coalmine@coalmine
+```
+The marketplace serves the committed [`plugin/`](plugin/) dist — the **same conformed skills** `install.mjs` produces (shared sections fully injected), plus the rotcanary auto-cadence hooks wired automatically.
+
+> 🔧 **Maintainers:** `plugin/` is generated output — never hand-edit it. After changing `skills/`, `skills/_shared/`, `hooks/`, or `.claude-plugin/plugin.json`, run `node scripts/build-plugin.mjs`. `verify.mjs` (and the pre-commit hook) FAILs while the dist is stale.
+
+### Option B — Universal Installer (all 12+ agents)
+
+#### 1. Clone the Repository
 Clone the repository and navigate into the project root:
 ```bash
 git clone https://github.com/HetCreep/CoalMine.git
 cd CoalMine
 ```
 
-### 2. Land the Skills in Your Agent's Workspace
+#### 2. Land the Skills in Your Agent's Workspace
 Run the conformed installer script, providing your target agent name (from the table above) or a custom folder path:
 ```bash
 node scripts/install.mjs <agent|PATH>
@@ -123,7 +134,7 @@ node scripts/install.mjs <agent|PATH>
 node scripts/install.mjs antigravity
 ```
 
-### 3. Verify Installation
+#### 3. Verify Installation
 Verify that all 9 skills have landed correctly without unresolved template markers:
 ```bash
 node scripts/verify.mjs <agent|PATH>
@@ -133,7 +144,7 @@ node scripts/verify.mjs <agent|PATH>
 node scripts/verify.mjs antigravity
 ```
 
-### 4. Manual Fallback (If Skill Discovery is Unsupported)
+#### 4. Manual Fallback (If Skill Discovery is Unsupported)
 If your agent does not support auto-discovery of skills, copy the body of the conformed `SKILL.md` (excluding the YAML frontmatter) directly into your workspace rules file (e.g., `.cursorrules`, `.windsurfrules`, `.clinerules`, or `AGENTS.md`).
 
 ---

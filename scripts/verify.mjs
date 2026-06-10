@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadShared, renderSkillMd } from './lib/render.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let ok = true;
@@ -25,10 +26,12 @@ console.log(`skills (${skills.length} found):`);
 for (const s of skills) {
   const md = path.join(skillsSrc, s, 'SKILL.md');
   if (!fs.existsSync(md)) { fail(`${s}: SKILL.md missing`); continue; }
-  const head = fs.readFileSync(md, 'utf8').slice(0, 600);
+  const src = fs.readFileSync(md, 'utf8');
+  const head = src.slice(0, 600);
   if (!/^---/.test(head)) fail(`${s}: no YAML frontmatter`);
   else if (!/\bname:\s*\S/.test(head)) fail(`${s}: frontmatter 'name:' missing`);
   else if (!/\bdescription:\s*\S/.test(head)) fail(`${s}: frontmatter 'description:' missing`);
+  else if (!src.includes('<!-- SHARED:')) fail(`${s}: source lost its SHARED template markers (conformed in place? restore the template)`);
   else pass(`${s}`);
 }
 if (skills.length !== 9) fail(`expected 9 skills, found ${skills.length}`);
@@ -47,7 +50,39 @@ for (const h of ['hooks/rotcanary-touch.js', 'hooks/rotcanary-stop.js']) {
   fs.existsSync(path.join(repo, h)) ? pass(h) : fail(`${h} missing`);
 }
 
-// 4. optional install target
+// 4. plugin dist (committed; served by the marketplace via plugins[].source = "./plugin")
+console.log('plugin dist:');
+const pluginDir = path.join(repo, 'plugin');
+let shared = null;
+try { shared = loadShared(path.join(skillsSrc, '_shared')); }
+catch (e) { fail(`_shared load failed: ${e.message}`); }
+if (!fs.existsSync(pluginDir)) {
+  fail('plugin/ missing — run: node scripts/build-plugin.mjs');
+} else if (shared) {
+  for (const s of skills) {
+    const distMd = path.join(pluginDir, 'skills', s, 'SKILL.md');
+    if (!fs.existsSync(distMd)) { fail(`plugin/skills/${s} missing — run: node scripts/build-plugin.mjs`); continue; }
+    const got = fs.readFileSync(distMd, 'utf8');
+    if (got.includes('<!-- SHARED:')) { fail(`plugin/skills/${s} contains unresolved template markers — run: node scripts/build-plugin.mjs`); continue; }
+    if (got !== renderSkillMd(path.join(skillsSrc, s), shared)) { fail(`plugin/skills/${s} STALE vs source — run: node scripts/build-plugin.mjs`); continue; }
+    pass(`plugin/skills/${s} in sync`);
+  }
+  for (const f of ['hooks/hooks.json', 'hooks/rotcanary-touch.js', 'hooks/rotcanary-stop.js', '.claude-plugin/plugin.json']) {
+    const distFile = path.join(pluginDir, f);
+    if (!fs.existsSync(distFile)) { fail(`plugin/${f} missing — run: node scripts/build-plugin.mjs`); continue; }
+    if (fs.readFileSync(path.join(repo, f), 'utf8') !== fs.readFileSync(distFile, 'utf8')) {
+      fail(`plugin/${f} STALE vs ${f} — run: node scripts/build-plugin.mjs`);
+    } else pass(`plugin/${f} in sync`);
+  }
+  try {
+    const mkt = JSON.parse(fs.readFileSync(path.join(repo, '.claude-plugin', 'marketplace.json'), 'utf8'));
+    const srcField = mkt.plugins?.[0]?.source;
+    if (srcField === './plugin') pass('marketplace serves ./plugin (conformed dist)');
+    else fail(`marketplace plugins[0].source is ${JSON.stringify(srcField)} — must be "./plugin" so installs get conformed skills`);
+  } catch { /* manifest parse already checked above */ }
+}
+
+// 5. optional install target
 const arg = process.argv[2];
 if (arg) {
   const TARGETS = {

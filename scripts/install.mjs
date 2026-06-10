@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadShared as loadSharedFrom, listSkills, installSkillDir } from './lib/render.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const skillsSrc = path.join(repo, 'skills');
@@ -51,33 +52,14 @@ const PLATFORM_CONFIGS = {
   gemini:   { dest: path.join(process.cwd(), '.gemini', 'rules', 'coalmine-trigger.md'),        tpl: 'windsurf.md.template' },
 };
 
-// ─── Load shared sections ───────────────────────────────────────────────────
+// ─── Load shared sections (render core lives in lib/render.mjs) ────────────
 function loadShared() {
   try {
-    return {
-      languageHeader:    fs.readFileSync(path.join(sharedDir, 'language-header.md'),    'utf8').trimEnd(),
-      contexts:          fs.readFileSync(path.join(sharedDir, 'contexts.md'),            'utf8').trimEnd(),
-      orchestration:     fs.readFileSync(path.join(sharedDir, 'orchestration.md'),       'utf8').trimEnd(),
-      escalationFooter:  fs.readFileSync(path.join(sharedDir, 'escalation-footer.md'),   'utf8').trimEnd(),
-    };
+    return loadSharedFrom(sharedDir);
   } catch (e) {
     console.error(`Failed to load shared sections: ${e.message}`);
     process.exit(1);
   }
-}
-
-// ─── Inject shared sections into SKILL.md content ──────────────────────────
-function inject(content, shared, meta) {
-  const orchestration = shared.orchestration
-    .replace(/\{\{LIGHT_INTENT\}\}/g,    meta.lightIntent    ?? '')
-    .replace(/\{\{STANDARD_INTENT\}\}/g, meta.standardIntent ?? '')
-    .replace(/\{\{HEAVY_INTENT\}\}/g,    meta.heavyIntent    ?? '');
-
-  return content
-    .replace(/<!-- SHARED:LANGUAGE_HEADER -->/g,   shared.languageHeader)
-    .replace(/<!-- SHARED:CONTEXTS -->/g,            shared.contexts)
-    .replace(/<!-- SHARED:ORCHESTRATION -->/g,       orchestration)
-    .replace(/<!-- SHARED:ESCALATION_FOOTER -->/g,   shared.escalationFooter);
 }
 
 // ─── Idempotent append of platform config ──────────────────────────────────
@@ -169,38 +151,14 @@ if (!fs.existsSync(skillsSrc)) {
 const shared = loadShared();
 
 // Get skill dirs (exclude _shared)
-const skills = fs.readdirSync(skillsSrc, { withFileTypes: true })
-  .filter((d) => d.isDirectory() && !d.name.startsWith('_'))
-  .map((d) => d.name);
+const skills = listSkills(skillsSrc);
 
 console.log(`\nInstalling ${skills.length} skill(s) → ${dest}`);
 let n = 0;
 for (const s of skills) {
   try {
-    const from     = path.join(skillsSrc, s);
-    const to       = path.join(dest, s);
-    const skillMd  = path.join(from, 'SKILL.md');
-    const destMd   = path.join(to, 'SKILL.md');
-
-    fs.mkdirSync(to, { recursive: true });
-
-    // Copy all files except SKILL.md first
-    for (const f of fs.readdirSync(from)) {
-      if (f === 'SKILL.md') continue;
-      fs.copyFileSync(path.join(from, f), path.join(to, f));
-    }
-
-    // Inject shared sections into SKILL.md
-    if (fs.existsSync(skillMd)) {
-      const metaPath = path.join(from, 'skill-meta.json');
-      const meta = fs.existsSync(metaPath)
-        ? JSON.parse(fs.readFileSync(metaPath, 'utf8'))
-        : {};
-      const raw      = fs.readFileSync(skillMd, 'utf8');
-      const injected = inject(raw, shared, meta);
-      fs.writeFileSync(destMd, injected, 'utf8');
-    }
-
+    const to = path.join(dest, s);
+    installSkillDir(path.join(skillsSrc, s), to, shared);
     console.log(`  installed ${s} → ${to}`);
     n++;
   } catch (e) {

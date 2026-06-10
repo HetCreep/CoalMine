@@ -6,7 +6,7 @@ description: >-
 
 # Resilience Audit
 
-<!-- SHARED:LANGUAGE_HEADER -->
+**Language:** Mirror the user's current writing language for ALL menus, choice labels, escalation prompts, and status messages. Detect from their input — Thai → Thai, English → English, Japanese → Japanese, etc. Never hardcode one language.
 
 For every operation: **"what happens when this FAILS?"** Report; do NOT fix unless asked.
 
@@ -58,6 +58,10 @@ NEVER auto-fix: retry/rollback/recovery/atomicity logic (semantic changes can in
 
 | Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|
-<!-- SHARED:ORCHESTRATION -->
+| **Light** | Spot failure-mode check, key paths only | Single agent, no sub-agents. Use your platform's most economical mode. | Low |
+| **Standard** | Balanced FMEA, multi-category coverage | Spawn focused sub-agents per category if your platform supports it. Use your platform's balanced mode. | Balanced |
+| **Heavy** | Full 8-category FMEA + adversarial verify | Spawn sub-agents at maximum capacity if your platform supports it. Use your platform's most powerful mode and largest available context. | High |
 
-<!-- SHARED:ESCALATION_FOOTER -->
+**Agent Context (Interactive):** Call `ask_question` after scope assessment. Do not start work until user confirms.
+
+**Hook Context (Non-Interactive / Stop-Hook):** Auto-select Light. Skip `ask_question`. Run report-only, no fixes. No sub-agents.
