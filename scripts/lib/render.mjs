@@ -46,11 +46,16 @@ export function renderSkillMd(skillDir, shared) {
 }
 
 // Materialize one conformed skill dir: aux files copied, SKILL.md rendered.
+// Nested dirs (references/, scripts/) copy recursively — anthropics/skills-style
+// skill bundles must not break the installer.
 export function installSkillDir(from, to, shared) {
   fs.mkdirSync(to, { recursive: true });
-  for (const f of fs.readdirSync(from)) {
-    if (f === 'SKILL.md') continue;
-    fs.copyFileSync(path.join(from, f), path.join(to, f));
+  for (const f of fs.readdirSync(from, { withFileTypes: true })) {
+    if (f.name === 'SKILL.md') continue;
+    const src = path.join(from, f.name);
+    const dst = path.join(to, f.name);
+    if (f.isDirectory()) fs.cpSync(src, dst, { recursive: true });
+    else fs.copyFileSync(src, dst);
   }
   if (fs.existsSync(path.join(from, 'SKILL.md'))) {
     fs.writeFileSync(path.join(to, 'SKILL.md'), renderSkillMd(from, shared), 'utf8');

@@ -1,0 +1,56 @@
+# Changelog
+
+All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
+
+## [Unreleased]
+
+## [2.1.0] — 2026-06-11
+
+### Fixed
+- `install.mjs` exits non-zero on partial failure (skill, config, or git-hook step) instead of reporting success.
+- `installSkillDir` copies nested skill subdirectories (`references/`, `scripts/`) recursively instead of throwing `EISDIR`/`EPERM`.
+- `verify.mjs` reports a clean per-skill `FAIL` on corrupt `skill-meta.json` instead of crashing with a raw stack trace.
+- `upsertConfig` re-runs no longer duplicate template content outside the COALMINE markers (cursor `.mdc` frontmatter grew on every install).
+- rotcanary hooks now delete their session temp files once an edit batch is acknowledged, and sweep `rotcanary-*` files older than 7 days (Phoenix #1 zero garbage) — both Node and PowerShell variants.
+
+### Added
+- `verify.mjs` reverse check: orphan dirs in `plugin/skills/` with no source now fail the gate.
+- Zero-dep unit tests for the render core (`scripts/lib/render.test.mjs`, `node --test`), including a stale-dist negative-path test; wired into pre-commit/pre-push hooks.
+- `skills/_shared/README.md` documenting the SHARED marker and intent-placeholder conventions.
+- Heavy Durability guidance in the shared escalation footer (all 9 skills): chunk long multi-agent runs into short phases; recover dead runs from the journal/transcripts instead of re-running everything.
+- `CHANGELOG.md` (this file) and release tagging per the adopted release-bookkeeping rule.
+
+### Fixed (cross-agent compatibility, source-grounded Jun 2026)
+- Codex install target corrected to `.agents/skills/` (was `~/.codex/skills/`, which Codex never reads — per developers.openai.com/codex/skills.md; `agents/openai.yaml` is optional).
+- Junie install target corrected to `.junie/skills/` (was `.agents/skills/`, which Junie does not read).
+- rotcanary cadence claims now state per-platform truth: auto-wired on Claude Code (plugin) and GitHub Copilot (same hooks format); equivalent events on Cursor/Gemini CLI/Codex/Goose (manual wiring); manual-only on Cline/Junie. Kill-switch documented as Claude-specific.
+- Shared escalation footer defines `ask_question` as an alias for each platform's real question tool (AskUserQuestion / ask_question / ask_followup_question / askQuestions / ask_user / request_user_input / suggested_responses) with text fallback where none exists (Goose); Heavy Durability wording made platform-neutral.
+- README agent table: choice-tool column updated to verified reality (9 native, 3 text-fallback), Roo Code upstream-archived note, Agent Skills spec link.
+- USE-WITH-ANY-AGENT.md rewritten with the verified per-agent path matrix; Letta removed (no documented skills support); fallback section now warns to copy from `plugin/` (conformed) instead of `skills/` (templates).
+
+### Changed
+- `TARGETS` agent→path map hoisted to `scripts/lib/targets.mjs` — single source of truth for `install.mjs` and `verify.mjs`.
+- `installGitHooks` installs `hooks/pre-commit.sh` / `pre-push.sh` verbatim so `.git/hooks` copies cannot drift from source.
+- `rotcanary-stop.js`: `TRANSLATIONS` and `detectLang()` hoisted to module scope (`main()` back under the 50-line guideline).
+
+## [2.0.0] — 2026-06-11
+
+### Added
+- 4 new canaries: `telemetry-canary`, `testability-canary`, `scale-canary`, `drift-canary` — suite now 9.
+- Committed `plugin/` dist + `scripts/build-plugin.mjs` so the Claude Code marketplace route serves fully conformed skills (shared sections injected).
+- `scripts/lib/render.mjs` render core shared by install/build/verify — all routes ship byte-identical content.
+- `verify.mjs` gates: source must keep SHARED markers, dist must be byte-in-sync, marketplace must serve `./plugin`.
+
+### Fixed
+- YAML frontmatter in all 9 SKILL.md files converted to folded block scalars (`>-`) — strict parsers (`claude plugin validate`) now pass.
+
+### Changed
+- `marketplace.json` `plugins[0].source` moved from `./` to `./plugin`; manifests updated to 9 canaries.
+- GitHub Actions/Dependabot generation removed from the installer — local-git-only alignment; templates remain in `platform-configs/`.
+
+## [1.0.0] — 2026-06-09
+
+### Added
+- Initial CoalMine collection (5 quality meta-skills): `rotcanary`, `gold-standard`, `source-grounding`, `supply-chain-audit`, `resilience-audit`.
+- Cross-platform rotcanary auto-cadence hooks (Node + PowerShell fallback).
+- Universal installer/verify scripts (`scripts/install.mjs`, `scripts/verify.mjs`) for 12 agents.

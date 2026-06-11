@@ -1,7 +1,7 @@
 ---
 name: rotcanary
 description: >-
-  Code-health scan — dead code, bug-prone logic, resource leaks, concurrency bugs, silent failures, input-boundary issues, doc rot. Triggers on: "/rotcanary", "rotcanary", "code-health". Auto-runs at session end on touched files (QUICK, report only). Run manually for fix mode. Reports; fixes on request via choice-gated menu.
+  Code-health scan — dead code, bug-prone logic, resource leaks, concurrency bugs, silent failures, input-boundary issues, doc rot. Triggers on: "/rotcanary", "rotcanary", "code-health". Auto-runs at session end on touched files (QUICK, report only) via platform hooks — auto-wired by the Claude Code plugin, manual elsewhere. Run manually for fix mode. Reports; fixes on request via choice-gated menu.
 ---
 
 # Rotcanary
@@ -56,7 +56,10 @@ Then: SUSPECTED list · coverage gaps · counts + top 3 to fix.
 Severity: CRITICAL (data loss/security/crash on normal path) · HIGH (real bug/leak on reachable path) · MEDIUM (dead/dup/unwired) · LOW (style/doc rot)
 
 ## Cadence
-Stop hook → auto QUICK on session's touched files (report only).
+Stop hook → auto QUICK on session's touched files (report only). Hook support varies by platform:
+- **Auto-wired:** Claude Code — the plugin ships PostToolUse + Stop hooks; GitHub Copilot (VS Code agent mode / CLI) consumes the same hooks format. Kill-switch `~/.claude/.rotcanary-off` applies to these hook installs only.
+- **Wire manually** (equivalent events exist — port [`hooks/`](../../hooks/) per platform docs): Cursor `afterFileEdit`/`stop` · Gemini CLI `AfterTool`/`AfterAgent` · Codex `PostToolUse`/`Stop` · Goose `AfterFileEdit`/`Stop`.
+- **Manual only** (no stop event): Cline, Junie — run `/rotcanary` yourself, e.g. before commit.
 Manual: whole-repo DEEP sweep when needed.
 
 ## Tooling

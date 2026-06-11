@@ -1,16 +1,17 @@
 #!/usr/bin/env node
-// CoalMine verify — check repo integrity (skills, manifests, hooks) and, optionally, an install target.
-// Cross-platform. Exit 0 = PASS, 1 = FAIL.
+// CoalMine verify — check repo integrity (skills, manifests, hooks), the committed
+// plugin/ dist (byte-sync vs source, no unresolved markers, no orphans), and,
+// optionally, an install target. Cross-platform. Exit 0 = PASS, 1 = FAIL.
 //
 // Usage:
 //   node scripts/verify.mjs                 → verify the repo
 //   node scripts/verify.mjs <agent|PATH>    → also verify skills landed at that target
 
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadShared, renderSkillMd } from './lib/render.mjs';
+import { TARGETS } from './lib/targets.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let ok = true;
@@ -64,9 +65,20 @@ if (!fs.existsSync(pluginDir)) {
     if (!fs.existsSync(distMd)) { fail(`plugin/skills/${s} missing — run: node scripts/build-plugin.mjs`); continue; }
     const got = fs.readFileSync(distMd, 'utf8');
     if (got.includes('<!-- SHARED:')) { fail(`plugin/skills/${s} contains unresolved template markers — run: node scripts/build-plugin.mjs`); continue; }
-    if (got !== renderSkillMd(path.join(skillsSrc, s), shared)) { fail(`plugin/skills/${s} STALE vs source — run: node scripts/build-plugin.mjs`); continue; }
+    let want;
+    try { want = renderSkillMd(path.join(skillsSrc, s), shared); }
+    catch (e) { fail(`plugin/skills/${s} render failed: ${e.message}`); continue; }
+    if (got !== want) { fail(`plugin/skills/${s} STALE vs source — run: node scripts/build-plugin.mjs`); continue; }
     pass(`plugin/skills/${s} in sync`);
   }
+  // Reverse check: nothing ships from the dist that has no source (orphan guard).
+  try {
+    const distSkills = fs.readdirSync(path.join(pluginDir, 'skills'), { withFileTypes: true })
+      .filter((d) => d.isDirectory()).map((d) => d.name);
+    for (const d of distSkills) {
+      if (!skills.includes(d)) fail(`plugin/skills/${d} has no source — run: node scripts/build-plugin.mjs`);
+    }
+  } catch (e) { fail(`plugin/skills unreadable: ${e.message}`); }
   for (const f of ['hooks/hooks.json', 'hooks/rotcanary-touch.js', 'hooks/rotcanary-stop.js', '.claude-plugin/plugin.json']) {
     const distFile = path.join(pluginDir, f);
     if (!fs.existsSync(distFile)) { fail(`plugin/${f} missing — run: node scripts/build-plugin.mjs`); continue; }
@@ -85,20 +97,6 @@ if (!fs.existsSync(pluginDir)) {
 // 5. optional install target
 const arg = process.argv[2];
 if (arg) {
-  const TARGETS = {
-    claude:      path.join(os.homedir(), '.claude', 'skills'),
-    antigravity: path.join(process.cwd(), '.agents', 'skills'),
-    copilot:     path.join(process.cwd(), '.github', 'skills'),
-    codex:       path.join(os.homedir(), '.codex', 'skills'),
-    cursor:      path.join(process.cwd(), '.cursor', 'skills'),
-    windsurf:    path.join(process.cwd(), '.windsurf', 'skills'),
-    cline:       path.join(process.cwd(), '.agents', 'skills'),
-    amp:         path.join(process.cwd(), '.agents', 'skills'),
-    goose:       path.join(process.cwd(), '.agents', 'skills'),
-    junie:       path.join(process.cwd(), '.agents', 'skills'),
-    gemini:      path.join(process.cwd(), '.gemini', 'skills'),
-    roocode:     path.join(process.cwd(), '.agents', 'skills'),
-  };
   const dest = TARGETS[arg] ?? path.resolve(arg);
   console.log(`target ${dest}:`);
   for (const s of skills) {

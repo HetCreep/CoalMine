@@ -8,35 +8,19 @@
 //   node scripts/install.mjs claude        → ~/.claude/skills/        (global)
 //   node scripts/install.mjs antigravity   → ./.agents/skills/        (project, cwd)
 //   node scripts/install.mjs copilot       → ./.github/skills/        (project, cwd)
-//   node scripts/install.mjs codex         → ~/.codex/skills/         (global)
+//   node scripts/install.mjs codex         → ./.agents/skills/        (project, cwd)
 //   node scripts/install.mjs <PATH>        → <PATH>/                  (any dir)
 
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadShared as loadSharedFrom, listSkills, installSkillDir } from './lib/render.mjs';
+import { TARGETS } from './lib/targets.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const skillsSrc = path.join(repo, 'skills');
 const sharedDir = path.join(skillsSrc, '_shared');
 const platformDir = path.join(repo, 'platform-configs');
-
-// ─── Targets ────────────────────────────────────────────────────────────────
-const TARGETS = {
-  claude:      path.join(os.homedir(), '.claude', 'skills'),
-  antigravity: path.join(process.cwd(), '.agents', 'skills'),
-  copilot:     path.join(process.cwd(), '.github', 'skills'),
-  codex:       path.join(os.homedir(), '.codex', 'skills'),
-  cursor:      path.join(process.cwd(), '.cursor', 'skills'),
-  windsurf:    path.join(process.cwd(), '.windsurf', 'skills'),
-  cline:       path.join(process.cwd(), '.agents', 'skills'),
-  amp:         path.join(process.cwd(), '.agents', 'skills'),
-  goose:       path.join(process.cwd(), '.agents', 'skills'),
-  junie:       path.join(process.cwd(), '.agents', 'skills'),
-  gemini:      path.join(process.cwd(), '.gemini', 'skills'),
-  roocode:     path.join(process.cwd(), '.agents', 'skills'),
-};
 
 // Platform config output paths (relative to cwd) and their templates
 const PLATFORM_CONFIGS = {
@@ -93,8 +77,13 @@ function upsertConfig(destFile, tplFile) {
     const ei = existing.indexOf(end);
 
     if (si !== -1 && ei !== -1 && ei > si) {
-      // Update existing CoalMine section
-      existing = existing.slice(0, si) + tplContent + existing.slice(ei + end.length);
+      // Update existing CoalMine section — splice in only the marker-delimited
+      // block, so template content outside the markers (e.g. cursor.mdc YAML
+      // frontmatter) is not duplicated on every re-run.
+      const ts = tplContent.indexOf(start);
+      const te = tplContent.indexOf(end);
+      const block = ts !== -1 && te !== -1 && te > ts ? tplContent.slice(ts, te + end.length) : tplContent;
+      existing = existing.slice(0, si) + block + existing.slice(ei + end.length);
       fs.writeFileSync(destFile, existing, 'utf8');
       console.log(`  updated ${path.relative(process.cwd(), destFile)}`);
     } else {
@@ -105,6 +94,7 @@ function upsertConfig(destFile, tplFile) {
     }
   } catch (e) {
     console.warn(`  [warn] could not write config ${destFile}: ${e.message}`);
+    process.exitCode = 1;
   }
 }
 
@@ -120,9 +110,11 @@ function installGitHooks() {
     const hooksDir = path.join(gitDir, 'hooks');
     fs.mkdirSync(hooksDir, { recursive: true });
 
+    // Single source of truth: install the repo's hook scripts verbatim so the
+    // .git/hooks copies can never drift from hooks/pre-commit.sh / pre-push.sh.
     const hooks = {
-      'pre-commit': '#!/bin/sh\n# CoalMine pre-commit hook\nif [ -f scripts/verify.mjs ]; then\n  node scripts/verify.mjs\n  exit $?\nfi\nexit 0\n',
-      'pre-push': '#!/bin/sh\n# CoalMine pre-push hook\nif [ -f scripts/verify.mjs ]; then\n  node scripts/verify.mjs\n  exit $?\nfi\nexit 0\n'
+      'pre-commit': fs.readFileSync(path.join(repo, 'hooks', 'pre-commit.sh'), 'utf8'),
+      'pre-push': fs.readFileSync(path.join(repo, 'hooks', 'pre-push.sh'), 'utf8'),
     };
 
     for (const [hookName, hookContent] of Object.entries(hooks)) {
@@ -132,6 +124,7 @@ function installGitHooks() {
     }
   } catch (e) {
     console.warn(`  [warn] failed to install git hooks: ${e.message}`);
+    process.exitCode = 1;
   }
 }
 
@@ -163,6 +156,7 @@ for (const s of skills) {
     n++;
   } catch (e) {
     console.warn(`  [warn] failed to install ${s}: ${e.message}`);
+    process.exitCode = 1;
   }
 }
 
@@ -179,5 +173,6 @@ if (cfg) {
 console.log('\nConfiguring git hooks...');
 installGitHooks();
 
-console.log(`\nDone: ${n} skill(s) → ${dest}`);
+const failed = skills.length - n;
+console.log(`\nDone: ${n}/${skills.length} skill(s) → ${dest}${failed ? ` (${failed} failed)` : ''}`);
 console.log(`Verify: node scripts/verify.mjs`);

@@ -11,6 +11,11 @@ function Get-RcMode {
   return 'auto'
 }
 try {
+  # Phoenix #1 (zero garbage): sweep rotcanary-* temp files older than 7 days
+  # left behind by sessions that never reached a second stop (crash/kill).
+  Get-ChildItem (Join-Path $env:TEMP 'rotcanary-*') -ErrorAction SilentlyContinue |
+    Where-Object { $_.LastWriteTimeUtc -lt [DateTime]::UtcNow.AddDays(-7) } |
+    Remove-Item -Force -ErrorAction SilentlyContinue
   if ((Get-RcMode) -ne 'auto') { exit 0 }
   $raw = [Console]::In.ReadToEnd()
   if (-not $raw) { exit 0 }
@@ -22,7 +27,11 @@ try {
   if (-not [System.IO.File]::Exists($touched)) { exit 0 }
   $scanned = "$base.scanned"
   if ([System.IO.File]::Exists($scanned)) {
-    if ([System.IO.File]::GetLastWriteTimeUtc($touched) -le [System.IO.File]::GetLastWriteTimeUtc($scanned)) { exit 0 }
+    if ([System.IO.File]::GetLastWriteTimeUtc($touched) -le [System.IO.File]::GetLastWriteTimeUtc($scanned)) {
+      # Batch already acknowledged on a previous stop — state no longer needed.
+      foreach ($f in @($touched, "$base.smells", $scanned)) { Remove-Item $f -Force -ErrorAction SilentlyContinue }
+      exit 0
+    }
   }
   $files = [System.IO.File]::ReadAllLines($touched) | Where-Object { $_ } | Sort-Object -Unique
   if (-not $files) { exit 0 }

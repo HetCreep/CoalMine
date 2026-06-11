@@ -29,7 +29,7 @@
 
 *Run Mode Explanations:*
 * 📌 **Always-on:** Operates implicitly in the chat background to verify facts and filter out AI hallucinations.
-* 🔄 **Auto + Manual:** Automatically scans affected files at the end of the session via git hooks, or can be triggered manually using `/rotcanary`.
+* 🔄 **Auto + Manual:** Automatically scans affected files at session end via agent lifecycle hooks — auto-wired by the Claude Code plugin (GitHub Copilot consumes the same hooks format; Cursor/Gemini/Codex/Goose have equivalent events to wire manually). Elsewhere, trigger manually with `/rotcanary`.
 * ⚡ **One-time:** Triggered once to scan, audit, and fill project-local rules that bind the agent's behavior for the rest of the session.
 * 🎯 **On-demand:** Run manually when performing specific relevant tasks (e.g., adding packages, modifying database schemas) to conserve tokens and maintain agility.
 
@@ -89,18 +89,22 @@ Canaries offer flexible execution tiers based on work complexity to optimize tok
 
 | AI Agent | Target Skills Folder | Installation Shortcut | Choice Tool Support |
 |---|---|---|---|
-| **Claude Code** | `~/.claude/skills/` | `/plugin install coalmine@coalmine` | ✅ **Native UI:** Supports direct tool modals |
-| **Antigravity** | `.agents/skills/` | `node scripts/install.mjs antigravity` | ✅ **Native UI:** Supports direct tool modals |
-| **Cursor** | `.cursor/skills/` | `node scripts/install.mjs cursor` | ⚠️ **Text Fallback:** Interactive console prompt |
-| **Windsurf** | `.windsurf/skills/` | `node scripts/install.mjs windsurf` | ⚠️ **Text Fallback:** Interactive console prompt |
-| **GitHub Copilot** | `.github/skills/` | `node scripts/install.mjs copilot` | ⚠️ **Text Fallback:** Interactive console prompt |
-| **Cline** | `.agents/skills/` | `node scripts/install.mjs cline` | ⚠️ **Text Fallback:** Interactive console prompt |
-| **Roo Code** | `.agents/skills/` | `node scripts/install.mjs roocode` | ⚠️ **Text Fallback:** Interactive console prompt |
-| **Gemini CLI** | `.gemini/skills/` | `node scripts/install.mjs gemini` | ⚠️ **Text Fallback:** Interactive console prompt |
-| **Goose** | `.agents/skills/` | `node scripts/install.mjs goose` | ⚠️ **Text Fallback:** Interactive console prompt |
-| **Amp** | `.agents/skills/` | `node scripts/install.mjs amp` | ⚠️ **Text Fallback:** Interactive console prompt |
-| **Junie** | `.agents/skills/` | `node scripts/install.mjs junie` | ⚠️ **Text Fallback:** Interactive console prompt |
-| **Codex** | `~/.codex/skills/` | `node scripts/install.mjs codex` | ⚠️ **Text Fallback:** Interactive console prompt |
+| **Claude Code** | `~/.claude/skills/` | `/plugin install coalmine@coalmine` | ✅ **Native:** `AskUserQuestion` |
+| **Antigravity** | `.agents/skills/` | `node scripts/install.mjs antigravity` | ✅ **Native:** built-in question prompt |
+| **Cursor** | `.cursor/skills/` | `node scripts/install.mjs cursor` | ✅ **Native:** built-in ask-question tool |
+| **Windsurf** | `.windsurf/skills/` | `node scripts/install.mjs windsurf` | ✅ **Native:** `suggested_responses` |
+| **GitHub Copilot** | `.github/skills/` | `node scripts/install.mjs copilot` | ✅ **Native:** `askQuestions` |
+| **Cline** | `.agents/skills/` | `node scripts/install.mjs cline` | ✅ **Native:** `ask_question` |
+| **Roo Code** † | `.agents/skills/` | `node scripts/install.mjs roocode` | ✅ **Native:** `ask_followup_question` |
+| **Gemini CLI** | `.gemini/skills/` | `node scripts/install.mjs gemini` | ✅ **Native:** `ask_user` |
+| **Goose** | `.agents/skills/` | `node scripts/install.mjs goose` | ⚠️ **Text Fallback:** no question tool |
+| **Amp** | `.agents/skills/` | `node scripts/install.mjs amp` | ⚠️ **Text Fallback:** tool not documented |
+| **Junie** | `.junie/skills/` | `node scripts/install.mjs junie` | ⚠️ **Text Fallback:** tool not documented |
+| **Codex** | `.agents/skills/` | `node scripts/install.mjs codex` | ✅ **Native:** `request_user_input` |
+
+† Roo Code upstream repo archived 2026-05; skills keep working in existing installs and forks.
+
+*Skill paths verified against vendor docs (Jun 2026). `SKILL.md` follows the cross-vendor [Agent Skills spec](https://agentskills.io/specification); most agents also read the shared `.agents/skills/` convention.*
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: rotcanary
 description: >-
-  Code-health scan — dead code, bug-prone logic, resource leaks, concurrency bugs, silent failures, input-boundary issues, doc rot. Triggers on: "/rotcanary", "rotcanary", "code-health". Auto-runs at session end on touched files (QUICK, report only). Run manually for fix mode. Reports; fixes on request via choice-gated menu.
+  Code-health scan — dead code, bug-prone logic, resource leaks, concurrency bugs, silent failures, input-boundary issues, doc rot. Triggers on: "/rotcanary", "rotcanary", "code-health". Auto-runs at session end on touched files (QUICK, report only) via platform hooks — auto-wired by the Claude Code plugin, manual elsewhere. Run manually for fix mode. Reports; fixes on request via choice-gated menu.
 ---
 
 # Rotcanary
@@ -56,7 +56,10 @@ Then: SUSPECTED list · coverage gaps · counts + top 3 to fix.
 Severity: CRITICAL (data loss/security/crash on normal path) · HIGH (real bug/leak on reachable path) · MEDIUM (dead/dup/unwired) · LOW (style/doc rot)
 
 ## Cadence
-Stop hook → auto QUICK on session's touched files (report only).
+Stop hook → auto QUICK on session's touched files (report only). Hook support varies by platform:
+- **Auto-wired:** Claude Code — the plugin ships PostToolUse + Stop hooks; GitHub Copilot (VS Code agent mode / CLI) consumes the same hooks format. Kill-switch `~/.claude/.rotcanary-off` applies to these hook installs only.
+- **Wire manually** (equivalent events exist — port [`hooks/`](../../hooks/) per platform docs): Cursor `afterFileEdit`/`stop` · Gemini CLI `AfterTool`/`AfterAgent` · Codex `PostToolUse`/`Stop` · Goose `AfterFileEdit`/`Stop`.
+- **Manual only** (no stop event): Cline, Junie — run `/rotcanary` yourself, e.g. before commit.
 Manual: whole-repo DEEP sweep when needed.
 
 ## Tooling
@@ -86,3 +89,9 @@ Manual: whole-repo DEEP sweep when needed.
 **Agent Context (Interactive):** Call `ask_question` after scope assessment. Do not start work until user confirms.
 
 **Hook Context (Non-Interactive / Stop-Hook):** Auto-select Light. Skip `ask_question`. Run report-only, no fixes. No sub-agents.
+
+**`ask_question` = your platform's interactive question tool**, whatever its real name: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo Code `ask_followup_question` · GitHub Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in question prompts. If your platform has no such tool (e.g. Goose), present the same options as a numbered text list and wait for the user's reply.
+
+**Heavy Durability (long multi-agent runs):**
+- Chunk the run into short orchestration phases (each completing within minutes) and read results between phases — one long-running orchestration is one session interruption away from losing all in-flight work.
+- If an orchestration dies mid-run (session restart/kill), recover before re-running: completed sub-agent results usually survive in your platform's run records (run journal, resumable run ID, or per-agent transcripts) — re-spawn only the missing pieces.
