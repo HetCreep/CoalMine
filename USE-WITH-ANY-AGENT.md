@@ -7,7 +7,7 @@
 | Agent | Skills location (project) | Also reads |
 |---|---|---|
 | **Claude Code** | the plugin (`/plugin install coalmine@coalmine`), or `.claude/skills/` | `~/.claude/skills/` (global) |
-| **Google Antigravity** | `.agent/skills/` per official docs (singular); `.agents/skills/` also seen working | `~/.gemini/antigravity/skills/` (global), `AGENTS.md` |
+| **Google Antigravity** | `.agents/skills/` — verified working (discovers all 9 CoalMine skills); official codelab also documents `.agent/skills/` (singular) | `~/.gemini/antigravity/skills/` (global), `AGENTS.md` |
 | **GitHub Copilot** | `.github/skills/` (CLI · VS Code agent mode · cloud) | `.claude/skills/`, `.agents/skills/`, `~/.copilot/skills/` |
 | **OpenAI Codex** | `.agents/skills/` (CWD or repo root) — `agents/openai.yaml` is *optional* | `~/.agents/skills/` (global), `/etc/codex/skills` |
 | **Gemini CLI** | `.gemini/skills/` or `.agents/skills/` | `~/.gemini/skills/`, `~/.agents/skills/` |
