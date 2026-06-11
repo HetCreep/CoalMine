@@ -1,9 +1,5 @@
-**Agent Context (Interactive):** Call `ask_question` after scope assessment. Do not start work until user confirms.
+**Agent Context (interactive):** assess scope, then call `ask_question` once with the 3 tiers — mark the recommended one `✓` by judgment (never hardcoded), localize labels, and wait for the user's choice before starting. `ask_question` = your platform's question tool: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo `ask_followup_question` · Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in prompts; none (e.g. Goose) → numbered text menu.
 
-**Hook Context (Non-Interactive / Stop-Hook):** Auto-select Light. Skip `ask_question`. Run report-only, no fixes. No sub-agents.
+**Hook Context (non-interactive):** auto-select Light. No questions, no fixes, no sub-agents — report only.
 
-**`ask_question` = your platform's interactive question tool**, whatever its real name: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo Code `ask_followup_question` · GitHub Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in question prompts. If your platform has no such tool (e.g. Goose), present the same options as a numbered text list and wait for the user's reply.
-
-**Heavy Durability (long multi-agent runs):**
-- Chunk the run into short orchestration phases (each completing within minutes) and read results between phases — one long-running orchestration is one session interruption away from losing all in-flight work.
-- If an orchestration dies mid-run (session restart/kill), recover before re-running: completed sub-agent results usually survive in your platform's run records (run journal, resumable run ID, or per-agent transcripts) — re-spawn only the missing pieces.
+**Heavy durability:** chunk long multi-agent runs into short phases, reading results between them; if a run dies mid-way, recover completed sub-agent results from your platform's run records and re-spawn only the missing pieces.

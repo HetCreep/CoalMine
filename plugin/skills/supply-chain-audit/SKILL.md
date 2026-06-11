@@ -30,41 +30,26 @@ Audit what the project trusts: deps, build pipeline, shipped artifact. Report; d
 - User can verify before running?
 
 ## Tooling
-| Ecosystem | vuln | license | outdated |
-|---|---|---|---|
-| .NET | Dependabot / OSV (packages.config → no `--vulnerable`) | clearlydefined | `dotnet list package --outdated` |
-| npm | `npm audit` | `license-checker` | `npm outdated` |
-| Python | `pip-audit` | `pip-licenses` | `pip list --outdated` |
-| Rust | `cargo audit` (RustSec) | `cargo-deny` | `cargo outdated` |
+Per-ecosystem vuln/license/outdated commands + offline fallback: read `references/tooling.md` when selecting scanners.
 
 ## Discipline
 - Ground every CVE/fixed-version in an advisory. Never from memory.
 - Don't auto-change deps — report + recommend; user decides (bumps break builds).
-- State what was NOT scanned.
-- **Offline & Dependabot Fallback:** If active network vulnerability scans or package registry audits are blocked by local sandbox constraints (`N-A`), the agent MUST fallback to inspecting local dependency lockfiles (`package-lock.json`, `pnpm-lock.yaml`, `Cargo.lock`, etc.) and auditing locally stored Dependabot logs or GitHub Security Alerts if present.
+- State what was NOT scanned. Blocked network scans → lockfile inspection fallback (see `references/tooling.md`), mark live checks N-A.
 
 ## Output
 `| package | direct/transitive | issue | severity | advisory | fixed-in | action |`
 Build+artifact checklist · Summary (counts + top fixes) · Not scanned
 
 ## Fix mode (choice-gated)
-After report, pop choice:
+After the report, present via `ask_question`:
 - **Pin safe now** — commit already-present unchanged lockfile, pin CI action to current SHA, add missing checksum step. Each: checkpoint → apply → verify.
-- **ให้ฉันเลือก** — user-selected fixes only.
-- **รายงานอย่างเดียว** — change nothing.
+- **Let me pick** — user-selected fixes only.
+- **Report only** — change nothing.
 
-(Translate choice labels to user's language — English: "pin safe now" / "let me pick" / "report only". Thai: as above.)
-
-NEVER auto-fix: dep version bump, lockfile regen (re-resolves entire transitive tree). Non-interactive → report only.
+NEVER auto-fix: dep version bump, lockfile regen (re-resolves entire transitive tree).
 
 ## Escalation — Scope & Model Quality
-
-**Before starting**, assess scope (sections to audit, dependency tree size, release criticality), then call `ask_question` once with 3 options (localized to user's language). Mark the recommended option `✓` dynamically based on your assessment — never hardcode the recommendation.
-
-**Recommendation logic (use judgment, not just package count):**
-- Single section · small dep tree · non-critical → recommend **Light**
-- Multiple sections · moderate dep tree → recommend **Standard**
-- All 3 sections · large dep tree · release · pre-ship → recommend **Heavy**
 
 | Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|
@@ -72,12 +57,8 @@ NEVER auto-fix: dep version bump, lockfile regen (re-resolves entire transitive 
 | **Standard** | Multi-section balanced audit | Spawn focused sub-agents per category if your platform supports it. Use your platform's balanced mode. | Balanced |
 | **Heavy** | Full 3-section audit + adversarial CVE verify | Spawn sub-agents at maximum capacity if your platform supports it. Use your platform's most powerful mode and largest available context. | High |
 
-**Agent Context (Interactive):** Call `ask_question` after scope assessment. Do not start work until user confirms.
+**Agent Context (interactive):** assess scope, then call `ask_question` once with the 3 tiers — mark the recommended one `✓` by judgment (never hardcoded), localize labels, and wait for the user's choice before starting. `ask_question` = your platform's question tool: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo `ask_followup_question` · Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in prompts; none (e.g. Goose) → numbered text menu.
 
-**Hook Context (Non-Interactive / Stop-Hook):** Auto-select Light. Skip `ask_question`. Run report-only, no fixes. No sub-agents.
+**Hook Context (non-interactive):** auto-select Light. No questions, no fixes, no sub-agents — report only.
 
-**`ask_question` = your platform's interactive question tool**, whatever its real name: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo Code `ask_followup_question` · GitHub Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in question prompts. If your platform has no such tool (e.g. Goose), present the same options as a numbered text list and wait for the user's reply.
-
-**Heavy Durability (long multi-agent runs):**
-- Chunk the run into short orchestration phases (each completing within minutes) and read results between phases — one long-running orchestration is one session interruption away from losing all in-flight work.
-- If an orchestration dies mid-run (session restart/kill), recover before re-running: completed sub-agent results usually survive in your platform's run records (run journal, resumable run ID, or per-agent transcripts) — re-spawn only the missing pieces.
+**Heavy durability:** chunk long multi-agent runs into short phases, reading results between them; if a run dies mid-way, recover completed sub-agent results from your platform's run records and re-spawn only the missing pieces.

@@ -28,10 +28,7 @@ Standing rule — active every response. No invocation needed for routine use.
 4. Single blog — weak; corroborate first
 5. Training memory — weakest for volatile facts
 
-## Contexts & Execution Modes
-
-- **Hook Context (Non-Interactive):** When triggered automatically or as a background task, log unverified claims encountered as `⚠️ UNVERIFIED` entries in the output without blocking execution.
-- **Agent Context (Interactive / Chat):** When invoked in chat, you **MUST** use the `ask_question` tool (if supported, otherwise text prompt) to present the findings and confirm how to proceed when sources cannot be fetched at that moment.
+Non-interactive runs: log unfetchable claims as `⚠️ UNVERIFIED` and continue — never block. Interactive: when sources cannot be fetched, confirm how to proceed via `ask_question`.
 
 ## Output
 - Verified: `✅ [claim] — source: [link/file]`
@@ -43,13 +40,6 @@ Standing rule — active every response. No invocation needed for routine use.
 - **DIVERSE** (triangulate ≥ 3): "what's best" / landscape / patterns → multiple repos + docs + community; note conflicts.
 
 ## Escalation — Scope & Model Quality
-
-**Before starting**, assess scope (volume of claims, source complexity, criticality), then call `ask_question` once with 3 options (localized to user's language). Mark the recommended option `✓` dynamically based on your assessment — never hardcode the recommendation.
-
-**Recommendation logic (use judgment, not just claim count):**
-- Few claims · single source type · non-critical → recommend **Light**
-- Multiple claims · mixed sources · moderate complexity → recommend **Standard**
-- Many claims · CVE cross-check · security-critical · release → recommend **Heavy**
 
 | Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|

@@ -1,7 +1,7 @@
 ---
 name: resilience-audit
 description: >-
-  Failure-mode audit (FMEA for software) — for each way the system can fail (network, storage, partial completion, crash, concurrency, bad input), check whether code DETECTS, HANDLES, RECOVERS, and COMMUNICATES it. Triggers on: "/resilience-audit", "resilience-audit", "FMEA audit". Flags data loss, silent-success-on-failure, missing rollback/retry/idempotency. Reports; does not fix unless asked.
+  Failure-mode audit (FMEA for software) — for each way the system can fail (network, storage, partial completion, crash, concurrency, bad input), check whether code DETECTS, HANDLES, RECOVERS, and COMMUNICATES it. Triggers on: "/resilience-audit", "resilience-audit", "FMEA audit". Use when touching network, storage, async, retry, or rollback paths. Flags data loss, silent-success-on-failure, missing rollback/retry/idempotency. Reports; does not fix unless asked.
 ---
 
 # Resilience Audit
@@ -38,23 +38,14 @@ Ordering/atomicity findings · Summary (counts + top fixes) · Not assessed
 Severity: CRITICAL (data loss/corruption/silent-success) · HIGH (crash/hang/partial-no-recovery) · MEDIUM (poor degradation/missing retry) · LOW (cosmetic)
 
 ## Fix mode (choice-gated)
-After report, pop choice:
-- **แก้ที่ปลอดภัยเลย** — add missing timeout, add null/input validation, add clear error+log on unhandled path. Each: checkpoint → fix → build+tests → revert if newly red.
-- **ให้ฉันเลือก** — user-selected fixes only.
-- **รายงานอย่างเดียว** — change nothing.
+After the report, present via `ask_question`:
+- **Fix safe ones** — add missing timeout, null/input validation, clear error+log on unhandled path. Each: checkpoint → fix → build+tests → revert if newly red.
+- **Let me pick** — user-selected fixes only.
+- **Report only** — change nothing.
 
-(Translate choice labels to user's language — English: "fix safe ones" / "let me pick" / "report only". Present the menu in whatever language the user is writing in.)
-
-NEVER auto-fix: retry/rollback/recovery/atomicity logic (semantic changes can introduce new failure modes). Non-interactive → report only.
+NEVER auto-fix: retry/rollback/recovery/atomicity logic (semantic changes can introduce new failure modes).
 
 ## Escalation — Scope & Model Quality
-
-**Before starting**, assess scope (volume, failure category breadth, criticality of the system), then call `ask_question` once with 3 options (localized to user's language). Mark the recommended option `✓` dynamically based on your assessment — never hardcode the recommendation.
-
-**Recommendation logic (use judgment, not just file count):**
-- Small scope · few failure categories · non-critical → recommend **Light**
-- Medium scope · several failure categories → recommend **Standard**
-- Large scope · all 8 categories · release · critical system → recommend **Heavy**
 
 | Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|

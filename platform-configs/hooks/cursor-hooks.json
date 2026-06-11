@@ -1,0 +1,12 @@
+{
+  "$comment": "Cursor hooks — place as <project>/.cursor/hooks.json (or ~/.cursor/hooks.json). afterFileEdit records touched files; stop cannot block, so the nudge goes out as a followup_message. Adjust the CoalMine path.",
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      { "command": "node C:/path/to/CoalMine/hooks/rotcanary-touch.js" }
+    ],
+    "stop": [
+      { "command": "node C:/path/to/CoalMine/hooks/rotcanary-stop.js" }
+    ]
+  }
+}

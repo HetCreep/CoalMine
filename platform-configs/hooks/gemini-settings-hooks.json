@@ -1,0 +1,16 @@
+{
+  "$comment": "Gemini CLI hooks — merge the 'hooks' key into .gemini/settings.json (project) or ~/.gemini/settings.json. AfterTool records edits; AfterAgent nudges the scan. Adjust the CoalMine path.",
+  "hooks": {
+    "AfterTool": [
+      {
+        "matcher": "write_file|replace",
+        "hooks": [{ "type": "command", "command": "node C:/path/to/CoalMine/hooks/rotcanary-touch.js" }]
+      }
+    ],
+    "AfterAgent": [
+      {
+        "hooks": [{ "type": "command", "command": "node C:/path/to/CoalMine/hooks/rotcanary-stop.js" }]
+      }
+    ]
+  }
+}

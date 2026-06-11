@@ -1,7 +1,7 @@
 ---
 name: scale-canary
 description: >-
-  Performance complexity and resource allocation canary — checks for O(N^2) loops, database N+1 query patterns, memory leaks (unbounded collections), and blocking calls in main event loop. Triggers on keywords: "/scale-canary", "scale-canary", "performance audit", "scale audit".
+  Performance complexity and resource allocation canary — checks for O(N^2) loops, database N+1 query patterns, memory leaks (unbounded collections), and blocking calls in main event loop. Triggers on keywords: "/scale-canary", "scale-canary", "performance audit", "scale audit". Use when writing loops over growing data, DB queries, caches, or async/event-loop code.
 ---
 
 # Scale Canary (Performance & Resource Allocation Audit)
@@ -17,14 +17,11 @@ Audit code for scalability issues, performance bottlenecks, and resource leaks.
 4. **Blocking Main Loop** — Performing synchronous file system operations or CPU-heavy calculations in the main event thread (causes lag/hangs).
 5. **Resource Leakage** — Leaving streams, connections, or file handles open without closing them inside a `finally` block.
 
-## Contexts & Execution Modes
-
-- **Hook Context (Non-Interactive / Stop-Hook):** Run in report-only mode (QUICK depth) on touched files. Output a brief severity table. Do not modify files.
-- **Agent Context (Interactive / Chat):** If issues are found, you **MUST** call the `ask_question` tool (if supported) to prompt the user.
+Per-ORM N+1 shapes, per-stack blocking patterns, and scoping rules (what NOT to flag): read `references/checks.md` before scanning.
 
 ## Fix mode (choice-gated)
 
-In **Agent Context**, after presenting the audit report, call `ask_question` to present the following options (localized to user's active language):
+In Agent Context, after the audit report, present via `ask_question`:
 
 - **Apply safe optimizations:** Replace synchronous file operations with asynchronous ones, and insert `finally` blocks for stream closing.
 - **Let me pick:** Allow the user to select specific optimizations.
@@ -37,26 +34,15 @@ Severity: CRITICAL (O(N^2) on user-facing API / unclosed file handles) · HIGH (
 
 ## Escalation — Scope & Model Quality
 
-**Before starting**, assess scope (volume, performance risk breadth, criticality), then call `ask_question` once with 3 options (localized to user's language). Mark the recommended option `✓` dynamically based on your assessment — never hardcode the recommendation.
-
-**Recommendation logic (use judgment, not just file count):**
-- Small scope · few bottleneck types · non-critical → recommend **Light**
-- Medium scope · multiple categories → recommend **Standard**
-- Large scope · all 5 categories · performance-critical · pre-launch → recommend **Heavy**
-
 | Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|
 | **Light** | Spot performance check, hot paths only | Single agent, no sub-agents. Use your platform's most economical mode. | Low |
 | **Standard** | Balanced scalability audit, multi-category | Spawn focused sub-agents per category if your platform supports it. Use your platform's balanced mode. | Balanced |
 | **Heavy** | Full 5-category audit + adversarial profiling verify | Spawn sub-agents at maximum capacity if your platform supports it. Use your platform's most powerful mode and largest available context. | High |
 
-**Agent Context (Interactive):** Call `ask_question` after scope assessment. Do not start work until user confirms.
+**Agent Context (interactive):** assess scope, then call `ask_question` once with the 3 tiers — mark the recommended one `✓` by judgment (never hardcoded), localize labels, and wait for the user's choice before starting. `ask_question` = your platform's question tool: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo `ask_followup_question` · Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in prompts; none (e.g. Goose) → numbered text menu.
 
-**Hook Context (Non-Interactive / Stop-Hook):** Auto-select Light. Skip `ask_question`. Run report-only, no fixes. No sub-agents.
+**Hook Context (non-interactive):** auto-select Light. No questions, no fixes, no sub-agents — report only.
 
-**`ask_question` = your platform's interactive question tool**, whatever its real name: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo Code `ask_followup_question` · GitHub Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in question prompts. If your platform has no such tool (e.g. Goose), present the same options as a numbered text list and wait for the user's reply.
-
-**Heavy Durability (long multi-agent runs):**
-- Chunk the run into short orchestration phases (each completing within minutes) and read results between phases — one long-running orchestration is one session interruption away from losing all in-flight work.
-- If an orchestration dies mid-run (session restart/kill), recover before re-running: completed sub-agent results usually survive in your platform's run records (run journal, resumable run ID, or per-agent transcripts) — re-spawn only the missing pieces.
+**Heavy durability:** chunk long multi-agent runs into short phases, reading results between them; if a run dies mid-way, recover completed sub-agent results from your platform's run records and re-spawn only the missing pieces.
 

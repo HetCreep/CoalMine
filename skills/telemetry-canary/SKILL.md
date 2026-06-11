@@ -1,7 +1,7 @@
 ---
 name: telemetry-canary
 description: >-
-  Observability and structured logging canary — checks for structured logs (JSON), OpenTelemetry metrics/traces, proper error stack traces, and flags empty catches or silent log swallowing. Triggers on keywords: "/telemetry-canary", "telemetry-canary", "observability audit", "structured logging".
+  Observability and structured logging canary — checks for structured logs (JSON), OpenTelemetry metrics/traces, proper error stack traces, and flags empty catches or silent log swallowing. Triggers on keywords: "/telemetry-canary", "telemetry-canary", "observability audit", "structured logging". Use when adding or changing logging, metrics, tracing, or error-handling code.
 ---
 
 # Telemetry Canary (Observability & Logging Audit)
@@ -17,14 +17,11 @@ Audit code for proper telemetry instrumentation. Ensure the application is not a
 4. **Missing Metrics** — Critical business transactions (e.g., checkouts, auth, errors) that lack counter/histogram instrumentation.
 5. **No Stack Traces** — Errors logged without stack context (e.g., `logger.error(e.message)` instead of passing the entire error object `logger.error(e)`).
 
-## Contexts & Execution Modes
-
-- **Hook Context (Non-Interactive / Stop-Hook):** Run in report-only mode (QUICK depth) on touched files. Output a brief severity table of gaps. Do not modify files.
-- **Agent Context (Interactive / Chat):** If issues are found, you **MUST** call the `ask_question` tool (if supported) to prompt the user for fixes.
+Per-stack grep patterns and right/wrong shapes for every category: read `references/checks.md` before scanning.
 
 ## Fix mode (choice-gated)
 
-In **Agent Context**, after presenting the audit report, call `ask_question` to present the following options (localized to user's active language):
+In Agent Context, after the audit report, present via `ask_question`:
 
 - **Apply safe logs:** Insert missing error logging to empty catch blocks (using a standard logger template) and add stack trace mapping.
 - **Let me pick:** Allow the user to select which telemetry gaps to resolve.
@@ -36,13 +33,6 @@ In **Agent Context**, after presenting the audit report, call `ask_question` to 
 Severity: CRITICAL (swallowed error with state mutation) · HIGH (missing stack trace in error logs) · MEDIUM (unstructured log in API boundary) · LOW (minor trace gaps)
 
 ## Escalation — Scope & Model Quality
-
-**Before starting**, assess scope (volume, instrumentation gap breadth, criticality), then call `ask_question` once with 3 options (localized to user's language). Mark the recommended option `✓` dynamically based on your assessment — never hardcode the recommendation.
-
-**Recommendation logic (use judgment, not just file count):**
-- Small scope · few gap types · non-critical → recommend **Light**
-- Medium scope · multiple categories → recommend **Standard**
-- Large scope · all 5 categories · release · observability-critical → recommend **Heavy**
 
 | Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|

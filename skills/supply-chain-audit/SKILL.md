@@ -30,41 +30,26 @@ Audit what the project trusts: deps, build pipeline, shipped artifact. Report; d
 - User can verify before running?
 
 ## Tooling
-| Ecosystem | vuln | license | outdated |
-|---|---|---|---|
-| .NET | Dependabot / OSV (packages.config → no `--vulnerable`) | clearlydefined | `dotnet list package --outdated` |
-| npm | `npm audit` | `license-checker` | `npm outdated` |
-| Python | `pip-audit` | `pip-licenses` | `pip list --outdated` |
-| Rust | `cargo audit` (RustSec) | `cargo-deny` | `cargo outdated` |
+Per-ecosystem vuln/license/outdated commands + offline fallback: read `references/tooling.md` when selecting scanners.
 
 ## Discipline
 - Ground every CVE/fixed-version in an advisory. Never from memory.
 - Don't auto-change deps — report + recommend; user decides (bumps break builds).
-- State what was NOT scanned.
-- **Offline & Dependabot Fallback:** If active network vulnerability scans or package registry audits are blocked by local sandbox constraints (`N-A`), the agent MUST fallback to inspecting local dependency lockfiles (`package-lock.json`, `pnpm-lock.yaml`, `Cargo.lock`, etc.) and auditing locally stored Dependabot logs or GitHub Security Alerts if present.
+- State what was NOT scanned. Blocked network scans → lockfile inspection fallback (see `references/tooling.md`), mark live checks N-A.
 
 ## Output
 `| package | direct/transitive | issue | severity | advisory | fixed-in | action |`
 Build+artifact checklist · Summary (counts + top fixes) · Not scanned
 
 ## Fix mode (choice-gated)
-After report, pop choice:
+After the report, present via `ask_question`:
 - **Pin safe now** — commit already-present unchanged lockfile, pin CI action to current SHA, add missing checksum step. Each: checkpoint → apply → verify.
-- **ให้ฉันเลือก** — user-selected fixes only.
-- **รายงานอย่างเดียว** — change nothing.
+- **Let me pick** — user-selected fixes only.
+- **Report only** — change nothing.
 
-(Translate choice labels to user's language — English: "pin safe now" / "let me pick" / "report only". Thai: as above.)
-
-NEVER auto-fix: dep version bump, lockfile regen (re-resolves entire transitive tree). Non-interactive → report only.
+NEVER auto-fix: dep version bump, lockfile regen (re-resolves entire transitive tree).
 
 ## Escalation — Scope & Model Quality
-
-**Before starting**, assess scope (sections to audit, dependency tree size, release criticality), then call `ask_question` once with 3 options (localized to user's language). Mark the recommended option `✓` dynamically based on your assessment — never hardcode the recommendation.
-
-**Recommendation logic (use judgment, not just package count):**
-- Single section · small dep tree · non-critical → recommend **Light**
-- Multiple sections · moderate dep tree → recommend **Standard**
-- All 3 sections · large dep tree · release · pre-ship → recommend **Heavy**
 
 | Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|

@@ -21,10 +21,9 @@ Four acts: **AUDIT** → **FILL** → **ADOPT** → **CONFORM**. Stop at any.
 | "conform old code" / "retrofit" | CONFORM |
 | "fill and adopt" / `ACTION=fill-adopt` | AUDIT → FILL → summary → ADOPT → offer CONFORM |
 
-## Acts & Contexts
+## Acts
 
-- **Hook Context (Non-Interactive):** When run automatically or as a background task, execute report-only checks (AUDIT/CONFORM checks) and log output without prompting.
-- **Agent Context (Interactive):** When invoked in chat, you **MUST** call the `ask_question` tool (if supported, otherwise fallback to text prompts) to confirm rule adoption (**ADOPT**) or approve applying specific fixes (**CONFORM**). Adapt options dynamically to the user's active language.
+ADOPT and every CONFORM fix are gated through `ask_question` — never assume approval.
 
 1. **AUDIT** — pick 3–5 named exemplars, derive the 100% checklist per dimension, score (✅/🟡/❌/N-A), give overall %.
 2. **FILL** — write missing MUST-HAVE rules into project's rules home (`.claude/rules/` → `AGENTS.md` → `STANDARDS.md`). Match project style + voice. Cite the exemplar. Invoke source-grounding for version-sensitive claims. Extend existing; never duplicate. Never generate overkill or unnecessary rules — only write rules that are essential, practical, and highly saturated (หลีกเลี่ยงการสร้างกฎแบบ Overkill ที่ฟุ่มเฟือยเกินจำเป็น).
@@ -44,8 +43,8 @@ Correctness · Security · Performance · UX/DX · Docs/onboarding · Testing/CI
 - Don't inflate. 85% should say 85%.
 - Every criterion cites a real exemplar — "npm does X", "Cargo does Y". No unsourced "best practice".
 - State dimensions not assessed + why.
-- **Environment & Connection Constraints:** AI Agents require an internet connection to run their LLM models. However, local sandboxes or network restrictions may block specific outgoing tool requests (like online vulnerability database checks). If external tool queries fail or are blocked, mark those specific checks as **N-A** with clear justification.
-- **Multi-Source Grounding:** Never rely on a single database source or the AI agent's internal memory alone. For rule generation and completeness audits, the agent MUST aggregate and cross-reference multiple authoritative sources (e.g., world-class exemplars, packages registries, GHSA/OSV/NVD feeds) to ensure correctness and zero hallucination.
+- **Blocked lookups:** if sandbox/network blocks an external check, mark it **N-A** with justification — never guess.
+- **Multi-source grounding:** never score from memory or a single source — cross-reference exemplars, registries, advisory feeds (GHSA/OSV/NVD).
 
 ## Output
 1. Bar — category + named exemplars
@@ -55,13 +54,6 @@ Correctness · Security · Performance · UX/DX · Docs/onboarding · Testing/CI
 5. Verdict — 1 line + top 3 moves
 
 ## Escalation — Scope & Model Quality
-
-**Before starting**, assess scope (volume, complexity, criticality of the work), then call `ask_question` once with 3 options (localized to user's language). Mark the recommended option `✓` dynamically based on your assessment — never hardcode the recommendation.
-
-**Recommendation logic (use judgment, not just file count):**
-- Small scope · AUDIT only · quick gap check → recommend **Light**
-- Medium scope · AUDIT+FILL · moderate complexity → recommend **Standard**
-- Large scope · full AUDIT+FILL+ADOPT+CONFORM · release · "world-class" → recommend **Heavy**
 
 | Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|

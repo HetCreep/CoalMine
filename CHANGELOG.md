@@ -4,6 +4,20 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [2.2.0] — 2026-06-11
+
+### Changed (token diet — every skill body slimmer, depth preserved)
+- All 9 skill bodies restructured for progressive disclosure: per-stack tables and platform matrices moved to per-skill `references/*.md`, loaded only when the skill actually runs a scan. Dist SKILL.md total 51.4 KB → 38.6 KB (−25%; rotcanary −36%) while adding depth.
+- Removed per-skill "Contexts & Execution Modes" and "Before starting / Recommendation logic" boilerplate — the shared escalation footer now carries the gate once; tier intents live in the escalation table.
+- Shared escalation footer compressed (~40%) while keeping the per-platform `ask_question` alias map, hook-context rule, and Heavy-durability guidance.
+
+### Added
+- `references/checks.md` for telemetry, testability, scale, and drift canaries — concrete per-stack/per-ORM detection procedures (the four newest canaries now match rotcanary's audit depth).
+- `references/tooling.md` (rotcanary, supply-chain-audit) and `references/cadence.md` (rotcanary) — moved from skill bodies.
+- "Use when …" situational clause in the 5 keyword-only skill descriptions (telemetry/testability/scale/drift/resilience) for better auto-trigger accuracy on all platforms.
+- Hook regression tests `scripts/lib/hooks.test.mjs` (5 cases: touch record, case-insensitive dedup, fail-silent, stop nudge, acknowledged-batch cleanup) — hermetic via sandboxed TEMP/USERPROFILE; wired into pre-commit/pre-push (now 11 tests total).
+- `platform-configs/hooks/` — rotcanary auto-cadence wiring templates for GitHub Copilot, Cursor, Gemini CLI, and Codex CLI, from vendor-doc-verified event names.
+
 ## [2.1.0] — 2026-06-11
 
 ### Fixed

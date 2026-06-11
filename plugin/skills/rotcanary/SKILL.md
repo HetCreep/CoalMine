@@ -31,20 +31,13 @@ Scan code for rot. Report CONFIRMED findings. Fix on request.
 - Cite evidence (file:line, call-site count, the absent catch).
 - "Dead" = zero reachability via ALL routes (reflection, DI, events, public API, tests).
 
-## Contexts & Execution Modes
-
-- **Hook Context (Non-Interactive / Stop-Hook):** When triggered automatically by the session-end CLI hook, the agent must run the scan in report-only mode (QUICK depth) and output a brief severity table. Do not ask questions or make modifications.
-- **Agent Context (Interactive / Chat / Manual):** When invoked manually by the user, the agent runs in interactive mode. If code issues are found, the agent **MUST** present the Fix Mode choice menu to the user.
-
 ## Fix mode (choice-gated)
 
-In **Agent Context**, after presenting the scan report, you **MUST** call the `ask_question` tool (if supported by your platform) to present the following options. Adapt the question title and options to mirror the user's active language:
+In Agent Context, after the scan report you **MUST** present this menu via `ask_question`:
 
-- **Apply safe fixes:** Apply safe, mechanical, and fully reversible edits (e.g., dead imports, commented-out blocks, formatting). For each fix: checkpoint (git stash/commit) → apply → re-run build + tests → auto-revert if tests fail.
-- **Let me pick:** List the findings and let the user select specific fixes.
-- **Report only:** Exit without making any changes.
-
-If the `ask_question` tool is not supported, present these choices as a standard text-based list and wait for the user's response in the chat.
+- **Apply safe fixes:** mechanical, fully reversible edits only (dead imports, commented-out blocks, formatting). Each fix: checkpoint (git stash/commit) → apply → build + tests → auto-revert if newly red.
+- **Let me pick:** list findings; user selects.
+- **Report only:** exit unchanged.
 
 NEVER auto-fix: live/reachable path · logic change · "API looks wrong" (ground via source-grounding first) · framework-wired code that only *looks* dead · SUSPECTED findings.
 
@@ -56,29 +49,12 @@ Then: SUSPECTED list · coverage gaps · counts + top 3 to fix.
 Severity: CRITICAL (data loss/security/crash on normal path) · HIGH (real bug/leak on reachable path) · MEDIUM (dead/dup/unwired) · LOW (style/doc rot)
 
 ## Cadence
-Stop hook → auto QUICK on session's touched files (report only). Hook support varies by platform:
-- **Auto-wired:** Claude Code — the plugin ships PostToolUse + Stop hooks; GitHub Copilot (VS Code agent mode / CLI) consumes the same hooks format. Kill-switch `~/.claude/.rotcanary-off` applies to these hook installs only.
-- **Wire manually** (equivalent events exist — port [`hooks/`](../../hooks/) per platform docs): Cursor `afterFileEdit`/`stop` · Gemini CLI `AfterTool`/`AfterAgent` · Codex `PostToolUse`/`Stop` · Goose `AfterFileEdit`/`Stop`.
-- **Manual only** (no stop event): Cline, Junie — run `/rotcanary` yourself, e.g. before commit.
-Manual: whole-repo DEEP sweep when needed.
+Stop hook → auto QUICK on session's touched files (report only); manual whole-repo DEEP sweep when needed. Auto-wiring is platform-dependent — read `references/cadence.md` before claiming auto-scan works on the current platform.
 
 ## Tooling
-| Stack | build/warnings | dead-code | lint |
-|---|---|---|---|
-| C#/.NET | `dotnet build -warnaserror` · Roslyn IDE0051/CS0162 | Roslyn analyzers | nullable, `dotnet format` |
-| TS/JS | `tsc --noEmit` | `knip`, `ts-prune`, `depcheck` | `eslint` |
-| Python | `python -W error` | `vulture`, `ruff F401/F841` | `mypy`, `ruff` |
-| Rust | `cargo build` | `cargo machete` | `cargo clippy` |
-| Go | `go build`, `go vet` | `deadcode`, `staticcheck` | `staticcheck` |
+Per-stack build/dead-code/lint commands: read `references/tooling.md` when selecting scan tools.
 
 ## Escalation — Scope & Model Quality
-
-**Before starting**, assess scope (volume, complexity, criticality of the work), then call `ask_question` once with 3 options (localized to user's language). Mark the recommended option `✓` dynamically based on your assessment — never hardcode the recommendation.
-
-**Recommendation logic (use judgment, not just file count):**
-- Small scope · low complexity · non-critical → recommend **Light**
-- Medium scope · moderate complexity → recommend **Standard**
-- Large scope · high complexity · release · security · critical path → recommend **Heavy**
 
 | Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|
@@ -86,12 +62,8 @@ Manual: whole-repo DEEP sweep when needed.
 | **Standard** | Balanced scan, module-level coverage | Spawn focused sub-agents per category if your platform supports it. Use your platform's balanced mode. | Balanced |
 | **Heavy** | Full scan, maximum coverage | Spawn sub-agents at maximum capacity if your platform supports it. Use your platform's most powerful mode and largest available context. | High |
 
-**Agent Context (Interactive):** Call `ask_question` after scope assessment. Do not start work until user confirms.
+**Agent Context (interactive):** assess scope, then call `ask_question` once with the 3 tiers — mark the recommended one `✓` by judgment (never hardcoded), localize labels, and wait for the user's choice before starting. `ask_question` = your platform's question tool: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo `ask_followup_question` · Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in prompts; none (e.g. Goose) → numbered text menu.
 
-**Hook Context (Non-Interactive / Stop-Hook):** Auto-select Light. Skip `ask_question`. Run report-only, no fixes. No sub-agents.
+**Hook Context (non-interactive):** auto-select Light. No questions, no fixes, no sub-agents — report only.
 
-**`ask_question` = your platform's interactive question tool**, whatever its real name: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo Code `ask_followup_question` · GitHub Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in question prompts. If your platform has no such tool (e.g. Goose), present the same options as a numbered text list and wait for the user's reply.
-
-**Heavy Durability (long multi-agent runs):**
-- Chunk the run into short orchestration phases (each completing within minutes) and read results between phases — one long-running orchestration is one session interruption away from losing all in-flight work.
-- If an orchestration dies mid-run (session restart/kill), recover before re-running: completed sub-agent results usually survive in your platform's run records (run journal, resumable run ID, or per-agent transcripts) — re-spawn only the missing pieces.
+**Heavy durability:** chunk long multi-agent runs into short phases, reading results between them; if a run dies mid-way, recover completed sub-agent results from your platform's run records and re-spawn only the missing pieces.

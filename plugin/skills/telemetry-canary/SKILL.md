@@ -1,7 +1,7 @@
 ---
 name: telemetry-canary
 description: >-
-  Observability and structured logging canary — checks for structured logs (JSON), OpenTelemetry metrics/traces, proper error stack traces, and flags empty catches or silent log swallowing. Triggers on keywords: "/telemetry-canary", "telemetry-canary", "observability audit", "structured logging".
+  Observability and structured logging canary — checks for structured logs (JSON), OpenTelemetry metrics/traces, proper error stack traces, and flags empty catches or silent log swallowing. Triggers on keywords: "/telemetry-canary", "telemetry-canary", "observability audit", "structured logging". Use when adding or changing logging, metrics, tracing, or error-handling code.
 ---
 
 # Telemetry Canary (Observability & Logging Audit)
@@ -17,14 +17,11 @@ Audit code for proper telemetry instrumentation. Ensure the application is not a
 4. **Missing Metrics** — Critical business transactions (e.g., checkouts, auth, errors) that lack counter/histogram instrumentation.
 5. **No Stack Traces** — Errors logged without stack context (e.g., `logger.error(e.message)` instead of passing the entire error object `logger.error(e)`).
 
-## Contexts & Execution Modes
-
-- **Hook Context (Non-Interactive / Stop-Hook):** Run in report-only mode (QUICK depth) on touched files. Output a brief severity table of gaps. Do not modify files.
-- **Agent Context (Interactive / Chat):** If issues are found, you **MUST** call the `ask_question` tool (if supported) to prompt the user for fixes.
+Per-stack grep patterns and right/wrong shapes for every category: read `references/checks.md` before scanning.
 
 ## Fix mode (choice-gated)
 
-In **Agent Context**, after presenting the audit report, call `ask_question` to present the following options (localized to user's active language):
+In Agent Context, after the audit report, present via `ask_question`:
 
 - **Apply safe logs:** Insert missing error logging to empty catch blocks (using a standard logger template) and add stack trace mapping.
 - **Let me pick:** Allow the user to select which telemetry gaps to resolve.
@@ -37,26 +34,15 @@ Severity: CRITICAL (swallowed error with state mutation) · HIGH (missing stack 
 
 ## Escalation — Scope & Model Quality
 
-**Before starting**, assess scope (volume, instrumentation gap breadth, criticality), then call `ask_question` once with 3 options (localized to user's language). Mark the recommended option `✓` dynamically based on your assessment — never hardcode the recommendation.
-
-**Recommendation logic (use judgment, not just file count):**
-- Small scope · few gap types · non-critical → recommend **Light**
-- Medium scope · multiple categories → recommend **Standard**
-- Large scope · all 5 categories · release · observability-critical → recommend **Heavy**
-
 | Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|
 | **Light** | Spot telemetry check, key paths only | Single agent, no sub-agents. Use your platform's most economical mode. | Low |
 | **Standard** | Balanced observability audit, multi-category | Spawn focused sub-agents per category if your platform supports it. Use your platform's balanced mode. | Balanced |
 | **Heavy** | Full 5-category audit + adversarial verify | Spawn sub-agents at maximum capacity if your platform supports it. Use your platform's most powerful mode and largest available context. | High |
 
-**Agent Context (Interactive):** Call `ask_question` after scope assessment. Do not start work until user confirms.
+**Agent Context (interactive):** assess scope, then call `ask_question` once with the 3 tiers — mark the recommended one `✓` by judgment (never hardcoded), localize labels, and wait for the user's choice before starting. `ask_question` = your platform's question tool: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo `ask_followup_question` · Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in prompts; none (e.g. Goose) → numbered text menu.
 
-**Hook Context (Non-Interactive / Stop-Hook):** Auto-select Light. Skip `ask_question`. Run report-only, no fixes. No sub-agents.
+**Hook Context (non-interactive):** auto-select Light. No questions, no fixes, no sub-agents — report only.
 
-**`ask_question` = your platform's interactive question tool**, whatever its real name: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo Code `ask_followup_question` · GitHub Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in question prompts. If your platform has no such tool (e.g. Goose), present the same options as a numbered text list and wait for the user's reply.
-
-**Heavy Durability (long multi-agent runs):**
-- Chunk the run into short orchestration phases (each completing within minutes) and read results between phases — one long-running orchestration is one session interruption away from losing all in-flight work.
-- If an orchestration dies mid-run (session restart/kill), recover before re-running: completed sub-agent results usually survive in your platform's run records (run journal, resumable run ID, or per-agent transcripts) — re-spawn only the missing pieces.
+**Heavy durability:** chunk long multi-agent runs into short phases, reading results between them; if a run dies mid-way, recover completed sub-agent results from your platform's run records and re-spawn only the missing pieces.
 

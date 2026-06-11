@@ -21,10 +21,9 @@ Four acts: **AUDIT** → **FILL** → **ADOPT** → **CONFORM**. Stop at any.
 | "conform old code" / "retrofit" | CONFORM |
 | "fill and adopt" / `ACTION=fill-adopt` | AUDIT → FILL → summary → ADOPT → offer CONFORM |
 
-## Acts & Contexts
+## Acts
 
-- **Hook Context (Non-Interactive):** When run automatically or as a background task, execute report-only checks (AUDIT/CONFORM checks) and log output without prompting.
-- **Agent Context (Interactive):** When invoked in chat, you **MUST** call the `ask_question` tool (if supported, otherwise fallback to text prompts) to confirm rule adoption (**ADOPT**) or approve applying specific fixes (**CONFORM**). Adapt options dynamically to the user's active language.
+ADOPT and every CONFORM fix are gated through `ask_question` — never assume approval.
 
 1. **AUDIT** — pick 3–5 named exemplars, derive the 100% checklist per dimension, score (✅/🟡/❌/N-A), give overall %.
 2. **FILL** — write missing MUST-HAVE rules into project's rules home (`.claude/rules/` → `AGENTS.md` → `STANDARDS.md`). Match project style + voice. Cite the exemplar. Invoke source-grounding for version-sensitive claims. Extend existing; never duplicate. Never generate overkill or unnecessary rules — only write rules that are essential, practical, and highly saturated (หลีกเลี่ยงการสร้างกฎแบบ Overkill ที่ฟุ่มเฟือยเกินจำเป็น).
@@ -44,8 +43,8 @@ Correctness · Security · Performance · UX/DX · Docs/onboarding · Testing/CI
 - Don't inflate. 85% should say 85%.
 - Every criterion cites a real exemplar — "npm does X", "Cargo does Y". No unsourced "best practice".
 - State dimensions not assessed + why.
-- **Environment & Connection Constraints:** AI Agents require an internet connection to run their LLM models. However, local sandboxes or network restrictions may block specific outgoing tool requests (like online vulnerability database checks). If external tool queries fail or are blocked, mark those specific checks as **N-A** with clear justification.
-- **Multi-Source Grounding:** Never rely on a single database source or the AI agent's internal memory alone. For rule generation and completeness audits, the agent MUST aggregate and cross-reference multiple authoritative sources (e.g., world-class exemplars, packages registries, GHSA/OSV/NVD feeds) to ensure correctness and zero hallucination.
+- **Blocked lookups:** if sandbox/network blocks an external check, mark it **N-A** with justification — never guess.
+- **Multi-source grounding:** never score from memory or a single source — cross-reference exemplars, registries, advisory feeds (GHSA/OSV/NVD).
 
 ## Output
 1. Bar — category + named exemplars
@@ -56,25 +55,14 @@ Correctness · Security · Performance · UX/DX · Docs/onboarding · Testing/CI
 
 ## Escalation — Scope & Model Quality
 
-**Before starting**, assess scope (volume, complexity, criticality of the work), then call `ask_question` once with 3 options (localized to user's language). Mark the recommended option `✓` dynamically based on your assessment — never hardcode the recommendation.
-
-**Recommendation logic (use judgment, not just file count):**
-- Small scope · AUDIT only · quick gap check → recommend **Light**
-- Medium scope · AUDIT+FILL · moderate complexity → recommend **Standard**
-- Large scope · full AUDIT+FILL+ADOPT+CONFORM · release · "world-class" → recommend **Heavy**
-
 | Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|
 | **Light** | Quick gap check, AUDIT only | Single agent, no sub-agents. Use your platform's most economical mode. | Low |
 | **Standard** | Balanced audit, AUDIT+FILL | Spawn focused sub-agents per category if your platform supports it. Use your platform's balanced mode. | Balanced |
 | **Heavy** | Full audit cycle, AUDIT+FILL+ADOPT+CONFORM | Spawn sub-agents at maximum capacity if your platform supports it. Use your platform's most powerful mode and largest available context. | High |
 
-**Agent Context (Interactive):** Call `ask_question` after scope assessment. Do not start work until user confirms.
+**Agent Context (interactive):** assess scope, then call `ask_question` once with the 3 tiers — mark the recommended one `✓` by judgment (never hardcoded), localize labels, and wait for the user's choice before starting. `ask_question` = your platform's question tool: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo `ask_followup_question` · Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in prompts; none (e.g. Goose) → numbered text menu.
 
-**Hook Context (Non-Interactive / Stop-Hook):** Auto-select Light. Skip `ask_question`. Run report-only, no fixes. No sub-agents.
+**Hook Context (non-interactive):** auto-select Light. No questions, no fixes, no sub-agents — report only.
 
-**`ask_question` = your platform's interactive question tool**, whatever its real name: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo Code `ask_followup_question` · GitHub Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in question prompts. If your platform has no such tool (e.g. Goose), present the same options as a numbered text list and wait for the user's reply.
-
-**Heavy Durability (long multi-agent runs):**
-- Chunk the run into short orchestration phases (each completing within minutes) and read results between phases — one long-running orchestration is one session interruption away from losing all in-flight work.
-- If an orchestration dies mid-run (session restart/kill), recover before re-running: completed sub-agent results usually survive in your platform's run records (run journal, resumable run ID, or per-agent transcripts) — re-spawn only the missing pieces.
+**Heavy durability:** chunk long multi-agent runs into short phases, reading results between them; if a run dies mid-way, recover completed sub-agent results from your platform's run records and re-spawn only the missing pieces.

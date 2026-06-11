@@ -28,10 +28,7 @@ Standing rule — active every response. No invocation needed for routine use.
 4. Single blog — weak; corroborate first
 5. Training memory — weakest for volatile facts
 
-## Contexts & Execution Modes
-
-- **Hook Context (Non-Interactive):** When triggered automatically or as a background task, log unverified claims encountered as `⚠️ UNVERIFIED` entries in the output without blocking execution.
-- **Agent Context (Interactive / Chat):** When invoked in chat, you **MUST** use the `ask_question` tool (if supported, otherwise text prompt) to present the findings and confirm how to proceed when sources cannot be fetched at that moment.
+Non-interactive runs: log unfetchable claims as `⚠️ UNVERIFIED` and continue — never block. Interactive: when sources cannot be fetched, confirm how to proceed via `ask_question`.
 
 ## Output
 - Verified: `✅ [claim] — source: [link/file]`
@@ -44,25 +41,14 @@ Standing rule — active every response. No invocation needed for routine use.
 
 ## Escalation — Scope & Model Quality
 
-**Before starting**, assess scope (volume of claims, source complexity, criticality), then call `ask_question` once with 3 options (localized to user's language). Mark the recommended option `✓` dynamically based on your assessment — never hardcode the recommendation.
-
-**Recommendation logic (use judgment, not just claim count):**
-- Few claims · single source type · non-critical → recommend **Light**
-- Multiple claims · mixed sources · moderate complexity → recommend **Standard**
-- Many claims · CVE cross-check · security-critical · release → recommend **Heavy**
-
 | Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|
 | **Light** | Spot-check key claims, single source | Single agent, no sub-agents. Use your platform's most economical mode. | Low |
 | **Standard** | Balanced verification, mixed sources | Spawn focused sub-agents per category if your platform supports it. Use your platform's balanced mode. | Balanced |
 | **Heavy** | Full cross-verification, adversarial check | Spawn sub-agents at maximum capacity if your platform supports it. Use your platform's most powerful mode and largest available context. | High |
 
-**Agent Context (Interactive):** Call `ask_question` after scope assessment. Do not start work until user confirms.
+**Agent Context (interactive):** assess scope, then call `ask_question` once with the 3 tiers — mark the recommended one `✓` by judgment (never hardcoded), localize labels, and wait for the user's choice before starting. `ask_question` = your platform's question tool: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo `ask_followup_question` · Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in prompts; none (e.g. Goose) → numbered text menu.
 
-**Hook Context (Non-Interactive / Stop-Hook):** Auto-select Light. Skip `ask_question`. Run report-only, no fixes. No sub-agents.
+**Hook Context (non-interactive):** auto-select Light. No questions, no fixes, no sub-agents — report only.
 
-**`ask_question` = your platform's interactive question tool**, whatever its real name: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo Code `ask_followup_question` · GitHub Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in question prompts. If your platform has no such tool (e.g. Goose), present the same options as a numbered text list and wait for the user's reply.
-
-**Heavy Durability (long multi-agent runs):**
-- Chunk the run into short orchestration phases (each completing within minutes) and read results between phases — one long-running orchestration is one session interruption away from losing all in-flight work.
-- If an orchestration dies mid-run (session restart/kill), recover before re-running: completed sub-agent results usually survive in your platform's run records (run journal, resumable run ID, or per-agent transcripts) — re-spawn only the missing pieces.
+**Heavy durability:** chunk long multi-agent runs into short phases, reading results between them; if a run dies mid-way, recover completed sub-agent results from your platform's run records and re-spawn only the missing pieces.

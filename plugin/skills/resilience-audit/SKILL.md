@@ -1,7 +1,7 @@
 ---
 name: resilience-audit
 description: >-
-  Failure-mode audit (FMEA for software) — for each way the system can fail (network, storage, partial completion, crash, concurrency, bad input), check whether code DETECTS, HANDLES, RECOVERS, and COMMUNICATES it. Triggers on: "/resilience-audit", "resilience-audit", "FMEA audit". Flags data loss, silent-success-on-failure, missing rollback/retry/idempotency. Reports; does not fix unless asked.
+  Failure-mode audit (FMEA for software) — for each way the system can fail (network, storage, partial completion, crash, concurrency, bad input), check whether code DETECTS, HANDLES, RECOVERS, and COMMUNICATES it. Triggers on: "/resilience-audit", "resilience-audit", "FMEA audit". Use when touching network, storage, async, retry, or rollback paths. Flags data loss, silent-success-on-failure, missing rollback/retry/idempotency. Reports; does not fix unless asked.
 ---
 
 # Resilience Audit
@@ -38,23 +38,14 @@ Ordering/atomicity findings · Summary (counts + top fixes) · Not assessed
 Severity: CRITICAL (data loss/corruption/silent-success) · HIGH (crash/hang/partial-no-recovery) · MEDIUM (poor degradation/missing retry) · LOW (cosmetic)
 
 ## Fix mode (choice-gated)
-After report, pop choice:
-- **แก้ที่ปลอดภัยเลย** — add missing timeout, add null/input validation, add clear error+log on unhandled path. Each: checkpoint → fix → build+tests → revert if newly red.
-- **ให้ฉันเลือก** — user-selected fixes only.
-- **รายงานอย่างเดียว** — change nothing.
+After the report, present via `ask_question`:
+- **Fix safe ones** — add missing timeout, null/input validation, clear error+log on unhandled path. Each: checkpoint → fix → build+tests → revert if newly red.
+- **Let me pick** — user-selected fixes only.
+- **Report only** — change nothing.
 
-(Translate choice labels to user's language — English: "fix safe ones" / "let me pick" / "report only". Present the menu in whatever language the user is writing in.)
-
-NEVER auto-fix: retry/rollback/recovery/atomicity logic (semantic changes can introduce new failure modes). Non-interactive → report only.
+NEVER auto-fix: retry/rollback/recovery/atomicity logic (semantic changes can introduce new failure modes).
 
 ## Escalation — Scope & Model Quality
-
-**Before starting**, assess scope (volume, failure category breadth, criticality of the system), then call `ask_question` once with 3 options (localized to user's language). Mark the recommended option `✓` dynamically based on your assessment — never hardcode the recommendation.
-
-**Recommendation logic (use judgment, not just file count):**
-- Small scope · few failure categories · non-critical → recommend **Light**
-- Medium scope · several failure categories → recommend **Standard**
-- Large scope · all 8 categories · release · critical system → recommend **Heavy**
 
 | Level | Intent | Orchestration | Token Cost |
 |---|---|---|---|
@@ -62,12 +53,8 @@ NEVER auto-fix: retry/rollback/recovery/atomicity logic (semantic changes can in
 | **Standard** | Balanced FMEA, multi-category coverage | Spawn focused sub-agents per category if your platform supports it. Use your platform's balanced mode. | Balanced |
 | **Heavy** | Full 8-category FMEA + adversarial verify | Spawn sub-agents at maximum capacity if your platform supports it. Use your platform's most powerful mode and largest available context. | High |
 
-**Agent Context (Interactive):** Call `ask_question` after scope assessment. Do not start work until user confirms.
+**Agent Context (interactive):** assess scope, then call `ask_question` once with the 3 tiers — mark the recommended one `✓` by judgment (never hardcoded), localize labels, and wait for the user's choice before starting. `ask_question` = your platform's question tool: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo `ask_followup_question` · Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in prompts; none (e.g. Goose) → numbered text menu.
 
-**Hook Context (Non-Interactive / Stop-Hook):** Auto-select Light. Skip `ask_question`. Run report-only, no fixes. No sub-agents.
+**Hook Context (non-interactive):** auto-select Light. No questions, no fixes, no sub-agents — report only.
 
-**`ask_question` = your platform's interactive question tool**, whatever its real name: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo Code `ask_followup_question` · GitHub Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in question prompts. If your platform has no such tool (e.g. Goose), present the same options as a numbered text list and wait for the user's reply.
-
-**Heavy Durability (long multi-agent runs):**
-- Chunk the run into short orchestration phases (each completing within minutes) and read results between phases — one long-running orchestration is one session interruption away from losing all in-flight work.
-- If an orchestration dies mid-run (session restart/kill), recover before re-running: completed sub-agent results usually survive in your platform's run records (run journal, resumable run ID, or per-agent transcripts) — re-spawn only the missing pieces.
+**Heavy durability:** chunk long multi-agent runs into short phases, reading results between them; if a run dies mid-way, recover completed sub-agent results from your platform's run records and re-spawn only the missing pieces.

@@ -2,8 +2,9 @@
 # Exit on failure to prevent commit
 
 $testFile = Join-Path $PSScriptRoot "..\scripts\lib\render.test.mjs"
+$hookTestFile = Join-Path $PSScriptRoot "..\scripts\lib\hooks.test.mjs"
 if (Test-Path $testFile) {
-  node --test $testFile
+  node --test $testFile $hookTestFile
   if ($LASTEXITCODE -ne 0) {
     Write-Error "CoalMine unit tests failed. Commit aborted."
     exit 1
