@@ -4,6 +4,11 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [2.3.0] — 2026-06-11
+
+### Added
+- Deterministic tier rubric in the shared escalation footer (all 9 skills): five concrete +1 signals (scope size/reach, category breadth, release/security context, will-drive-changes, not-recently-audited) map to Light 0–1 / Standard 2–3 / Heavy 4–5 — same scope always yields the same recommendation, the score is shown to the user, and an explicit user tier request overrides.
+
 ## [2.2.1] — 2026-06-11
 
 DEEP rotcanary sweep over the whole repo (27 findings fixed).
