@@ -16,7 +16,7 @@ export function loadShared(sharedDir) {
   };
 }
 
-export function inject(content, shared, meta) {
+export function inject(content, shared, meta = {}) {
   // Replacement values go through arrow functions so `$&`/`$'`-style patterns
   // in partials or intents can never be interpreted as replacement directives.
   const orchestration = shared.orchestration

@@ -20,7 +20,12 @@ const fail = (m) => { ok = false; console.log('  FAIL ' + m); };
 
 // 1. skills
 const skillsSrc = path.join(repo, 'skills');
-const skills = fs.existsSync(skillsSrc) ? listSkills(skillsSrc) : [];
+let skills = [];
+try {
+  skills = fs.existsSync(skillsSrc) ? listSkills(skillsSrc) : [];
+} catch (e) {
+  fail(`failed to list skills at ${skillsSrc}: ${e.message}`);
+}
 console.log(`skills (${skills.length} found):`);
 for (const s of skills) {
   const md = path.join(skillsSrc, s, 'SKILL.md');
@@ -28,12 +33,18 @@ for (const s of skills) {
   let src;
   try { src = fs.readFileSync(md, 'utf8'); }
   catch (e) { fail(`${s}: SKILL.md unreadable: ${e.message}`); continue; }
-  const head = src.slice(0, 600);
-  if (!/^---/.test(head)) fail(`${s}: no YAML frontmatter`);
-  else if (!/\bname:\s*\S/.test(head)) fail(`${s}: frontmatter 'name:' missing`);
-  else if (!/\bdescription:\s*\S/.test(head)) fail(`${s}: frontmatter 'description:' missing`);
-  else if (!src.includes('<!-- SHARED:')) fail(`${s}: source lost its SHARED template markers (conformed in place? restore the template)`);
-  else pass(`${s}`);
+
+  // Extract YAML frontmatter (between the first two "---" delimiters)
+  const parts = src.split('---');
+  if (parts.length < 3 || src.trim().indexOf('---') !== 0) {
+    fail(`${s}: no YAML frontmatter`);
+  } else {
+    const head = parts[1];
+    if (!/\bname:\s*\S/.test(head)) fail(`${s}: frontmatter 'name:' missing`);
+    else if (!/\bdescription:\s*\S/.test(head)) fail(`${s}: frontmatter 'description:' missing`);
+    else if (!src.includes('<!-- SHARED:')) fail(`${s}: source lost its SHARED template markers (conformed in place? restore the template)`);
+    else pass(`${s}`);
+  }
 }
 if (skills.length !== 9) fail(`expected 9 skills, found ${skills.length}`);
 
@@ -54,26 +65,34 @@ for (const h of ['hooks/rotcanary-touch.js', 'hooks/rotcanary-stop.js']) {
 // Aux files (references/, skill-meta.json) ship verbatim — byte-compare both
 // directions so a hand-edited or orphaned dist file can never reach the marketplace.
 function compareAux(srcDir, dstDir, label) {
-  for (const e of fs.readdirSync(srcDir, { withFileTypes: true })) {
-    if (e.name === 'SKILL.md') continue;
-    const sp = path.join(srcDir, e.name);
-    const dp = path.join(dstDir, e.name);
-    if (e.isDirectory()) {
-      if (!fs.existsSync(dp)) { fail(`${label}/${e.name}/ missing — run: node scripts/build-plugin.mjs`); continue; }
-      compareAux(sp, dp, `${label}/${e.name}`);
-    } else {
-      try {
-        if (!fs.existsSync(dp)) fail(`${label}/${e.name} missing — run: node scripts/build-plugin.mjs`);
-        else if (fs.readFileSync(sp, 'utf8') !== fs.readFileSync(dp, 'utf8')) fail(`${label}/${e.name} STALE vs source — run: node scripts/build-plugin.mjs`);
-      } catch (err) { fail(`${label}/${e.name} compare failed: ${err.message}`); }
+  try {
+    const srcEntries = fs.readdirSync(srcDir, { withFileTypes: true });
+    for (const e of srcEntries) {
+      if (e.name === 'SKILL.md') continue;
+      const sp = path.join(srcDir, e.name);
+      const dp = path.join(dstDir, e.name);
+      if (e.isDirectory()) {
+        if (!fs.existsSync(dp)) { fail(`${label}/${e.name}/ missing — run: node scripts/build-plugin.mjs`); continue; }
+        compareAux(sp, dp, `${label}/${e.name}`);
+      } else {
+        try {
+          if (!fs.existsSync(dp)) fail(`${label}/${e.name} missing — run: node scripts/build-plugin.mjs`);
+          else if (fs.readFileSync(sp, 'utf8') !== fs.readFileSync(dp, 'utf8')) fail(`${label}/${e.name} STALE vs source — run: node scripts/build-plugin.mjs`);
+        } catch (err) { fail(`${label}/${e.name} compare failed: ${err.message}`); }
+      }
     }
+  } catch (err) {
+    fail(`${label} source directory read failed: ${err.message}`);
   }
   try {
-    for (const e of fs.readdirSync(dstDir, { withFileTypes: true })) {
+    const dstEntries = fs.readdirSync(dstDir, { withFileTypes: true });
+    for (const e of dstEntries) {
       if (e.name === 'SKILL.md') continue;
       if (!fs.existsSync(path.join(srcDir, e.name))) fail(`${label}/${e.name} has no source — run: node scripts/build-plugin.mjs`);
     }
-  } catch {}
+  } catch (err) {
+    fail(`${label} dist directory read failed: ${err.message}`);
+  }
 }
 
 // 4. plugin dist (committed; served by the marketplace via plugins[].source = "./plugin")
@@ -101,12 +120,61 @@ if (!fs.existsSync(pluginDir)) {
   }
   // Reverse check: nothing ships from the dist that has no source (orphan guard).
   try {
-    const distSkills = fs.readdirSync(path.join(pluginDir, 'skills'), { withFileTypes: true })
-      .filter((d) => d.isDirectory()).map((d) => d.name);
-    for (const d of distSkills) {
-      if (!skills.includes(d)) fail(`plugin/skills/${d} has no source — run: node scripts/build-plugin.mjs`);
+    const pluginEntries = fs.readdirSync(pluginDir, { withFileTypes: true });
+    for (const e of pluginEntries) {
+      if (e.isDirectory()) {
+        if (!['skills', 'hooks', '.claude-plugin'].includes(e.name)) {
+          fail(`plugin/${e.name} is an orphan directory — run: node scripts/build-plugin.mjs`);
+        }
+      } else {
+        fail(`plugin/${e.name} is an orphan file — run: node scripts/build-plugin.mjs`);
+      }
     }
-  } catch (e) { fail(`plugin/skills unreadable: ${e.message}`); }
+  } catch (e) { fail(`plugin/ root check failed: ${e.message}`); }
+
+  try {
+    const skillsDistDir = path.join(pluginDir, 'skills');
+    if (fs.existsSync(skillsDistDir)) {
+      const distEntries = fs.readdirSync(skillsDistDir, { withFileTypes: true });
+      for (const e of distEntries) {
+        if (e.isDirectory()) {
+          if (!skills.includes(e.name)) {
+            fail(`plugin/skills/${e.name} has no source — run: node scripts/build-plugin.mjs`);
+          }
+        } else {
+          fail(`plugin/skills/${e.name} is an orphan file — run: node scripts/build-plugin.mjs`);
+        }
+      }
+    }
+  } catch (e) { fail(`plugin/skills check failed: ${e.message}`); }
+
+  try {
+    const hooksDistDir = path.join(pluginDir, 'hooks');
+    if (fs.existsSync(hooksDistDir)) {
+      const distEntries = fs.readdirSync(hooksDistDir, { withFileTypes: true });
+      for (const e of distEntries) {
+        if (e.isDirectory()) {
+          fail(`plugin/hooks/${e.name} is an orphan directory — run: node scripts/build-plugin.mjs`);
+        } else if (!['hooks.json', 'rotcanary-touch.js', 'rotcanary-stop.js'].includes(e.name)) {
+          fail(`plugin/hooks/${e.name} is an orphan file — run: node scripts/build-plugin.mjs`);
+        }
+      }
+    }
+  } catch (e) { fail(`plugin/hooks check failed: ${e.message}`); }
+
+  try {
+    const manifestDistDir = path.join(pluginDir, '.claude-plugin');
+    if (fs.existsSync(manifestDistDir)) {
+      const distEntries = fs.readdirSync(manifestDistDir, { withFileTypes: true });
+      for (const e of distEntries) {
+        if (e.isDirectory()) {
+          fail(`plugin/.claude-plugin/${e.name} is an orphan directory — run: node scripts/build-plugin.mjs`);
+        } else if (e.name !== 'plugin.json') {
+          fail(`plugin/.claude-plugin/${e.name} is an orphan file — run: node scripts/build-plugin.mjs`);
+        }
+      }
+    }
+  } catch (e) { fail(`plugin/.claude-plugin check failed: ${e.message}`); }
   for (const f of ['hooks/hooks.json', 'hooks/rotcanary-touch.js', 'hooks/rotcanary-stop.js', '.claude-plugin/plugin.json']) {
     const distFile = path.join(pluginDir, f);
     if (!fs.existsSync(distFile)) { fail(`plugin/${f} missing — run: node scripts/build-plugin.mjs`); continue; }
@@ -127,7 +195,8 @@ if (!fs.existsSync(pluginDir)) {
 // 5. optional install target
 const arg = process.argv[2];
 if (arg) {
-  const dest = TARGETS[arg] ?? path.resolve(arg);
+  const targetKey = arg.toLowerCase();
+  const dest = TARGETS[targetKey] ?? path.resolve(arg);
   console.log(`target ${dest}:`);
   for (const s of skills) {
     const targetMd = path.join(dest, s, 'SKILL.md');

@@ -37,7 +37,8 @@ function main() {
 
   const f = input && input.tool_input && input.tool_input.file_path;
   if (!f) return;
-  if (!CODE_EXT.has(path.extname(f).toLowerCase())) return;
+  const normF = path.normalize(f);
+  if (!CODE_EXT.has(path.extname(normF).toLowerCase())) return;
 
   // No session id → no consumer (the stop hook bails without one). Record nothing.
   const sid = input.session_id;
@@ -46,26 +47,25 @@ function main() {
   const touched = base + '.touched';
 
   let existing = [];
-  try { existing = fs.readFileSync(touched, 'utf8').split('\n').filter(Boolean); } catch {}
+  try { existing = fs.readFileSync(touched, 'utf8').split('\n').filter(Boolean).map((x) => path.normalize(x)); } catch {}
   const isWin = process.platform === 'win32';
-  const fCompare = isWin ? f.toLowerCase() : f;
+  const fCompare = isWin ? normF.toLowerCase() : normF;
   const existingCompare = isWin ? existing.map((x) => x.toLowerCase()) : existing;
-  if (!existingCompare.includes(fCompare)) { try { fs.appendFileSync(touched, f + '\n'); } catch {} }
+  if (!existingCompare.includes(fCompare)) { try { fs.appendFileSync(touched, normF + '\n'); } catch {} }
 
   // Tripwire scan — skip very large files to stay inside the latency budget
   // (Phoenix #3: ≤100ms with scan).
-  try { if (fs.statSync(f).size > 1024 * 1024) return; } catch { return; }
+  try { if (fs.statSync(normF).size > 1024 * 1024) return; } catch { return; }
   let lines;
-  try { lines = fs.readFileSync(f, 'utf8').split(/\r?\n/); } catch { return; }
+  try { lines = fs.readFileSync(normF, 'utf8').split(/\r?\n/); } catch { return; }
 
   const smells = [];
   if (lines.some((l) => /^(<<<<<<< |>>>>>>> |=======$)/.test(l))) smells.push('merge-conflict markers');
   if (lines.length > 800) smells.push(`file >800 lines (${lines.length})`);
   if (smells.length) {
     // One line per file — the stop hook reports each .smells line verbatim.
-    try { fs.appendFileSync(base + '.smells', `${f}: ${smells.join('; ')}\n`); } catch {}
+    try { fs.appendFileSync(base + '.smells', `${normF}: ${smells.join('; ')}\n`); } catch {}
   }
 }
 
 try { main(); } catch {}
-process.exit(0);

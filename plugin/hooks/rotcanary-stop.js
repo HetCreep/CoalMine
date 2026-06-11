@@ -22,21 +22,37 @@ function rcMode() {
   return 'auto';
 }
 
+function readFirstChunk(p, size = 4096) {
+  let fd;
+  try {
+    fd = fs.openSync(p, 'r');
+    const buf = Buffer.alloc(size);
+    const bytesRead = fs.readSync(fd, buf, 0, size, 0);
+    return buf.toString('utf8', 0, bytesRead);
+  } catch {
+    return '';
+  } finally {
+    if (fd !== undefined) {
+      try { fs.closeSync(fd); } catch {}
+    }
+  }
+}
+
 // Heuristic user-language detection: env locale first, then regional characters
 // in project docs (per hooks-safety.md section 5).
 function detectLang() {
   try {
-    const langEnv = (process.env.LANG || process.env.LC_ALL || process.env.LC_MESSAGES || '').toLowerCase();
+    const langEnv = (process.env.LANG || process.env.LC_ALL || process.env.LC_MESSAGES || process.env.LANGUAGE || '').toLowerCase();
     if (langEnv.includes('th')) return 'th';
     if (langEnv.includes('ja') || langEnv.includes('jp')) return 'ja';
     if (langEnv.includes('zh') || langEnv.includes('cn')) return 'zh';
     if (langEnv.includes('es')) return 'es';
 
     const cwd = process.cwd();
-    for (const file of ['AGENTS.md', 'MEMORY.md', 'README.md']) {
+    for (const file of ['README.md', 'MEMORY.md', 'AGENTS.md']) {
       const p = path.join(cwd, file);
       if (fs.existsSync(p)) {
-        const content = fs.readFileSync(p, 'utf8');
+        const content = readFirstChunk(p);
         if (/[\u0e00-\u0e7f]/.test(content)) return 'th';
         if (/[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/.test(content)) {
           if (/[\u3040-\u309f\u30a0-\u30ff]/.test(content)) return 'ja';
@@ -128,7 +144,7 @@ function main() {
 
   let input;
   try { input = JSON.parse(raw); } catch { return; }
-  if (input.stop_hook_active) return;
+  if (!input || input.stop_hook_active) return;
 
   const sid = input.session_id;
   if (!sid) return;
@@ -137,19 +153,28 @@ function main() {
   const touched = base + '.touched';
   if (!fs.existsSync(touched)) return;
 
+  let touchedMtime = 0;
+  try { touchedMtime = fs.statSync(touched).mtimeMs; } catch { return; }
+
   const scanned = base + '.scanned';
   try {
-    if (fs.existsSync(scanned) && fs.statSync(touched).mtimeMs <= fs.statSync(scanned).mtimeMs) {
-      // Batch already acknowledged on a previous stop — state no longer needed.
-      cleanupSession(base);
-      return;
+    if (fs.existsSync(scanned)) {
+      const content = fs.readFileSync(scanned, 'utf8').trim();
+      const lastMtime = content ? Number(content) : Infinity;
+      if (touchedMtime <= lastMtime) {
+        // Batch already acknowledged on a previous stop — state no longer needed.
+        cleanupSession(base);
+        return;
+      }
     }
   } catch {}
 
   let files = [];
-  try { files = [...new Set(fs.readFileSync(touched, 'utf8').split('\n').filter(Boolean))].sort(); } catch { return; }
+  try {
+    files = [...new Set(fs.readFileSync(touched, 'utf8').split('\n').filter(Boolean).map((x) => path.normalize(x)))].sort();
+  } catch { return; }
   // Drop lines that aren't real paths (corrupt/garbage .touched content).
-  files = files.filter((x) => { try { return fs.existsSync(x); } catch { return false; } });
+  files = files.filter(fs.existsSync);
   if (!files.length) return;
 
   const t = TRANSLATIONS[detectLang()] || TRANSLATIONS.en;
@@ -164,8 +189,10 @@ function main() {
     }
   } catch {}
 
-  // Acknowledgement marker — only the file's mtime matters, content is unused.
-  try { fs.writeFileSync(scanned, ''); } catch {}
+  // Acknowledgement marker — store the mtime of .touched when we started the check.
+  try {
+    fs.writeFileSync(scanned, String(touchedMtime), 'utf8');
+  } catch {}
 
   const list = files.map((x) => '  - ' + x).join('\n');
   const reason = t.reason(list, smellText);
@@ -174,4 +201,3 @@ function main() {
 }
 
 try { main(); } catch {}
-process.exit(0);
