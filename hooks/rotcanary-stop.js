@@ -160,7 +160,9 @@ function main() {
   try {
     if (fs.existsSync(scanned)) {
       const content = fs.readFileSync(scanned, 'utf8').trim();
-      const lastMtime = content ? Number(content) : Infinity;
+      // Unknown/legacy marker content (empty pre-v2.4 format) → 0 so the batch
+      // re-nudges rather than being silently swallowed and deleted.
+      const lastMtime = content ? Number(content) : 0;
       if (touchedMtime <= lastMtime) {
         // Batch already acknowledged on a previous stop — state no longer needed.
         cleanupSession(base);
