@@ -4,6 +4,9 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+- `SECURITY.md` — published SSH signing public key + `git verify-commit`/`tag -v` instructions, dist-integrity reproduction steps, and reporting channel.
+
 ## [2.3.0] — 2026-06-11
 
 ### Added
