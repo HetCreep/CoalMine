@@ -29,7 +29,7 @@
 
 *Run Mode Explanations:*
 * 📌 **Always-on:** Operates implicitly in the chat background to verify facts and filter out AI hallucinations.
-* 🔄 **Auto + Manual:** Automatically scans affected files at session end via agent lifecycle hooks — auto-wired by the Claude Code plugin (GitHub Copilot consumes the same hooks format; Cursor/Gemini/Codex/Goose have equivalent events to wire manually). Elsewhere, trigger manually with `/rotcanary`.
+* 🔄 **Auto + Manual:** Automatically scans affected files at session end via agent lifecycle hooks — auto-wired by the Claude Code plugin only. Manual wiring snippets for Copilot/Cursor/Gemini/Codex ship in [`platform-configs/hooks/`](platform-configs/hooks/). Elsewhere, trigger manually with `/rotcanary`.
 * ⚡ **One-time:** Triggered once to scan, audit, and fill project-local rules that bind the agent's behavior for the rest of the session.
 * 🎯 **On-demand:** Run manually when performing specific relevant tasks (e.g., adding packages, modifying database schemas) to conserve tokens and maintain agility.
 
@@ -39,20 +39,13 @@
 
 ## 📝 Ultra-Short Summary Format
 
-To prevent alert fatigue and conserve token budget, the canaries report findings in the most concise format possible:
+To prevent alert fatigue and conserve token budget, every canary reports in the same lean shape (defined in each skill's Output section): a one-line verdict, then a severity table of CONFIRMED findings only — no conversational filler.
 
-* **Clean Scan (Success):**
-  ```text
-  ✅ [CoalMine] All 9 canaries passed: 0 issues flagged.
-  ```
-* **Issues Flagged (Warning):**
-  ```text
-  ⚠️ [CoalMine] 9 canaries flagged 3 issues:
-    - [rotcanary] [Medium] [utils.js:45] · resource leak (unclosed file stream)
-    - [supply-chain] [High] [package.json] · CVE-2026-1234 vulnerability in package 'foo'
-    - [scale] [Low] [db.js:12] · nested query (N+1 query in loop)
-  ```
-  *(The report only prints direct findings with zero conversational filler.)*
+```text
+| # | path:line | category | severity | finding | evidence |
+```
+
+Clean scan = one line ("nothing material found"). Severity scale everywhere: CRITICAL · HIGH · MEDIUM · LOW.
 
 ---
 

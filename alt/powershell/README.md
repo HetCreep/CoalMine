@@ -2,7 +2,7 @@
 
 The plugin's **default** hooks are cross-platform Node scripts in [`../../hooks/`](../../hooks/) and activate automatically when you install the plugin — that's the recommended path.
 
-These PowerShell versions are a **fallback** for Windows setups that don't have Node.js on `PATH` (e.g. the native installer of Claude Code without Node). They do the same thing, but you wire them **manually** via your own `settings.json`.
+These PowerShell versions are a **fallback** for Windows setups that don't have Node.js on `PATH` (e.g. the native installer of Claude Code without Node). Same trigger semantics and temp-file scheme, wired **manually** via your own `settings.json`. Known difference: the stop-hook nudge is **English-only** here, while the Node version localizes to th/ja/zh/es.
 
 ## What they do
 
@@ -34,3 +34,7 @@ Back-compat: `~/.claude/.rotcanary-off` (any contents) forces **off**.
 The `Stop` hook would re-fire after the agent finishes the scan it requested. It avoids an infinite loop by:
 - bailing when `stop_hook_active` is true (the stop is already a continuation), and
 - writing a `.scanned` marker; it only re-nudges when the `.touched` marker is newer (i.e. new edits happened since the last scan).
+
+## Cleanup (Phoenix #1 — zero garbage)
+
+Once a batch is acknowledged (next stop with no new edits), the hook deletes the session's `.touched`/`.smells`/`.scanned` files. On every stop it also sweeps `rotcanary-*` temp files older than 7 days, so sessions killed mid-way can't leak state forever.

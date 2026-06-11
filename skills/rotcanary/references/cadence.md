@@ -2,6 +2,8 @@
 
 Stop hook → auto QUICK scan on the session's touched files (report only). Platform support (verified Jun 2026):
 
-- **Auto-wired:** Claude Code — the CoalMine plugin ships PostToolUse + Stop hooks (`hooks/hooks.json`); GitHub Copilot (VS Code agent mode / CLI) consumes the same hooks format. Kill-switch `~/.claude/.rotcanary-off` applies to these hook installs only.
-- **Wire manually** (equivalent events exist — port the `hooks/` scripts per platform docs): Cursor `afterFileEdit`/`stop` · Gemini CLI `AfterTool`/`AfterAgent` · Codex `PostToolUse`/`Stop` · Goose `AfterFileEdit`/`Stop`.
-- **Manual only** (no stop event): Cline, Junie — run `/rotcanary` yourself, e.g. before commit or via a git pre-commit hook.
+- **Auto-wired:** Claude Code only — the CoalMine plugin ships PostToolUse + Stop hooks (`hooks/hooks.json`).
+- **Wire manually** (ready-made snippets in `platform-configs/hooks/` — copy, adjust path, test): GitHub Copilot `PostToolUse`/`Stop` (same hooks format) · Cursor `afterFileEdit`/`stop` (wrapped to `followup_message`) · Gemini CLI `AfterTool`/`AfterAgent` · Codex `PostToolUse`/`Stop`. Goose has `AfterFileEdit`/`Stop` events — no snippet yet, port `hooks/` per its docs.
+- **Manual only** (no stop event): Cline, Junie — run `/rotcanary` yourself, e.g. before commit.
+
+Kill-switch: any install that runs these hook scripts honors `~/.claude/.rotcanary-off` (and `~/.claude/.rotcanary-mode` = auto|manual|off).

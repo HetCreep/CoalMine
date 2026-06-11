@@ -4,12 +4,23 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
-## [2.2.0] — 2026-06-11
+## [2.2.1] — 2026-06-11
+
+DEEP rotcanary sweep over the whole repo (27 findings fixed).
+
+### Fixed
+- Cursor cadence snippet now actually works: the stop command wraps `rotcanary-stop.js` output into Cursor's `{followup_message}` (Cursor cannot consume Claude-style `decision:block`); docs no longer claim Copilot auto-wires — only the Claude Code plugin does.
+- Git gate hardening: missing test files now fail the pre-commit/pre-push gate loudly (`node --test` silently ignores missing path args); disconnected `pre-commit.ps1`/`pre-push.ps1` removed (git never executes `.ps1` hooks and nothing installed them).
+- `installGitHooks` backs up a pre-existing non-CoalMine hook to `<hook>.pre-coalmine` before overwriting, and `chmod`s after write (the `mode` option only applies on creation).
+- `verify.mjs`: every per-item read is try-wrapped (one unreadable input now yields a clean `FAIL` line and the run continues); aux dist files (`references/`, `skill-meta.json`) are now byte-compared both directions against source.
+- `installSkillDir` clears the target skill dir before copying so renamed/deleted source files can't linger at install targets; `inject()` uses function-form replacements so `$&`-style sequences in partials can't corrupt output.
+- Hooks: `.touched` lines that aren't real paths are filtered from the nudge; multi-smell entries are one line per file (`'; '` join); files >1 MB skip the tripwire scan (latency budget); recording without a `session_id` no longer writes orphan `nosession` state; `.scanned` marker content is empty (only mtime was ever used). PowerShell pair kept in sync; its README now documents cleanup/sweep and the EN-only nudge difference.
+- Docs truth: README's Ultra-Short format section now describes the real per-skill severity-table output; CHANGELOG 2.2.0 wording corrected (6 of 9 skills gained `references/`; footer −28% bytes); scale-canary "J-Join" typo; drift-canary Style-Drift rule scoped to Fix mode; cadence.md points to the shipped wiring snippets.
 
 ### Changed (token diet — every skill body slimmer, depth preserved)
-- All 9 skill bodies restructured for progressive disclosure: per-stack tables and platform matrices moved to per-skill `references/*.md`, loaded only when the skill actually runs a scan. Dist SKILL.md total 51.4 KB → 38.6 KB (−25%; rotcanary −36%) while adding depth.
+- All 9 skill bodies slimmed for progressive disclosure; 6 of them (rotcanary, supply-chain, telemetry, testability, scale, drift) gained per-skill `references/*.md` holding the per-stack tables and platform matrices, loaded only when the skill actually runs a scan. Dist SKILL.md total 51.4 KB → 38.6 KB (−25%; rotcanary −36%) while adding depth.
 - Removed per-skill "Contexts & Execution Modes" and "Before starting / Recommendation logic" boilerplate — the shared escalation footer now carries the gate once; tier intents live in the escalation table.
-- Shared escalation footer compressed (~40%) while keeping the per-platform `ask_question` alias map, hook-context rule, and Heavy-durability guidance.
+- Shared escalation footer compressed (−28% bytes, ~40% fewer lines) while keeping the per-platform `ask_question` alias map, hook-context rule, and Heavy-durability guidance.
 
 ### Added
 - `references/checks.md` for telemetry, testability, scale, and drift canaries — concrete per-stack/per-ORM detection procedures (the four newest canaries now match rotcanary's audit depth).

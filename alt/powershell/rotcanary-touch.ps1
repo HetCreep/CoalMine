@@ -19,12 +19,14 @@ try {
   $ext = [System.IO.Path]::GetExtension($f).ToLower()
   $codeExt = @('.cs','.ts','.tsx','.js','.jsx','.mjs','.cjs','.py','.rs','.go','.java','.kt','.kts','.cpp','.cc','.cxx','.c','.h','.hpp','.rb','.php','.swift','.dart','.fs','.vb','.scala','.m','.mm')
   if ($codeExt -notcontains $ext) { exit 0 }
-  $sid = $in.session_id; if (-not $sid) { $sid = 'nosession' }
+  $sid = $in.session_id; if (-not $sid) { exit 0 }
   $base = Join-Path $env:TEMP "rotcanary-$sid"
   $touched = "$base.touched"
   $existing = @(); if ([System.IO.File]::Exists($touched)) { $existing = [System.IO.File]::ReadAllLines($touched) }
   if ($existing -notcontains $f) { [System.IO.File]::AppendAllText($touched, "$f`r`n") }
   if ([System.IO.File]::Exists($f)) {
+    # Skip very large files to stay inside the latency budget (Phoenix #3).
+    if ((Get-Item $f).Length -gt 1MB) { exit 0 }
     $lines = [System.IO.File]::ReadAllLines($f)
     $n = $lines.Length
     $smells = @()

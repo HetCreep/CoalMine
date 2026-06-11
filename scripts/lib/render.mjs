@@ -17,16 +17,18 @@ export function loadShared(sharedDir) {
 }
 
 export function inject(content, shared, meta) {
+  // Replacement values go through arrow functions so `$&`/`$'`-style patterns
+  // in partials or intents can never be interpreted as replacement directives.
   const orchestration = shared.orchestration
-    .replace(/\{\{LIGHT_INTENT\}\}/g,    meta.lightIntent    ?? '')
-    .replace(/\{\{STANDARD_INTENT\}\}/g, meta.standardIntent ?? '')
-    .replace(/\{\{HEAVY_INTENT\}\}/g,    meta.heavyIntent    ?? '');
+    .replace(/\{\{LIGHT_INTENT\}\}/g,    () => meta.lightIntent    ?? '')
+    .replace(/\{\{STANDARD_INTENT\}\}/g, () => meta.standardIntent ?? '')
+    .replace(/\{\{HEAVY_INTENT\}\}/g,    () => meta.heavyIntent    ?? '');
 
   return content
-    .replace(/<!-- SHARED:LANGUAGE_HEADER -->/g,   shared.languageHeader)
-    .replace(/<!-- SHARED:CONTEXTS -->/g,            shared.contexts)
-    .replace(/<!-- SHARED:ORCHESTRATION -->/g,       orchestration)
-    .replace(/<!-- SHARED:ESCALATION_FOOTER -->/g,   shared.escalationFooter);
+    .replace(/<!-- SHARED:LANGUAGE_HEADER -->/g,   () => shared.languageHeader)
+    .replace(/<!-- SHARED:CONTEXTS -->/g,            () => shared.contexts)
+    .replace(/<!-- SHARED:ORCHESTRATION -->/g,       () => orchestration)
+    .replace(/<!-- SHARED:ESCALATION_FOOTER -->/g,   () => shared.escalationFooter);
 }
 
 export function listSkills(skillsSrc) {
@@ -47,8 +49,10 @@ export function renderSkillMd(skillDir, shared) {
 
 // Materialize one conformed skill dir: aux files copied, SKILL.md rendered.
 // Nested dirs (references/, scripts/) copy recursively — anthropics/skills-style
-// skill bundles must not break the installer.
+// skill bundles must not break the installer. The target skill dir is cleared
+// first so files deleted/renamed in source can't linger at install targets.
 export function installSkillDir(from, to, shared) {
+  fs.rmSync(to, { recursive: true, force: true });
   fs.mkdirSync(to, { recursive: true });
   for (const f of fs.readdirSync(from, { withFileTypes: true })) {
     if (f.name === 'SKILL.md') continue;

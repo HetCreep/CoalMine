@@ -12,7 +12,7 @@ Audit code for scalability issues, performance bottlenecks, and resource leaks.
 
 ## Auditing Categories
 1. **O(N^2) Complexity** — Nested loops over growable collections without indexing or caching (causes performance crashes at scale).
-2. **N+1 Database Queries** — Querying database records in a loop instead of performing a batch J-Join or using bulk prefetching.
+2. **N+1 Database Queries** — Querying database records in a loop instead of performing a batch JOIN or using bulk prefetching.
 3. **Memory Bloat / Leaks** — Appending data to global arrays or maps without clearing them, leading to unbounded memory growth.
 4. **Blocking Main Loop** — Performing synchronous file system operations or CPU-heavy calculations in the main event thread (causes lag/hangs).
 5. **Resource Leakage** — Leaving streams, connections, or file handles open without closing them inside a `finally` block.

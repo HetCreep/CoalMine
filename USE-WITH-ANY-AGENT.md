@@ -31,7 +31,7 @@ For any agent without skill discovery: copy a **conformed** skill body — from 
 | The 9 skills (the audits) | ✅ all 12 targets natively via the Agent Skills spec |
 | Interactive choice menus (`ask_question`) | ✅ native question tools on 9 of 12 (see README table); text fallback on Goose/Amp/Junie |
 | Sub-agent fan-out + tiers | ✅ on any host with a sub-agent system; inline otherwise |
-| rotcanary **auto-cadence** (per-edit + session-end hooks) | ✅ auto on Claude Code (plugin) and GitHub Copilot (consumes the same `hooks/hooks.json` format) · 🔧 equivalent events on Cursor (`afterFileEdit`/`stop`), Gemini CLI (`AfterTool`/`AfterAgent`), Codex (`PostToolUse`/`Stop`), Goose (`AfterFileEdit`/`Stop`) — port [`hooks/`](hooks/) per platform docs · ⛔ no stop event on Cline/Junie — run manually (e.g. pre-commit) |
+| rotcanary **auto-cadence** (per-edit + session-end hooks) | ✅ auto-wired on Claude Code only (plugin) · 🔧 manual snippets shipped in [`platform-configs/hooks/`](platform-configs/hooks/) for GitHub Copilot (same hooks format), Cursor (stop wrapped to `followup_message`), Gemini CLI, Codex; Goose has equivalent events — port [`hooks/`](hooks/) per its docs · ⛔ no stop event on Cline/Junie — run manually |
 
 ## Auto-cadence elsewhere
 

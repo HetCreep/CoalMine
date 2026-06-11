@@ -33,14 +33,15 @@ try {
       exit 0
     }
   }
-  $files = [System.IO.File]::ReadAllLines($touched) | Where-Object { $_ } | Sort-Object -Unique
+  $files = [System.IO.File]::ReadAllLines($touched) | Where-Object { $_ -and [System.IO.File]::Exists($_) } | Sort-Object -Unique
   if (-not $files) { exit 0 }
   $smellText = ''
   if ([System.IO.File]::Exists("$base.smells")) {
     $sm = [System.IO.File]::ReadAllLines("$base.smells") | Where-Object { $_ } | Sort-Object -Unique
     if ($sm) { $smellText = "`nTripwires flagged at edit time:`n" + ($sm -join "`n") }
   }
-  [System.IO.File]::WriteAllText($scanned, [string]([DateTime]::UtcNow.Ticks))
+  # Acknowledgement marker — only the file's mtime matters, content is unused.
+  [System.IO.File]::WriteAllText($scanned, '')
   $list = ($files | ForEach-Object { "  - $_" }) -join "`n"
   $reason = "Code-health auto-check (session end): code files were edited this session. Before stopping, invoke the rotcanary skill at DEPTH=QUICK with SCOPE = these touched files + their direct callers:`n$list$smellText`n`nThe skill has the full procedure. Report CONFIRMED findings only as a severity table; if nothing material, say so in one line. Do not fix unless asked. (To disable this auto-check: create ~/.claude/.rotcanary-off)"
   $out = @{ decision = 'block'; reason = $reason } | ConvertTo-Json -Compress

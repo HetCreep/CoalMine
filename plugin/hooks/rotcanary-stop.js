@@ -148,6 +148,8 @@ function main() {
 
   let files = [];
   try { files = [...new Set(fs.readFileSync(touched, 'utf8').split('\n').filter(Boolean))].sort(); } catch { return; }
+  // Drop lines that aren't real paths (corrupt/garbage .touched content).
+  files = files.filter((x) => { try { return fs.existsSync(x); } catch { return false; } });
   if (!files.length) return;
 
   const t = TRANSLATIONS[detectLang()] || TRANSLATIONS.en;
@@ -162,7 +164,8 @@ function main() {
     }
   } catch {}
 
-  try { fs.writeFileSync(scanned, String(Date.now())); } catch {}
+  // Acknowledgement marker — only the file's mtime matters, content is unused.
+  try { fs.writeFileSync(scanned, ''); } catch {}
 
   const list = files.map((x) => '  - ' + x).join('\n');
   const reason = t.reason(list, smellText);

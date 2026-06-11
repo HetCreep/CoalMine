@@ -39,7 +39,9 @@ function main() {
   if (!f) return;
   if (!CODE_EXT.has(path.extname(f).toLowerCase())) return;
 
-  const sid = input.session_id || 'nosession';
+  // No session id → no consumer (the stop hook bails without one). Record nothing.
+  const sid = input.session_id;
+  if (!sid) return;
   const base = path.join(os.tmpdir(), `rotcanary-${sid}`);
   const touched = base + '.touched';
 
@@ -50,6 +52,9 @@ function main() {
   const existingCompare = isWin ? existing.map((x) => x.toLowerCase()) : existing;
   if (!existingCompare.includes(fCompare)) { try { fs.appendFileSync(touched, f + '\n'); } catch {} }
 
+  // Tripwire scan — skip very large files to stay inside the latency budget
+  // (Phoenix #3: ≤100ms with scan).
+  try { if (fs.statSync(f).size > 1024 * 1024) return; } catch { return; }
   let lines;
   try { lines = fs.readFileSync(f, 'utf8').split(/\r?\n/); } catch { return; }
 
@@ -57,7 +62,8 @@ function main() {
   if (lines.some((l) => /^(<<<<<<< |>>>>>>> |=======$)/.test(l))) smells.push('merge-conflict markers');
   if (lines.length > 800) smells.push(`file >800 lines (${lines.length})`);
   if (smells.length) {
-    try { fs.appendFileSync(base + '.smells', `${f}: ${smells.join('\n')}\n`); } catch {}
+    // One line per file — the stop hook reports each .smells line verbatim.
+    try { fs.appendFileSync(base + '.smells', `${f}: ${smells.join('; ')}\n`); } catch {}
   }
 }
 

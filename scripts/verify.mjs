@@ -10,7 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadShared, renderSkillMd } from './lib/render.mjs';
+import { loadShared, renderSkillMd, listSkills } from './lib/render.mjs';
 import { TARGETS } from './lib/targets.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -20,14 +20,14 @@ const fail = (m) => { ok = false; console.log('  FAIL ' + m); };
 
 // 1. skills
 const skillsSrc = path.join(repo, 'skills');
-const skills = fs.existsSync(skillsSrc)
-  ? fs.readdirSync(skillsSrc, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith('_')).map((d) => d.name)
-  : [];
+const skills = fs.existsSync(skillsSrc) ? listSkills(skillsSrc) : [];
 console.log(`skills (${skills.length} found):`);
 for (const s of skills) {
   const md = path.join(skillsSrc, s, 'SKILL.md');
   if (!fs.existsSync(md)) { fail(`${s}: SKILL.md missing`); continue; }
-  const src = fs.readFileSync(md, 'utf8');
+  let src;
+  try { src = fs.readFileSync(md, 'utf8'); }
+  catch (e) { fail(`${s}: SKILL.md unreadable: ${e.message}`); continue; }
   const head = src.slice(0, 600);
   if (!/^---/.test(head)) fail(`${s}: no YAML frontmatter`);
   else if (!/\bname:\s*\S/.test(head)) fail(`${s}: frontmatter 'name:' missing`);
@@ -51,6 +51,31 @@ for (const h of ['hooks/rotcanary-touch.js', 'hooks/rotcanary-stop.js']) {
   fs.existsSync(path.join(repo, h)) ? pass(h) : fail(`${h} missing`);
 }
 
+// Aux files (references/, skill-meta.json) ship verbatim — byte-compare both
+// directions so a hand-edited or orphaned dist file can never reach the marketplace.
+function compareAux(srcDir, dstDir, label) {
+  for (const e of fs.readdirSync(srcDir, { withFileTypes: true })) {
+    if (e.name === 'SKILL.md') continue;
+    const sp = path.join(srcDir, e.name);
+    const dp = path.join(dstDir, e.name);
+    if (e.isDirectory()) {
+      if (!fs.existsSync(dp)) { fail(`${label}/${e.name}/ missing — run: node scripts/build-plugin.mjs`); continue; }
+      compareAux(sp, dp, `${label}/${e.name}`);
+    } else {
+      try {
+        if (!fs.existsSync(dp)) fail(`${label}/${e.name} missing — run: node scripts/build-plugin.mjs`);
+        else if (fs.readFileSync(sp, 'utf8') !== fs.readFileSync(dp, 'utf8')) fail(`${label}/${e.name} STALE vs source — run: node scripts/build-plugin.mjs`);
+      } catch (err) { fail(`${label}/${e.name} compare failed: ${err.message}`); }
+    }
+  }
+  try {
+    for (const e of fs.readdirSync(dstDir, { withFileTypes: true })) {
+      if (e.name === 'SKILL.md') continue;
+      if (!fs.existsSync(path.join(srcDir, e.name))) fail(`${label}/${e.name} has no source — run: node scripts/build-plugin.mjs`);
+    }
+  } catch {}
+}
+
 // 4. plugin dist (committed; served by the marketplace via plugins[].source = "./plugin")
 console.log('plugin dist:');
 const pluginDir = path.join(repo, 'plugin');
@@ -63,12 +88,15 @@ if (!fs.existsSync(pluginDir)) {
   for (const s of skills) {
     const distMd = path.join(pluginDir, 'skills', s, 'SKILL.md');
     if (!fs.existsSync(distMd)) { fail(`plugin/skills/${s} missing — run: node scripts/build-plugin.mjs`); continue; }
-    const got = fs.readFileSync(distMd, 'utf8');
+    let got;
+    try { got = fs.readFileSync(distMd, 'utf8'); }
+    catch (e) { fail(`plugin/skills/${s} unreadable: ${e.message}`); continue; }
     if (got.includes('<!-- SHARED:')) { fail(`plugin/skills/${s} contains unresolved template markers — run: node scripts/build-plugin.mjs`); continue; }
     let want;
     try { want = renderSkillMd(path.join(skillsSrc, s), shared); }
     catch (e) { fail(`plugin/skills/${s} render failed: ${e.message}`); continue; }
     if (got !== want) { fail(`plugin/skills/${s} STALE vs source — run: node scripts/build-plugin.mjs`); continue; }
+    compareAux(path.join(skillsSrc, s), path.join(pluginDir, 'skills', s), `plugin/skills/${s}`);
     pass(`plugin/skills/${s} in sync`);
   }
   // Reverse check: nothing ships from the dist that has no source (orphan guard).
@@ -82,9 +110,11 @@ if (!fs.existsSync(pluginDir)) {
   for (const f of ['hooks/hooks.json', 'hooks/rotcanary-touch.js', 'hooks/rotcanary-stop.js', '.claude-plugin/plugin.json']) {
     const distFile = path.join(pluginDir, f);
     if (!fs.existsSync(distFile)) { fail(`plugin/${f} missing — run: node scripts/build-plugin.mjs`); continue; }
-    if (fs.readFileSync(path.join(repo, f), 'utf8') !== fs.readFileSync(distFile, 'utf8')) {
-      fail(`plugin/${f} STALE vs ${f} — run: node scripts/build-plugin.mjs`);
-    } else pass(`plugin/${f} in sync`);
+    try {
+      if (fs.readFileSync(path.join(repo, f), 'utf8') !== fs.readFileSync(distFile, 'utf8')) {
+        fail(`plugin/${f} STALE vs ${f} — run: node scripts/build-plugin.mjs`);
+      } else pass(`plugin/${f} in sync`);
+    } catch (e) { fail(`plugin/${f} compare failed: ${e.message}`); }
   }
   try {
     const mkt = JSON.parse(fs.readFileSync(path.join(repo, '.claude-plugin', 'marketplace.json'), 'utf8'));
@@ -105,7 +135,9 @@ if (arg) {
       fail(`${s} NOT at target`);
       continue;
     }
-    const content = fs.readFileSync(targetMd, 'utf8');
+    let content;
+    try { content = fs.readFileSync(targetMd, 'utf8'); }
+    catch (e) { fail(`${s} at target unreadable: ${e.message}`); continue; }
     if (content.includes('<!-- SHARED:')) {
       fail(`${s} at target contains unresolved template markers!`);
     } else {

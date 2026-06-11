@@ -119,7 +119,23 @@ function installGitHooks() {
 
     for (const [hookName, hookContent] of Object.entries(hooks)) {
       const hookPath = path.join(hooksDir, hookName);
-      fs.writeFileSync(hookPath, hookContent, { mode: 0o755 });
+      // Back up a pre-existing hook that isn't ours (once) instead of clobbering it.
+      try {
+        if (fs.existsSync(hookPath)) {
+          const existing = fs.readFileSync(hookPath, 'utf8');
+          if (existing !== hookContent && !existing.includes('CoalMine')) {
+            const backup = hookPath + '.pre-coalmine';
+            if (!fs.existsSync(backup)) {
+              fs.copyFileSync(hookPath, backup);
+              console.log(`  backed up existing ${hookName} → ${backup}`);
+            }
+          }
+        }
+      } catch {}
+      fs.writeFileSync(hookPath, hookContent);
+      // mode option only applies on file creation — set it explicitly so an
+      // overwritten hook is executable on Unix too.
+      try { fs.chmodSync(hookPath, 0o755); } catch {}
       console.log(`  installed git hook: ${hookName} → ${hookPath}`);
     }
   } catch (e) {
@@ -131,7 +147,7 @@ function installGitHooks() {
 // ─── Main ───────────────────────────────────────────────────────────────────
 const arg = process.argv[2];
 if (!arg) {
-  console.error('Usage: node scripts/install.mjs <claude|antigravity|copilot|codex|cursor|windsurf|cline|amp|goose|junie|gemini|roocode|PATH>');
+  console.error(`Usage: node scripts/install.mjs <${Object.keys(TARGETS).join('|')}|PATH>`);
   process.exit(2);
 }
 const dest = TARGETS[arg] ?? path.resolve(arg);
