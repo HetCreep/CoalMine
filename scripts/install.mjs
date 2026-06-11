@@ -144,23 +144,121 @@ function installGitHooks() {
   }
 }
 
+// ─── Git Hooks Uninstallation ────────────────────────────────────────────────
+function uninstallGitHooks() {
+  try {
+    const gitDir = path.join(process.cwd(), '.git');
+    if (!fs.existsSync(gitDir)) return;
+
+    const hooksDir = path.join(gitDir, 'hooks');
+    if (!fs.existsSync(hooksDir)) return;
+
+    const hookNames = ['pre-commit', 'pre-push'];
+    for (const hookName of hookNames) {
+      const hookPath = path.join(hooksDir, hookName);
+      const backupPath = hookPath + '.pre-coalmine';
+
+      if (fs.existsSync(backupPath)) {
+        fs.copyFileSync(backupPath, hookPath);
+        fs.unlinkSync(backupPath);
+        console.log(`  restored backed-up git hook: ${hookName}`);
+      } else if (fs.existsSync(hookPath)) {
+        const content = fs.readFileSync(hookPath, 'utf8');
+        if (content.includes('CoalMine')) {
+          fs.unlinkSync(hookPath);
+          console.log(`  removed git hook: ${hookName}`);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn(`  [warn] failed to uninstall git hooks: ${e.message}`);
+  }
+}
+
+// ─── Config Uninstallation ───────────────────────────────────────────────────
+function uninstallConfig(arg) {
+  try {
+    const cfg = PLATFORM_CONFIGS[arg];
+    if (!cfg) return;
+
+    const destFile = cfg.dest;
+    if (!fs.existsSync(destFile)) return;
+
+    const isHash = cfg.tpl.includes('clinerules');
+    const start  = isHash ? CM_START_HASH : CM_START;
+    const end    = isHash ? CM_END_HASH   : CM_END;
+
+    let content = fs.readFileSync(destFile, 'utf8');
+    const si = content.indexOf(start);
+    const ei = content.indexOf(end);
+
+    if (si !== -1 && ei !== -1 && ei > si) {
+      const before = content.slice(0, si);
+      const after = content.slice(ei + end.length);
+      content = (before.trimEnd() + '\n\n' + after.trimStart()).trim();
+
+      if (!content) {
+        fs.unlinkSync(destFile);
+        console.log(`  removed empty trigger config: ${path.relative(process.cwd(), destFile)}`);
+      } else {
+        fs.writeFileSync(destFile, content + '\n', 'utf8');
+        console.log(`  removed trigger config block from ${path.relative(process.cwd(), destFile)}`);
+      }
+    }
+  } catch (e) {
+    console.warn(`  [warn] failed to uninstall config: ${e.message}`);
+  }
+}
+
+// ─── Skills Uninstallation ───────────────────────────────────────────────────
+function uninstallSkills(destDir, skillsList) {
+  try {
+    if (!fs.existsSync(destDir)) return 0;
+    let removed = 0;
+    for (const s of skillsList) {
+      const targetDir = path.join(destDir, s);
+      if (fs.existsSync(targetDir)) {
+        fs.rmSync(targetDir, { recursive: true, force: true });
+        console.log(`  removed skill: ${s} from ${targetDir}`);
+        removed++;
+      }
+    }
+    return removed;
+  } catch (e) {
+    console.warn(`  [warn] failed to uninstall skills: ${e.message}`);
+    return 0;
+  }
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
-const arg = process.argv[2];
-if (!arg) {
-  console.error(`Usage: node scripts/install.mjs <${Object.keys(TARGETS).join('|')}|PATH>`);
+const args = process.argv.slice(2);
+const isUninstall = args.includes('--uninstall') || args.includes('-u');
+const targetArg = args.filter(x => x !== '--uninstall' && x !== '-u')[0];
+
+if (!targetArg) {
+  console.error(`Usage: node scripts/install.mjs [--uninstall | -u] <${Object.keys(TARGETS).join('|')}|PATH>`);
   process.exit(2);
 }
-const dest = TARGETS[arg] ?? path.resolve(arg);
+const dest = TARGETS[targetArg] ?? path.resolve(targetArg);
 
 if (!fs.existsSync(skillsSrc)) {
   console.error(`No skills/ dir at ${skillsSrc}`);
   process.exit(1);
 }
 
-const shared = loadShared();
-
 // Get skill dirs (exclude _shared)
 const skills = listSkills(skillsSrc);
+
+if (isUninstall) {
+  console.log(`\nUninstalling CoalMine from target: ${targetArg}`);
+  const removedCount = uninstallSkills(dest, skills);
+  uninstallConfig(targetArg);
+  uninstallGitHooks();
+  console.log(`\nDone: Uninstalled ${removedCount} skill(s) and cleared configs.`);
+  process.exit(0);
+}
+
+const shared = loadShared();
 
 console.log(`\nInstalling ${skills.length} skill(s) → ${dest}`);
 let n = 0;
@@ -177,12 +275,12 @@ for (const s of skills) {
 }
 
 // Generate platform config
-console.log(`\nConfiguring auto-trigger for: ${arg}`);
-const cfg = PLATFORM_CONFIGS[arg];
+console.log(`\nConfiguring auto-trigger for: ${targetArg}`);
+const cfg = PLATFORM_CONFIGS[targetArg];
 if (cfg) {
   upsertConfig(cfg.dest, cfg.tpl);
 } else {
-  console.log(`  (no platform config template for "${arg}" — skills only)`);
+  console.log(`  (no platform config template for "${targetArg}" — skills only)`);
 }
 
 // Install git hooks if git is initialized
@@ -192,3 +290,4 @@ installGitHooks();
 const failed = skills.length - n;
 console.log(`\nDone: ${n}/${skills.length} skill(s) → ${dest}${failed ? ` (${failed} failed)` : ''}`);
 console.log(`Verify: node scripts/verify.mjs`);
+

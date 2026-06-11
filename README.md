@@ -141,7 +141,17 @@ node scripts/verify.mjs <agent|PATH>
 node scripts/verify.mjs antigravity
 ```
 
-#### 4. Manual Fallback (If Skill Discovery is Unsupported)
+#### 4. Uninstallation / Cleanup
+To cleanly remove installed skills, clear platform trigger configurations, and restore backed-up git hooks:
+```bash
+node scripts/install.mjs --uninstall <agent|PATH>
+```
+*Example (Google Antigravity):*
+```bash
+node scripts/install.mjs --uninstall antigravity
+```
+
+#### 5. Manual Fallback (If Skill Discovery is Unsupported)
 If your agent does not support auto-discovery of skills, copy the body of the conformed `SKILL.md` (excluding the YAML frontmatter) directly into your workspace rules file (e.g., `.cursorrules`, `.windsurfrules`, `.clinerules`, or `AGENTS.md`).
 
 ---
