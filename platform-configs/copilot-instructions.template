@@ -1,10 +1,21 @@
 <!-- COALMINE:START -->
-## CoalMine — Auto-trigger Rules
+## CoalMine — 9 Quality Canaries
 
-At the end of every coding session, before marking work complete:
-1. Identify all files modified in this session
-2. If any code files were modified, run `/rotcanary` on those files (Light tier, report only)
-3. Surface any CRITICAL or HIGH findings before finishing
+Skills live in `.github/skills/` (one `SKILL.md` each). Invoke by keyword; each skill gates its own tier and fix menus — never fix without the menu.
 
-Do not block work — run in background and surface findings inline.
+| Trigger | Use when |
+|---|---|
+| `/rotcanary` · "code-health" | scan for code rot — dead code, leaks, silent failures, doc rot |
+| `/gold-standard` · "audit rules" | score completeness vs world-class exemplars; fill/adopt/conform |
+| `/source-grounding` | verify version-sensitive facts against live sources |
+| `/supply-chain-audit` | deps/CVEs/licenses/build trust — before adding a dep or a release |
+| `/resilience-audit` | failure modes (FMEA) — network, storage, async, retry/rollback paths |
+| `/telemetry-canary` | logging, metrics, tracing, error-handling changes |
+| `/testability-canary` | coupling, DI, mockability refactors |
+| `/scale-canary` | loops over growing data, DB queries, caches, event-loop code |
+| `/drift-canary` | DB schema, API contract, serialized payload, required config changes |
+
+**Proactive:** when the conversation moves into one of these areas, OFFER the matching canary via `askQuestions` (Run now / Queue / Skip) — do not run unasked: deps → supply-chain · schema/API → drift · async/retry → resilience · hot loops/queries → scale · tests/coupling → testability · logging/metrics → telemetry.
+
+**Session end:** if code files were modified, run `/rotcanary` on them (QUICK, report only) and surface CRITICAL/HIGH findings before finishing. Do not block work.
 <!-- COALMINE:END -->

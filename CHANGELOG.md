@@ -6,6 +6,9 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ### Added
 - `SECURITY.md` — published SSH signing public key + `git verify-commit`/`tag -v` instructions, dist-integrity reproduction steps, and reporting channel.
+- All 4 auto-trigger templates (Antigravity/agents-group, Cursor, Cline, Copilot) upgraded from rotcanary-only to the full 9-canary keyword table + 6 proactive offer-conditions (deps→supply-chain, schema→drift, async→resilience, loops→scale, tests→testability, logging→telemetry) + session-end rule — ships the always-on layer both flagship platforms read.
+- `platform-configs/hooks/antigravity-hooks.json` — rotcanary auto-cadence snippet for Google Antigravity (PostToolUse + stop-condition hooks; verify-in-install note).
+- `hooks/settings.snippet.json` — Node hooks wiring for Claude Code installs WITHOUT the plugin route (parity with the existing PowerShell snippet).
 
 ## [2.3.0] — 2026-06-11
 

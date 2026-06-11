@@ -1,0 +1,16 @@
+{
+  "$comment": "Google Antigravity hooks — merge into your Antigravity hooks config (workspace JSON takes precedence over global; CLI settings live under ~/.gemini/antigravity-cli/). Schema from official docs (Jun 2026, JS-rendered pages) — verify event names in your install before relying on it. PostToolUse records edited files; the stop-condition hook nudges the QUICK scan. Adjust the CoalMine path.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "write_file|replace|edit",
+        "hooks": [{ "type": "command", "command": "node C:/path/to/CoalMine/hooks/rotcanary-touch.js" }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [{ "type": "command", "command": "node C:/path/to/CoalMine/hooks/rotcanary-stop.js" }]
+      }
+    ]
+  }
+}
