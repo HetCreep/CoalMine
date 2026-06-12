@@ -33,7 +33,7 @@ Back-compat: `~/.claude/.rotcanary-off` (any contents) forces **off**.
 
 The `Stop` hook would re-fire after the agent finishes the scan it requested. It avoids an infinite loop by:
 - bailing when `stop_hook_active` is true (the stop is already a continuation), and
-- writing a `.scanned` marker; it only re-nudges when the `.touched` marker is newer (i.e. new edits happened since the last scan).
+- writing a `.scanned` marker holding the `.touched` timestamp captured at nudge time; it only re-nudges when `.touched` is newer than that stored value (i.e. new edits happened since the last scan). Unknown/legacy marker content re-nudges rather than being swallowed.
 
 ## Cleanup (Phoenix #1 — zero garbage)
 

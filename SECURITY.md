@@ -17,7 +17,7 @@ git config gpg.ssh.allowedSignersFile ./coalmine_signers
 
 # verify
 git verify-commit HEAD
-git tag -v v2.3.0
+git tag -v v2.4.0
 ```
 
 On GitHub, signed commits show the **Verified** badge automatically.

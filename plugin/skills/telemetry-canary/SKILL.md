@@ -6,7 +6,7 @@ description: >-
 
 # Telemetry Canary (Observability & Logging Audit)
 
-**Language:** Mirror the user's current writing language for ALL menus, choice labels, escalation prompts, and status messages. Detect from their input — Thai → Thai, English → English, Japanese → Japanese, etc. Never hardcode one language.
+**Language:** Mirror the user's current writing language for EVERYTHING you generate at runtime — questions, answer options and menu labels, tier recommendations, report narrative, and status messages. Detect from their messages (Thai → Thai, Japanese → Japanese, …); never hardcode one language, and never fall back to English just because this skill file is written in English. Technical terms MAY stay in English where translation would hurt precision: tool/command names, file paths, code identifiers, severity labels (CRITICAL/HIGH/MEDIUM/LOW), and tier names (Light/Standard/Heavy).
 
 Audit code for proper telemetry instrumentation. Ensure the application is not a black box in production.
 
@@ -23,7 +23,7 @@ Per-stack grep patterns and right/wrong shapes for every category: read `referen
 
 In Agent Context, after the audit report, present via `ask_question`:
 
-- **Apply safe logs:** Insert missing error logging to empty catch blocks (using a standard logger template) and add stack trace mapping.
+- **Apply safe logs:** Insert missing error logging into empty catch blocks (using a standard logger template) and add stack trace mapping.
 - **Let me pick:** Allow the user to select which telemetry gaps to resolve.
 - **Report only:** Exit without making changes.
 

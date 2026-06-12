@@ -4,7 +4,10 @@
 // Generates platform-specific auto-trigger config files (idempotent append).
 // Cross-platform (Windows + Unix).
 //
-// Usage:
+// Usage (run from YOUR project root — project targets resolve against cwd):
+//   Claude Code users: prefer the plugin (/plugin install coalmine@coalmine) —
+//   it serves the same conformed skills and auto-wires hooks. The claude target
+//   below is for setups that can't use the plugin.
 //   node scripts/install.mjs claude        → ~/.claude/skills/        (global)
 //   node scripts/install.mjs antigravity   → ./.agents/skills/        (project, cwd)
 //   node scripts/install.mjs copilot       → ./.github/skills/        (project, cwd)

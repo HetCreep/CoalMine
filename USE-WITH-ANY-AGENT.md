@@ -22,7 +22,7 @@ Frontmatter quirks: Junie requires only `name`; Antigravity requires `descriptio
 
 ## Fallback — paste as rules
 
-For any agent without skill discovery: copy a **conformed** skill body — from [`plugin/skills/<name>/SKILL.md`](plugin/skills/) or an installed target, **not** from `skills/` (those are templates with unresolved `<!-- SHARED:* -->` markers) — into its rules file / `AGENTS.md`, strip the YAML frontmatter.
+For any agent without skill discovery: copy a **conformed** skill body — from [`plugin/skills/<name>/SKILL.md`](plugin/skills/) or an installed target, **not** from `skills/` (those are templates with unresolved `<!-- SHARED:* -->` markers) — into its rules file / `AGENTS.md`, and strip the YAML frontmatter.
 
 ## Portable vs not
 
@@ -31,7 +31,7 @@ For any agent without skill discovery: copy a **conformed** skill body — from 
 | The 9 skills (the audits) | ✅ all 12 targets natively via the Agent Skills spec |
 | Interactive choice menus (`ask_question`) | ✅ native question tools on 9 of 12 (see README table); text fallback on Goose/Amp/Junie |
 | Sub-agent fan-out + tiers | ✅ on any host with a sub-agent system; inline otherwise |
-| rotcanary **auto-cadence** (per-edit + session-end hooks) | ✅ auto-wired on Claude Code only (plugin) · 🔧 manual snippets shipped in [`platform-configs/hooks/`](platform-configs/hooks/) for GitHub Copilot (same hooks format), Cursor (stop wrapped to `followup_message`), Gemini CLI, Codex; Goose has equivalent events — port [`hooks/`](hooks/) per its docs · ⛔ no stop event on Cline/Junie — run manually |
+| rotcanary **auto-cadence** (per-edit + session-end hooks) | ✅ auto-wired on Claude Code only (plugin) · 🔧 manual snippets shipped in [`platform-configs/hooks/`](platform-configs/hooks/) for GitHub Copilot (same hooks format), Cursor (stop wrapped to `followup_message`), Gemini CLI, Codex, and Antigravity; Goose has equivalent events — port [`hooks/`](hooks/) per its docs · ⛔ no stop event on Cline/Junie — run manually |
 
 ## Auto-cadence elsewhere
 

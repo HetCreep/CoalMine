@@ -6,7 +6,7 @@ description: >-
 
 # Scale Canary (Performance & Resource Allocation Audit)
 
-**Language:** Mirror the user's current writing language for ALL menus, choice labels, escalation prompts, and status messages. Detect from their input — Thai → Thai, English → English, Japanese → Japanese, etc. Never hardcode one language.
+**Language:** Mirror the user's current writing language for EVERYTHING you generate at runtime — questions, answer options and menu labels, tier recommendations, report narrative, and status messages. Detect from their messages (Thai → Thai, Japanese → Japanese, …); never hardcode one language, and never fall back to English just because this skill file is written in English. Technical terms MAY stay in English where translation would hurt precision: tool/command names, file paths, code identifiers, severity labels (CRITICAL/HIGH/MEDIUM/LOW), and tier names (Light/Standard/Heavy).
 
 Audit code for scalability issues, performance bottlenecks, and resource leaks.
 
@@ -30,7 +30,7 @@ In Agent Context, after the audit report, present via `ask_question`:
 ## Output Format
 `| file:line | bottleneck | severity | finding | optimization plan |`
 
-Severity: CRITICAL (O(N^2) on user-facing API / unclosed file handles) · HIGH (N+1 query pattern / blocking main loop) · MEDIUM (unbounded cache grow) · LOW (minor efficiency suggestions)
+Severity: CRITICAL (O(N^2) on user-facing API / unclosed file handles) · HIGH (N+1 query pattern / blocking main loop) · MEDIUM (unbounded cache growth) · LOW (minor efficiency suggestions)
 
 ## Escalation — Scope & Model Quality
 

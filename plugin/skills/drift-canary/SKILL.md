@@ -6,7 +6,7 @@ description: >-
 
 # Drift Canary (Contract & Schema Drift Audit)
 
-**Language:** Mirror the user's current writing language for ALL menus, choice labels, escalation prompts, and status messages. Detect from their input — Thai → Thai, English → English, Japanese → Japanese, etc. Never hardcode one language.
+**Language:** Mirror the user's current writing language for EVERYTHING you generate at runtime — questions, answer options and menu labels, tier recommendations, report narrative, and status messages. Detect from their messages (Thai → Thai, Japanese → Japanese, …); never hardcode one language, and never fall back to English just because this skill file is written in English. Technical terms MAY stay in English where translation would hurt precision: tool/command names, file paths, code identifiers, severity labels (CRITICAL/HIGH/MEDIUM/LOW), and tier names (Light/Standard/Heavy).
 
 Audit code to ensure changes do not break backward compatibility or cause database/API mismatches.
 
@@ -20,7 +20,7 @@ Audit code to ensure changes do not break backward compatibility or cause databa
 Expand/contract migration rules, per-format serialization fallbacks, and the breaking-vs-additive API checklist: read `references/checks.md` before scanning.
 
 ## Discipline
-- **Style Drift Resolution (applies in Fix mode):** when an approved compatibility fix touches an area where multiple code styles are mixed, conform the minority patterns to the most dominant/frequent style (highest average usage) in the project to minimize churn — never start a style refactor of its own. (เรื่อง Style Drift ถ้ามีการปนเปกันมาก ๆ ให้เลือกใช้อันที่เฉลี่ยเยอะสุด ๆ เสมอ)
+- **Style Drift Resolution (applies in Fix mode):** when an approved compatibility fix touches an area where multiple code styles are mixed, conform the minority patterns to the most dominant/frequent style (highest average usage) in the project to minimize churn — never start a standalone style refactor. (เรื่อง Style Drift ถ้ามีการปนเปกันมาก ๆ ให้เลือกใช้อันที่เฉลี่ยเยอะสุด ๆ เสมอ)
 
 ## Fix mode (choice-gated)
 

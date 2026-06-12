@@ -30,7 +30,7 @@ In Agent Context, after the audit report, present via `ask_question`:
 ## Output Format
 `| file:line | bottleneck | severity | finding | optimization plan |`
 
-Severity: CRITICAL (O(N^2) on user-facing API / unclosed file handles) · HIGH (N+1 query pattern / blocking main loop) · MEDIUM (unbounded cache grow) · LOW (minor efficiency suggestions)
+Severity: CRITICAL (O(N^2) on user-facing API / unclosed file handles) · HIGH (N+1 query pattern / blocking main loop) · MEDIUM (unbounded cache growth) · LOW (minor efficiency suggestions)
 
 ## Escalation — Scope & Model Quality
 

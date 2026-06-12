@@ -29,11 +29,11 @@
 
 *Run Mode Explanations:*
 * 📌 **Always-on:** Operates implicitly in the chat background to verify facts and filter out AI hallucinations.
-* 🔄 **Auto + Manual:** Automatically scans affected files at session end via agent lifecycle hooks — auto-wired by the Claude Code plugin only. Manual wiring snippets for Copilot/Cursor/Gemini/Codex ship in [`platform-configs/hooks/`](platform-configs/hooks/). Elsewhere, trigger manually with `/rotcanary`.
+* 🔄 **Auto + Manual:** Automatically scans affected files at session end via agent lifecycle hooks — auto-wired by the Claude Code plugin only. Manual wiring snippets for Copilot/Cursor/Gemini/Codex/Antigravity ship in [`platform-configs/hooks/`](platform-configs/hooks/). Elsewhere, trigger manually with `/rotcanary`.
 * ⚡ **One-time:** Triggered once to scan, audit, and fill project-local rules that bind the agent's behavior for the rest of the session.
 * 🎯 **On-demand:** Run manually when performing specific relevant tasks (e.g., adding packages, modifying database schemas) to conserve tokens and maintain agility.
 
-*All canaries are designed around the principles of: **grounding in evidence · zero grade inflation · report before fixing**. Code changes are made only upon explicit approval via the choices menu using a safe loop: `Create checkpoint (stash/commit) → Apply safe fix → Run build + tests → Auto-revert if tests fail`.*
+*All canaries are designed around the principles of **grounding in evidence · zero grade inflation · report before fixing**. Code changes are made only upon explicit approval via the choices menu using a safe loop: `Create checkpoint (stash/commit) → Apply safe fix → Run build + tests → Auto-revert if tests fail`.*
 
 ---
 
@@ -64,7 +64,7 @@ Canaries offer flexible execution tiers based on work complexity to optimize tok
 ## 🛡️ Work Execution Gate & Haldane Safety
 
 1. **Work Execution Gate (Agent Context only):**
-   Before initiating significant tasks, the agent will present an interactive choices menu (or text-based list if not supported) for confirmation:
+   Before initiating significant tasks, the agent will present an interactive choices menu (or a text-based list if not supported) for confirmation:
    * **ทำทันที / Do now** — Assess scope, recommend tier, and execute immediately (spawning sub-agents if supported and warranted).
    * **เก็บเข้าแผนงาน / Add to plan** — Queue the task in `task.md` (no tier selected yet) and continue the conversation.
    * **ดูแผนงานทั้งหมด / View full plan** — Display all queued tasks as a table, recommend tiers, adjust selections, and run them.
@@ -72,7 +72,7 @@ Canaries offer flexible execution tiers based on work complexity to optimize tok
    * Files actively being edited by sub-agents are marked `[/] in-flight` in `task.md` to prevent write collisions.
    * **Switching Topics:** If the conversation drifts toward topics affecting in-flight files, the agent will warn the user first. To discuss a new topic safely, queue the work (`task.md` -> Add to plan) and continue discussing in the main thread.
 3. **Proactive Suggestions:**
-   * The agent monitors chat context. If a change matches one of the 6 On-demand canaries (e.g., adding a package, updating database schema), the agent will proactively trigger the `ask_question` tool to offer a canary run, rather than typing plain-text questions.
+   * The agent monitors chat context. If a change matches one of the 6 On-demand canaries (e.g., adding a package, updating a database schema), the agent will proactively trigger the `ask_question` tool to offer a canary run, rather than typing plain-text questions.
 
 ---
 
@@ -82,7 +82,7 @@ Canaries offer flexible execution tiers based on work complexity to optimize tok
 
 | AI Agent | Target Skills Folder | Installation Shortcut | Choice Tool Support |
 |---|---|---|---|
-| **Claude Code** | `~/.claude/skills/` | `/plugin install coalmine@coalmine` | ✅ **Native:** `AskUserQuestion` |
+| **Claude Code** | plugin cache (recommended) or `~/.claude/skills/` via installer | `/plugin install coalmine@coalmine` | ✅ **Native:** `AskUserQuestion` |
 | **Antigravity** | `.agents/skills/` | `node scripts/install.mjs antigravity` | ✅ **Native:** built-in question prompt |
 | **Cursor** | `.cursor/skills/` | `node scripts/install.mjs cursor` | ✅ **Native:** built-in ask-question tool |
 | **Windsurf** | `.windsurf/skills/` | `node scripts/install.mjs windsurf` | ✅ **Native:** `suggested_responses` |
@@ -115,30 +115,26 @@ The marketplace serves the committed [`plugin/`](plugin/) dist — the **same co
 ### Option B — Universal Installer (all 12+ agents)
 
 #### 1. Clone the Repository
-Clone the repository and navigate into the project root:
 ```bash
 git clone https://github.com/HetCreep/CoalMine.git
-cd CoalMine
 ```
 
 #### 2. Land the Skills in Your Agent's Workspace
-Run the conformed installer script, providing your target agent name (from the table above) or a custom folder path:
+Run the installer **from YOUR project's root directory** (project-scoped targets resolve against the current directory — running it inside the CoalMine clone would install into the clone itself). Provide your target agent name (from the table above) or a custom folder path:
 ```bash
-node scripts/install.mjs <agent|PATH>
+cd /path/to/your-project
+node /path/to/CoalMine/scripts/install.mjs <agent|PATH>
 ```
 *Example (Google Antigravity):*
 ```bash
-node scripts/install.mjs antigravity
+node ../CoalMine/scripts/install.mjs antigravity
 ```
+The installer also writes a CoalMine pre-commit/pre-push gate into your project's `.git/hooks` (any existing non-CoalMine hook is backed up once as `<hook>.pre-coalmine`; `--uninstall` restores it).
 
 #### 3. Verify Installation
-Verify that all 9 skills have landed correctly without unresolved template markers:
+From the same directory, verify that all 9 skills landed without unresolved template markers:
 ```bash
-node scripts/verify.mjs <agent|PATH>
-```
-*Example (Google Antigravity):*
-```bash
-node scripts/verify.mjs antigravity
+node /path/to/CoalMine/scripts/verify.mjs <agent|PATH>
 ```
 
 #### 4. Uninstallation / Cleanup

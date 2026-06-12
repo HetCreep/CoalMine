@@ -26,8 +26,14 @@ try {
   $touched = "$base.touched"
   if (-not [System.IO.File]::Exists($touched)) { exit 0 }
   $scanned = "$base.scanned"
+  $touchedTicks = [System.IO.File]::GetLastWriteTimeUtc($touched).Ticks
   if ([System.IO.File]::Exists($scanned)) {
-    if ([System.IO.File]::GetLastWriteTimeUtc($touched) -le [System.IO.File]::GetLastWriteTimeUtc($scanned)) {
+    # Marker stores the .touched ticks captured at nudge time (parity with the
+    # Node hook). Unknown/legacy content -> 0 so the batch re-nudges, never swallowed.
+    $stored = 0L
+    $rawMark = ([System.IO.File]::ReadAllText($scanned)).Trim()
+    if ($rawMark -match '^\d+$') { $stored = [long]$rawMark }
+    if ($touchedTicks -le $stored) {
       # Batch already acknowledged on a previous stop — state no longer needed.
       foreach ($f in @($touched, "$base.smells", $scanned)) { Remove-Item $f -Force -ErrorAction SilentlyContinue }
       exit 0
@@ -40,8 +46,8 @@ try {
     $sm = [System.IO.File]::ReadAllLines("$base.smells") | Where-Object { $_ } | Sort-Object -Unique
     if ($sm) { $smellText = "`nTripwires flagged at edit time:`n" + ($sm -join "`n") }
   }
-  # Acknowledgement marker — only the file's mtime matters, content is unused.
-  [System.IO.File]::WriteAllText($scanned, '')
+  # Acknowledgement marker — stores the .touched ticks captured at nudge time.
+  [System.IO.File]::WriteAllText($scanned, [string]$touchedTicks)
   $list = ($files | ForEach-Object { "  - $_" }) -join "`n"
   $reason = "Code-health auto-check (session end): code files were edited this session. Before stopping, invoke the rotcanary skill at DEPTH=QUICK with SCOPE = these touched files + their direct callers:`n$list$smellText`n`nThe skill has the full procedure. Report CONFIRMED findings only as a severity table; if nothing material, say so in one line. Do not fix unless asked. (To disable this auto-check: create ~/.claude/.rotcanary-off)"
   $out = @{ decision = 'block'; reason = $reason } | ConvertTo-Json -Compress

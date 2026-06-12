@@ -23,7 +23,7 @@ Per-stack grep patterns and right/wrong shapes for every category: read `referen
 
 In Agent Context, after the audit report, present via `ask_question`:
 
-- **Apply safe logs:** Insert missing error logging to empty catch blocks (using a standard logger template) and add stack trace mapping.
+- **Apply safe logs:** Insert missing error logging into empty catch blocks (using a standard logger template) and add stack trace mapping.
 - **Let me pick:** Allow the user to select which telemetry gaps to resolve.
 - **Report only:** Exit without making changes.
 
