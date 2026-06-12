@@ -4,6 +4,11 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.0.1] — 2026-06-12
+
+### Fixed
+- Hook-nudged auto-scans now end by OFFERING the fix menu when a user is present (all 5 nudge languages, Node + PowerShell, skill body, shared footer) — previously the report-only rule written for unattended contexts suppressed the menu in interactive sessions, so findings arrived with no next step. Fixing still requires a chosen option; truly non-interactive runs stay report-only.
+
 ## [3.0.0] — 2026-06-12
 
 **The Quantum Computer Spec is complete — all 11 design principles implemented.**

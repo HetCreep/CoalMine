@@ -33,7 +33,7 @@ Scan code for rot. Report CONFIRMED findings. Fix on request.
 
 ## Fix mode (choice-gated)
 
-In Agent Context, after the scan report you **MUST** present this menu via `ask_question`:
+After any scan report in an interactive session — manual run OR hook-nudged auto-scan — you **MUST** present this menu via `ask_question` (skip only when findings are zero or no user is present):
 
 - **Apply safe fixes:** mechanical, fully reversible edits only (dead imports, commented-out blocks, formatting). Each fix: checkpoint (git stash/commit) → apply → build + tests → auto-revert if newly red.
 - **Let me pick:** list findings; user selects.

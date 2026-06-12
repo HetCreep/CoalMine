@@ -33,7 +33,7 @@ Scan code for rot. Report CONFIRMED findings. Fix on request.
 
 ## Fix mode (choice-gated)
 
-In Agent Context, after the scan report you **MUST** present this menu via `ask_question`:
+After any scan report in an interactive session — manual run OR hook-nudged auto-scan — you **MUST** present this menu via `ask_question` (skip only when findings are zero or no user is present):
 
 - **Apply safe fixes:** mechanical, fully reversible edits only (dead imports, commented-out blocks, formatting). Each fix: checkpoint (git stash/commit) → apply → build + tests → auto-revert if newly red.
 - **Let me pick:** list findings; user selects.
@@ -66,7 +66,7 @@ Per-stack build/dead-code/lint commands: read `references/tooling.md` when selec
 
 **Tier rubric (deterministic):** +1 each — ① >20 files or whole-repo/cross-module reach ② >2 of this skill's categories relevant ③ release/security/pre-ship context ④ findings will drive code changes ⑤ scope not already audited ≥Standard this session. **0–1 Light · 2–3 Standard · 4–5 Heavy.** An explicit user tier request always overrides.
 
-**Hook Context (non-interactive):** auto-Light, report-only — no questions, no fixes, no sub-agents.
+**Hook Context (auto-triggered):** auto-Light, no tier question, no sub-agents — report first. If the session is interactive (a user is present), offer the fix menu after the report; truly non-interactive runs stay report-only. Never fix without a chosen option.
 
 **Heavy durability:** run in short phases, reading results between them; if a run dies, recover finished sub-agent results from your platform's run records and re-spawn only what is missing. On Claude Code, fan out with the bundled `coalmine-scanner` agent (read-only, one dimension per spawn, table output).
 

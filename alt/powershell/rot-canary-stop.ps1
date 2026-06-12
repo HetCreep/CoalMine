@@ -61,7 +61,7 @@ try {
   # Acknowledgement marker — stores the .touched ticks captured at nudge time.
   [System.IO.File]::WriteAllText($scanned, [string]$touchedTicks)
   $list = ($files | ForEach-Object { "  - $_" }) -join "`n"
-  $reason = "Code-health auto-check (session end): code files were edited this session. Before stopping, invoke the rot-canary skill at DEPTH=QUICK with SCOPE = these touched files + their direct callers:`n$list$smellText`n`nThe skill has the full procedure. Report CONFIRMED findings only as a severity table; if nothing material, say so in one line. Do not fix unless asked. (To disable this auto-check: create ~/.claude/.rot-canary-off)"
+  $reason = "Code-health auto-check (session end): code files were edited this session. Before stopping, invoke the rot-canary skill at DEPTH=QUICK with SCOPE = these touched files + their direct callers:`n$list$smellText`n`nThe skill has the full procedure. Report CONFIRMED findings only as a severity table; if nothing material, say so in one line. If findings exist and the user is present, finish by offering the fix menu via your question tool - never fix without a chosen option. (To disable this auto-check: create ~/.claude/.rot-canary-off)"
   $out = @{ decision = 'block'; reason = $reason } | ConvertTo-Json -Compress
   Write-Output $out
   exit 0
