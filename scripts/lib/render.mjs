@@ -10,7 +10,6 @@ import path from 'node:path';
 export function loadShared(sharedDir) {
   return {
     languageHeader:   fs.readFileSync(path.join(sharedDir, 'language-header.md'),   'utf8').trimEnd(),
-    contexts:         fs.readFileSync(path.join(sharedDir, 'contexts.md'),           'utf8').trimEnd(),
     orchestration:    fs.readFileSync(path.join(sharedDir, 'orchestration.md'),      'utf8').trimEnd(),
     escalationFooter: fs.readFileSync(path.join(sharedDir, 'escalation-footer.md'),  'utf8').trimEnd(),
   };
@@ -26,7 +25,6 @@ export function inject(content, shared, meta = {}) {
 
   return content
     .replace(/<!-- SHARED:LANGUAGE_HEADER -->/g,   () => shared.languageHeader)
-    .replace(/<!-- SHARED:CONTEXTS -->/g,            () => shared.contexts)
     .replace(/<!-- SHARED:ORCHESTRATION -->/g,       () => orchestration)
     .replace(/<!-- SHARED:ESCALATION_FOOTER -->/g,   () => shared.escalationFooter);
 }

@@ -16,7 +16,6 @@ const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 
 const SHARED = {
   languageHeader: 'LANG-HEADER',
-  contexts: 'CONTEXTS-BODY',
   orchestration: 'ORCH {{LIGHT_INTENT}}|{{STANDARD_INTENT}}|{{HEAVY_INTENT}}',
   escalationFooter: 'ESC-FOOTER',
 };
@@ -29,14 +28,12 @@ test('inject replaces every SHARED marker', () => {
   const src = [
     '<!-- SHARED:LANGUAGE_HEADER -->',
     'body',
-    '<!-- SHARED:CONTEXTS -->',
     '<!-- SHARED:ORCHESTRATION -->',
     '<!-- SHARED:ESCALATION_FOOTER -->',
   ].join('\n');
   const out = inject(src, SHARED, { lightIntent: 'L', standardIntent: 'S', heavyIntent: 'H' });
   assert.ok(!out.includes('<!-- SHARED:'), 'no unresolved markers may remain');
   assert.ok(out.includes('LANG-HEADER'));
-  assert.ok(out.includes('CONTEXTS-BODY'));
   assert.ok(out.includes('ESC-FOOTER'));
 });
 
@@ -69,7 +66,7 @@ test('installSkillDir copies nested subdirectories recursively', () => {
   const src = mkTmp('cm-src-');
   const dst = mkTmp('cm-dst-');
   try {
-    fs.writeFileSync(path.join(src, 'SKILL.md'), '<!-- SHARED:CONTEXTS -->', 'utf8');
+    fs.writeFileSync(path.join(src, 'SKILL.md'), '<!-- SHARED:LANGUAGE_HEADER -->', 'utf8');
     fs.writeFileSync(path.join(src, 'skill-meta.json'), '{}', 'utf8');
     fs.mkdirSync(path.join(src, 'references', 'deep'), { recursive: true });
     fs.writeFileSync(path.join(src, 'references', 'a.md'), 'ref-a', 'utf8');
@@ -78,7 +75,7 @@ test('installSkillDir copies nested subdirectories recursively', () => {
     const to = path.join(dst, 'myskill');
     installSkillDir(src, to, SHARED);
 
-    assert.equal(fs.readFileSync(path.join(to, 'SKILL.md'), 'utf8'), 'CONTEXTS-BODY');
+    assert.equal(fs.readFileSync(path.join(to, 'SKILL.md'), 'utf8'), 'LANG-HEADER');
     assert.equal(fs.readFileSync(path.join(to, 'references', 'a.md'), 'utf8'), 'ref-a');
     assert.equal(fs.readFileSync(path.join(to, 'references', 'deep', 'b.md'), 'utf8'), 'ref-b');
   } finally {

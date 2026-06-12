@@ -4,6 +4,20 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [2.8.0] — 2026-06-11
+
+The Quantum Computer Spec release — part 1 of 3 (principles 4 & 5; naming uniformity and measurement/entanglement follow).
+
+### Added
+- `DESIGN-PRINCIPLES.md` — the 11 binding principles (5 machine properties, 5 sustaining disciplines, 1 power source) every component is judged against; links the Phoenix Commandments and scripts-quality layers under one spec.
+
+### Removed (principle 5 — only essential accessories)
+- `skills/_shared/contexts.md` — orphan partial never injected by any template; its content (Work Gate, proactive offers) ships in the trigger templates. Render core no longer knows a CONTEXTS marker.
+- `USE-WITH-ANY-AGENT.md` — merged into README (portability table, conformed-copy fallback warning, frontmatter quirks, also-reads notes); one installation document instead of two.
+
+### Changed (principle 4 — minimum necessary power)
+- Shared block (language header + escalation footer) editorially tightened — same semantics, fewer tokens on every skill load; suite-wide dist bodies −8% on top of the v2.2.0 diet (43.8 KB total).
+
 ## [2.7.1] — 2026-06-11
 
 ### Fixed

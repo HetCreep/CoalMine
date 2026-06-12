@@ -97,7 +97,18 @@ Canaries offer flexible execution tiers based on work complexity to optimize tok
 
 † Roo Code upstream repo archived 2026-05; skills keep working in existing installs and forks.
 
-*Skill paths verified against vendor docs (Jun 2026). `SKILL.md` follows the cross-vendor [Agent Skills spec](https://agentskills.io/specification); most agents also read the shared `.agents/skills/` convention.*
+*Skill paths verified against vendor docs (Jun 2026). `SKILL.md` follows the cross-vendor [Agent Skills spec](https://agentskills.io/specification); most agents also read the shared `.agents/skills/` convention, and several additionally read `.claude/skills/` (Copilot, Cursor, Windsurf, Cline). Frontmatter quirks: Junie requires only `name`, Antigravity requires `description` — CoalMine ships both, satisfying every variant.*
+
+### What ports where
+
+| Part | Portable? |
+|---|---|
+| The 9 skills (the audits) | ✅ all 12 targets natively via the Agent Skills spec |
+| Interactive choice menus (`ask_question`) | ✅ native question tools on 9 of 12 (see table); text fallback on Goose/Amp/Junie |
+| Sub-agent fan-out + tiers | ✅ on any host with a sub-agent system; inline otherwise |
+| rotcanary **auto-cadence** | ✅ auto-wired on Claude Code (plugin) · 🔧 manual snippets in [`platform-configs/hooks/`](platform-configs/hooks/) for Copilot, Cursor, Gemini CLI, Codex, Antigravity · ⛔ no stop event on Cline/Junie — run manually |
+
+**Fallback for agents without skill discovery:** copy a **conformed** skill body — from [`plugin/skills/<name>/SKILL.md`](plugin/skills/) or an installed target, **never** from `skills/` (those are templates with unresolved `<!-- SHARED:* -->` markers) — into the agent's rules file / `AGENTS.md`, and strip the YAML frontmatter.
 
 ---
 
@@ -153,6 +164,10 @@ node scripts/install.mjs --uninstall antigravity
 If your agent does not support auto-discovery of skills, copy the body of the conformed `SKILL.md` (excluding the YAML frontmatter) directly into your workspace rules file (e.g., `.cursorrules`, `.windsurfrules`, `.clinerules`, or `AGENTS.md`).
 
 ---
+
+## 🧭 Design Principles
+
+Every component is bound by the 11 principles of the [Quantum Computer Spec](DESIGN-PRINCIPLES.md) — maximum performance, zero visible errors, single-brand internals, minimum power, essential accessories only, error correction, determinism, isolation, measurement, trustworthiness, and entanglement.
 
 ## 📄 License
 

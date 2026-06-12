@@ -5,7 +5,6 @@ Each partial below is injected into every `skills/*/SKILL.md` template wherever 
 | Partial | Marker in SKILL.md template | Used by |
 |---|---|---|
 | `language-header.md` | `<!-- SHARED:LANGUAGE_HEADER -->` | all 9 templates |
-| `contexts.md` | `<!-- SHARED:CONTEXTS -->` | **no template currently** — authoring source for project-level rules (AGENTS.md Work-Gate/Haldane/Proactive sections); marker stays reserved |
 | `orchestration.md` | `<!-- SHARED:ORCHESTRATION -->` | all 9 templates |
 | `escalation-footer.md` | `<!-- SHARED:ESCALATION_FOOTER -->` | all 9 templates |
 
