@@ -92,8 +92,8 @@ Canaries offer flexible execution tiers based on work complexity to optimize tok
 ## ⚙️ Configuration (.coalmine.json)
 
 CoalMine adapts dynamically to the developer's skill level and preferences:
-* **For General Users (Zero-Config / "ชาวบ้าน"):** No configuration file is required. The system automatically applies the "Gold-Standard Defaults" (safe, token-optimal, heuristic language detection).
-* **For Programmers (Advanced Overrides):** Create a `.coalmine.json` at the root of your project to override configuration parameters.
+* **For General Users (Zero-Config / "ชาวบ้าน"):** The installer automatically generates a ready-made `.coalmine.json` file at the root of the project pre-configured with safe, token-optimal, and secure gold-standard defaults, meaning they can run it out of the box with zero effort.
+* **For Programmers (Advanced Overrides):** The automatically generated `.coalmine.json` file contains inline descriptive comments explaining every key, type, and default value. Programmers can directly modify this file (manually or via the Agent) or run the configurator tool to adjust settings as they like.
 
 ### Configuration Schema
 

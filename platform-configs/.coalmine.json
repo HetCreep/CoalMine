@@ -2,30 +2,30 @@
   // ## The language to use for conductor prompts and canary nudge messages.
   // # Setting type: String (th, en, ja, zh, es)
   // # Default value: auto (heuristic detection)
-  // "language": "en",
+  "language": "auto",
 
   // ## Maximum number of edited files allowed to be scanned automatically at session end.
   // # Setting type: Int32
   // # Default value: 10
-  // "autoScanFileCap": 10,
+  "autoScanFileCap": 10,
 
   // ## Probability of sweeping stale temporary session files from the OS temp directory.
   // # Setting type: Double (between 0.0 and 1.0)
   // # Default value: 0.05 (5% chance)
-  // "tempSweepProbability": 0.05,
+  "tempSweepProbability": 0.05,
 
   // ## Maximum file size in KB for editor tripwire smells check (e.g. merge conflict markers).
   // # Setting type: Int32
   // # Default value: 100 (100KB)
-  // "tripwireMaxFileSizeKb": 100,
+  "tripwireMaxFileSizeKb": 100,
 
   // ## Enable or disable always-on rules injection at session start.
   // # Setting type: Boolean
   // # Default value: true
-  // "conductor": true,
+  "conductor": true,
 
   // ## List of quality canaries or features to disable (e.g. ["rot-canary", "drift-canary"] or ["all"]).
   // # Setting type: Array of Strings
   // # Default value: []
-  // "disable": []
+  "disable": []
 }

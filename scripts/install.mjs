@@ -384,21 +384,21 @@ if (cfg) {
 console.log('\nConfiguring git hooks...');
 installGitHooks();
 
-// Copy config template (.coalmine.json.template) to project root if not already present
-console.log('\nConfiguring settings template...');
+// Copy config (.coalmine.json) to project root if not already present
+console.log('\nConfiguring settings...');
 try {
-  const templateDest = path.join(process.cwd(), '.coalmine.json.template');
-  if (!fs.existsSync(templateDest)) {
+  const configDest = path.join(process.cwd(), '.coalmine.json');
+  if (!fs.existsSync(configDest)) {
     fs.copyFileSync(
-      path.join(repo, 'platform-configs', '.coalmine.json.template'),
-      templateDest
+      path.join(repo, 'platform-configs', '.coalmine.json'),
+      configDest
     );
-    console.log(`  created settings template → ${templateDest}`);
+    console.log(`  created default settings → ${configDest}`);
   } else {
-    console.log(`  settings template already exists at ${templateDest}`);
+    console.log(`  settings file already exists at ${configDest}`);
   }
 } catch (err) {
-  console.warn(`  [warn] failed to copy settings template: ${err.message}`);
+  console.warn(`  [warn] failed to copy settings: ${err.message}`);
 }
 
 const failed = skills.length - n;
