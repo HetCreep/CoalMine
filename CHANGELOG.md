@@ -4,6 +4,9 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Added (cross-model convergence run)
+- hooks-safety doctrine gains **section 7 — Hermetic Hook Testing** (spawn the real hook, sandboxed env, assert exit/silence/state) — proposed by an independent Antigravity RE-VALIDATE whose verdicts and exemplars matched the existing stamps 2/2 (the lifecycle's anti-churn + exemplar-anchor mechanics held across models); published copy in docs/.
+
 ### Fixed
 - configure.mjs: a trailing boolean flag with no value now errors instead of silently writing false (same fail-loud contract as the strArr fix); eval scorer drops a confusing no-op exit line.
 

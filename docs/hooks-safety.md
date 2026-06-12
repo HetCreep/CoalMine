@@ -51,3 +51,16 @@ All CoalMine hooks and canary skill scripts must conform to the Phoenix Canary p
 | 12 | ไม่ต้องการผู้ดูแล | **Self-healing** | On any unexpected state (corrupt temp file, missing session ID), silently skip and return cleanly. |
 | 13 | ไม่ส่งเสียง | **Zero Noise** | Hooks output NOTHING to stdout/stderr except the two sanctioned channels: the Stop hook's structured JSON block when an action is required, and SessionStart context injection (conductor). Everything else is silent. |
 
+## 7. Hermetic Hook Testing
+
+<!-- coalmine: verified 2026-06-13 · exemplar husky/lefthook isolation tests + scripts/lib/hooks.test.mjs · revalidate 90d -->
+
+Fail-silent code hides its own breakage — a hook that crashes looks identical to a hook that found nothing. Every behavior change to a hook therefore ships with a hermetic spawn test:
+
+- Spawn the real hook file as a child process with fixture stdin — never extract its logic into an importable function just to make testing easier.
+- Sandbox the environment: point `TEMP`/`TMP`/`TMPDIR` and `USERPROFILE`/`HOME` at a throwaway directory so real session state and kill-switch files can never affect the test.
+- Assert all three observable surfaces: exit code 0 on every path; stdout/stderr silent except the sanctioned channels (Phoenix #13); and the expected state effect (file written, file cleaned, or nothing touched).
+- Zero-dep (`node:test` only, per scripts-quality.md section 2) and enumerated explicitly in the gate hooks.
+
+Exemplar: husky and lefthook keep isolation test suites despite tiny codebases; CoalMine's own `scripts/lib/hooks.test.mjs` is the in-repo reference implementation.
+
