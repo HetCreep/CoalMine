@@ -11,7 +11,7 @@ description: >-
 Scan code for rot. Report CONFIRMED findings. Fix on request.
 
 ## Parameters
-- **SCOPE:** touched files (default) | diff | named files | whole repo
+- **SCOPE:** touched files (default) | diff | named files | whole repo. Touched files scan uses hybrid capping (scans all if <= 10 files, otherwise caps at top 5 most recently modified files and warns user).
 - **DEPTH:** QUICK (default) | DEEP
 
 ## Categories
@@ -49,7 +49,7 @@ Then: SUSPECTED list · coverage gaps · counts + top 3 to fix.
 Severity: CRITICAL (data loss/security/crash on normal path) · HIGH (real bug/leak on reachable path) · MEDIUM (dead/dup/unwired) · LOW (style/doc rot)
 
 ## Cadence
-Stop hook → auto QUICK on session's touched files (report only); manual whole-repo DEEP sweep when needed. Auto-wiring is platform-dependent — read `references/cadence.md` before claiming auto-scan works on the current platform.
+Stop hook → auto QUICK on session's touched files (report only). To protect the token budget, the Stop hook applies a hybrid cap: if the number of touched files is <= 10 (configurable via `autoScanFileCap` in `.coalmine.json`), all files are scanned; if > 10 files, the scan is capped at the top 5 most recently modified files, and a localized warning is displayed to the user. Manual whole-repo DEEP sweep when needed. Auto-wiring is platform-dependent — read `references/cadence.md` before claiming auto-scan works on the current platform.
 
 ## Tooling
 Per-stack build/dead-code/lint commands: read `references/tooling.md` when selecting scan tools.
@@ -64,7 +64,7 @@ Per-stack build/dead-code/lint commands: read `references/tooling.md` when selec
 
 **Agent Context (interactive):** score the tier rubric, then call `ask_question` once with the 3 tiers — the rubric's pick marked `✓`, score shown, labels localized — and wait for the user's choice before starting. `ask_question` = your platform's question tool: Claude Code `AskUserQuestion` · Cline `ask_question` · Roo `ask_followup_question` · Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in prompts; none → numbered text menu.
 
-**Tier rubric (deterministic):** +1 each — ① >20 files or whole-repo/cross-module reach ② >2 of this skill's categories relevant ③ release/security/pre-ship context ④ findings will drive code changes ⑤ scope not already audited ≥Standard this session. **0–1 Light · 2–3 Standard · 4–5 Heavy.** **Freshness cap:** if ⑤ scores 0, cap the pick at Light regardless of total — re-auditing fresh ground wastes tokens; scope the run to what changed since. An explicit user tier request always overrides everything.
+**Tier rubric (deterministic):** +1 each — ① >20 files or whole-repo/cross-module reach ② >2 of this skill's categories/dimensions/aspects relevant ③ release/security/pre-ship context ④ findings will drive code changes. **0–1 Light · 2–3 Standard · 4 Heavy.** **Freshness cap:** if the scope was already audited ≥Standard this session, cap the recommendation at Light regardless of the base score — re-auditing fresh ground wastes tokens; scope the run to what changed since. An explicit user tier request always overrides everything.
 
 **Hook Context (auto-triggered):** auto-Light, no tier question, no sub-agents — report first. If the session is interactive (a user is present), offer the fix menu after the report; truly non-interactive runs stay report-only. Never fix without a chosen option.
 

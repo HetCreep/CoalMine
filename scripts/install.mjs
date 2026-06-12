@@ -101,11 +101,28 @@ function upsertConfig(destFile, tplFile) {
   }
 }
 
+function resolveGitDir(repoDir) {
+  const gitPath = path.join(repoDir, '.git');
+  if (!fs.existsSync(gitPath)) return null;
+  const stat = fs.statSync(gitPath);
+  if (stat.isDirectory()) return gitPath;
+  if (stat.isFile()) {
+    try {
+      const content = fs.readFileSync(gitPath, 'utf8').trim();
+      const match = content.match(/^gitdir:\s*(.+)$/);
+      if (match) {
+        return path.resolve(repoDir, match[1].trim());
+      }
+    } catch {}
+  }
+  return null;
+}
+
 // ─── Git Hooks Installation ──────────────────────────────────────────────────
 function installGitHooks() {
   try {
-    const gitDir = path.join(process.cwd(), '.git');
-    if (!fs.existsSync(gitDir)) {
+    const gitDir = resolveGitDir(process.cwd());
+    if (!gitDir) {
       console.log('\nGit repository not detected at current directory — skipping git hooks installation.');
       return;
     }
@@ -134,7 +151,9 @@ function installGitHooks() {
             }
           }
         }
-      } catch {}
+      } catch (err) {
+        console.warn(`  [warn] failed to check or create hook backup: ${err.message}`);
+      }
       fs.writeFileSync(hookPath, hookContent);
       // mode option only applies on file creation — set it explicitly so an
       // overwritten hook is executable on Unix too.
@@ -150,8 +169,8 @@ function installGitHooks() {
 // ─── Git Hooks Uninstallation ────────────────────────────────────────────────
 function uninstallGitHooks() {
   try {
-    const gitDir = path.join(process.cwd(), '.git');
-    if (!fs.existsSync(gitDir)) return;
+    const gitDir = resolveGitDir(process.cwd());
+    if (!gitDir) return;
 
     const hooksDir = path.join(gitDir, 'hooks');
     if (!fs.existsSync(hooksDir)) return;
@@ -297,6 +316,11 @@ if (!targetArg) {
 }
 const targetKey = targetArg.toLowerCase();
 const dest = TARGETS[targetKey] ?? path.resolve(targetArg);
+
+if (path.resolve(dest) === path.resolve(skillsSrc)) {
+  console.error('Target directory cannot be the source skills directory.');
+  process.exit(1);
+}
 
 if (!fs.existsSync(skillsSrc)) {
   console.error(`No skills/ dir at ${skillsSrc}`);

@@ -28,11 +28,28 @@ const CODE_EXT = new Set([
 ]);
 
 
-// Per-project calibration: .coalmine.json at cwd may disable this canary or
+function findGitRoot(startDir) {
+  let dir = path.resolve(startDir);
+  while (true) {
+    const gitPath = path.join(dir, '.git');
+    if (fs.existsSync(gitPath)) {
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      break;
+    }
+    dir = parent;
+  }
+  return startDir;
+}
+
+// Per-project calibration: .coalmine.json at root may disable this canary or
 // override the mode for the project (principle 9 - calibrate, never assume).
 function projectOverride() {
   try {
-    const cfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), '.coalmine.json'), 'utf8'));
+    const root = findGitRoot(process.cwd());
+    const cfg = JSON.parse(fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8'));
     if (cfg && Array.isArray(cfg.disable) && cfg.disable.includes('rot-canary')) return 'off';
     if (cfg && (cfg.mode === 'off' || cfg.mode === 'manual')) return cfg.mode;
   } catch {}
@@ -51,7 +68,8 @@ function main() {
 
   const f = input && input.tool_input && input.tool_input.file_path;
   if (!f) return;
-  const normF = path.normalize(f);
+  // Convert to absolute normalized path to prevent subdirectory bugs
+  const normF = path.resolve(process.cwd(), f);
   if (!CODE_EXT.has(path.extname(normF).toLowerCase())) return;
 
   // No session id → no consumer (the stop hook bails without one). Record nothing.
@@ -68,8 +86,8 @@ function main() {
   if (!existingCompare.includes(fCompare)) { try { fs.appendFileSync(touched, normF + '\n'); } catch {} }
 
   // Tripwire scan — skip very large files to stay inside the latency budget
-  // (Phoenix #3: ≤100ms with scan).
-  try { if (fs.statSync(normF).size > 1024 * 1024) return; } catch { return; }
+  // (Phoenix #3: ≤100ms with scan). Capped at 100KB to prevent CPU lock and token bloat.
+  try { if (fs.statSync(normF).size > 100 * 1024) return; } catch { return; }
   let lines;
   try { lines = fs.readFileSync(normF, 'utf8').split(/\r?\n/); } catch { return; }
 
@@ -83,3 +101,4 @@ function main() {
 }
 
 try { main(); } catch {}
+

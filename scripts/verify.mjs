@@ -53,7 +53,7 @@ console.log('manifests:');
 for (const m of ['.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'hooks/hooks.json']) {
   const p = path.join(repo, m);
   if (!fs.existsSync(p)) { fail(`${m} missing`); continue; }
-  try { JSON.parse(fs.readFileSync(p, 'utf8')); pass(m); } catch (e) { fail(`${m} invalid JSON: ${e.message}`); }
+  try { JSON.parse(fs.readFileSync(p, 'utf8').replace(/^\uFEFF/, '')); pass(m); } catch (e) { fail(`${m} invalid JSON: ${e.message}`); }
 }
 
 // 3. hooks present
@@ -77,7 +77,7 @@ function compareAux(srcDir, dstDir, label) {
       } else {
         try {
           if (!fs.existsSync(dp)) fail(`${label}/${e.name} missing — run: node scripts/build-plugin.mjs`);
-          else if (fs.readFileSync(sp, 'utf8') !== fs.readFileSync(dp, 'utf8')) fail(`${label}/${e.name} STALE vs source — run: node scripts/build-plugin.mjs`);
+          else if (fs.readFileSync(sp, 'utf8').replace(/\r\n/g, '\n') !== fs.readFileSync(dp, 'utf8').replace(/\r\n/g, '\n')) fail(`${label}/${e.name} STALE vs source — run: node scripts/build-plugin.mjs`);
         } catch (err) { fail(`${label}/${e.name} compare failed: ${err.message}`); }
       }
     }
@@ -114,7 +114,7 @@ if (!fs.existsSync(pluginDir)) {
     let want;
     try { want = renderSkillMd(path.join(skillsSrc, s), shared); }
     catch (e) { fail(`plugin/skills/${s} render failed: ${e.message}`); continue; }
-    if (got !== want) { fail(`plugin/skills/${s} STALE vs source — run: node scripts/build-plugin.mjs`); continue; }
+    if (got.replace(/\r\n/g, '\n') !== want.replace(/\r\n/g, '\n')) { fail(`plugin/skills/${s} STALE vs source — run: node scripts/build-plugin.mjs`); continue; }
     compareAux(path.join(skillsSrc, s), path.join(pluginDir, 'skills', s), `plugin/skills/${s}`);
     pass(`plugin/skills/${s} in sync`);
   }
@@ -190,13 +190,13 @@ if (!fs.existsSync(pluginDir)) {
     const distFile = path.join(pluginDir, f);
     if (!fs.existsSync(distFile)) { fail(`plugin/${f} missing — run: node scripts/build-plugin.mjs`); continue; }
     try {
-      if (fs.readFileSync(path.join(repo, f), 'utf8') !== fs.readFileSync(distFile, 'utf8')) {
+      if (fs.readFileSync(path.join(repo, f), 'utf8').replace(/\r\n/g, '\n') !== fs.readFileSync(distFile, 'utf8').replace(/\r\n/g, '\n')) {
         fail(`plugin/${f} STALE vs ${f} — run: node scripts/build-plugin.mjs`);
       } else pass(`plugin/${f} in sync`);
     } catch (e) { fail(`plugin/${f} compare failed: ${e.message}`); }
   }
   try {
-    const mkt = JSON.parse(fs.readFileSync(path.join(repo, '.claude-plugin', 'marketplace.json'), 'utf8'));
+    const mkt = JSON.parse(fs.readFileSync(path.join(repo, '.claude-plugin', 'marketplace.json'), 'utf8').replace(/^\uFEFF/, ''));
     const srcField = mkt.plugins?.[0]?.source;
     if (srcField === './plugin') pass('marketplace serves ./plugin (conformed dist)');
     else fail(`marketplace plugins[0].source is ${JSON.stringify(srcField)} — must be "./plugin" so installs get conformed skills`);

@@ -33,6 +33,16 @@ ADOPT and every CONFORM fix are gated through `ask_question` — never assume ap
    - **still valid** → re-stamp the date, touch nothing else (no churn);
    - **stale but needed** → rewrite against today's exemplar;
    - **obsolete** (its subject was removed, its platform died, or its substance moved into another rule) → **delete the rule** and record a one-line tombstone in the project's memory/decision log (`retired <rule> <date>: <reason>`) — dead rules burn context every session, and the tombstone prevents the next FILL from resurrecting them.
+6. **SKILL UPDATE** — when executing an AUDIT, verify if any CoalMine skills are due for update by checking the manifest `installedAt` timestamp (30-day backstop) or checking for newer official upstream stable release tags. If an update is available:
+   - Present the user with exactly 3 choices via `ask_question`:
+     * `Create PR to update` (recommended)
+     * `Remind me later`
+     * `Skip version`
+   - If the user selects `Create PR to update`, proceed by:
+     1. Checking out a clean branch named `feature/update-coalmine-skills`.
+     2. Downloading conformed official stable releases/tags (never raw main/beta heads or unvalidated versions).
+     3. Committing the updated skills.
+     4. Submitting a Pull Request on GitHub for human review before merge.
 
 Exemplar-picking rules, scorecard mechanics, stamp/tombstone formats: read `references/method.md` before the first AUDIT.
 
