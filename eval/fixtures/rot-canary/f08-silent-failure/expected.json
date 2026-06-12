@@ -1,0 +1,3 @@
+{ "findings": [
+  { "file": "src/importer.js", "line": 11, "category": "silent-failure", "severity": "HIGH", "note": "partial completion reported as full success: imported uses rows.length, not okCount" }
+] }

@@ -1,0 +1,21 @@
+{
+  "model": "claude-fable-5",
+  "date": "2026-06-12",
+  "skillVersion": "3.4.0",
+  "operator": "self-run baseline (fixtures authored the same day — regression floor, not an independent benchmark)",
+  "findings": [
+    { "fixture": "f01-dead-code", "file": "src/report.js", "line": 5, "category": "dead-code", "severity": "MEDIUM", "evidence": "legacyCsvExport defined, never called, not exported" },
+    { "fixture": "f01-dead-code", "file": "src/report.js", "line": 11, "category": "dead-code", "severity": "MEDIUM", "evidence": "console.log after return — unreachable" },
+    { "fixture": "f02-dead-code", "file": "src/util.js", "line": 5, "category": "dead-code", "severity": "MEDIUM", "evidence": "titleCase exported; only slugify is required by main.js" },
+    { "fixture": "f03-resource-leak", "file": "src/poller.js", "line": 10, "category": "resource-leak", "severity": "HIGH", "evidence": "stop() flips the flag but never clearInterval(this.timer)" },
+    { "fixture": "f04-resource-leak", "file": "src/header.js", "line": 8, "category": "resource-leak", "severity": "HIGH", "evidence": "early return on short read skips fs.closeSync(fd)" },
+    { "fixture": "f05-concurrency", "file": "src/write-once.js", "line": 4, "category": "concurrency", "severity": "HIGH", "evidence": "existsSync check separated from write by an await — TOCTOU window" },
+    { "fixture": "f06-concurrency", "file": "src/totals.js", "line": 7, "category": "concurrency", "severity": "HIGH", "evidence": "forEach(async) callbacks unawaited; addAll returns total before updates" },
+    { "fixture": "f07-silent-failure", "file": "src/settings.js", "line": 7, "category": "silent-failure", "severity": "HIGH", "evidence": "empty catch swallows write error; function returns true regardless" },
+    { "fixture": "f08-silent-failure", "file": "src/importer.js", "line": 11, "category": "silent-failure", "severity": "HIGH", "evidence": "reports imported: rows.length even when rows were skipped (okCount ignored)" },
+    { "fixture": "f09-bug-prone", "file": "src/cart-sum.js", "line": 3, "category": "bug-prone", "severity": "CRITICAL", "evidence": "i <= items.length reads items[items.length].price — TypeError on every non-empty cart" },
+    { "fixture": "f10-bug-prone", "file": "src/quantity.js", "line": 5, "category": "bug-prone", "severity": "HIGH", "evidence": "parseInt NaN passes qty == null and qty < 0; NaN stored in cart" },
+    { "fixture": "f11-input-boundary", "file": "src/files.js", "line": 6, "category": "input-boundary", "severity": "CRITICAL", "evidence": "path.join(UPLOADS, name) with caller-controlled name — ../ traversal escapes the root" },
+    { "fixture": "f12-doc-rot", "file": "src/pricing.js", "line": 2, "category": "doc-rot", "severity": "LOW", "evidence": "averagePrice + comment promise an average; reduce returns the sum" }
+  ]
+}

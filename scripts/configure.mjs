@@ -44,8 +44,12 @@ function printHelp() {
 // Parse one raw CLI value against a spec. Returns { value } or { error }.
 function parseValue(spec, raw) {
   switch (spec.type) {
-    case 'bool':
+    case 'bool': {
+      if (raw !== 'true' && raw !== 'false') {
+        return { error: `${spec.key} needs true or false` };
+      }
       return { value: raw === 'true' };
+    }
     case 'int': {
       const n = parseInt(raw, 10);
       return isNaN(n) ? { error: `${spec.key} must be a number` } : { value: n };

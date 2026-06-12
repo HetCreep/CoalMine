@@ -1,0 +1,3 @@
+{ "findings": [
+  { "file": "src/quantity.js", "line": 5, "category": "bug-prone", "severity": "HIGH", "note": "NaN passes both guards (NaN == null is false, NaN < 0 is false) and is stored" }
+] }

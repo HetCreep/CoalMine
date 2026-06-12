@@ -10,7 +10,7 @@
 ![skills](https://img.shields.io/badge/skills-9-success)
 ![agents](https://img.shields.io/badge/works_with-12_agents_·_Claude_·_Cursor_·_Windsurf_·_more-informational)
 
-[Design Principles](DESIGN-PRINCIPLES.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Releases](https://github.com/HetCreep/CoalMine/releases)
+[Design Principles](DESIGN-PRINCIPLES.md) · [Eval Results](eval/RESULTS.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Releases](https://github.com/HetCreep/CoalMine/releases)
 
 </div>
 
@@ -121,6 +121,18 @@ node scripts/configure.mjs --language th --file-cap 15
 # Disable specific canaries
 node scripts/configure.mjs --disable rot-canary,drift-canary
 ```
+
+---
+
+## 📊 Measured detection quality
+
+"Antivirus-grade" needs a number, not an adjective — so CoalMine ships an AV-Comparatives-style [eval harness](eval/README.md): fixtures with **planted, line-labeled defects** plus **clean decoys**, scored mechanically (no judgment calls at scoring time).
+
+| Canary | Recall | Precision | Decoy false-positives | Severity accuracy | Corpus |
+|---|---|---|---|---|---|
+| `rot-canary` | **100%** (13/13) | **100%** | **0**/4 decoys | 100% | 16 fixtures · 7 categories |
+
+Latest scored run: [eval/RESULTS.md](eval/RESULTS.md) (model- and skill-version-stamped — re-run on any model or skill change to catch regressions). The baseline run is self-authored; treat it as a regression floor, not an independent benchmark.
 
 ---
 

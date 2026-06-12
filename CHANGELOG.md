@@ -4,6 +4,13 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Fixed
+- configure.mjs: a trailing boolean flag with no value now errors instead of silently writing false (same fail-loud contract as the strArr fix); eval scorer drops a confusing no-op exit line.
+
+### Added
+- **Eval harness** (`eval/`) — AV-Comparatives-style detection-rate measurement: 16 rot-canary fixtures (12 with planted, line-labeled defects across all 7 categories + 4 clean decoys), a mechanical scorer (`eval/score.mjs`, match = fixture+file+category, line ±3), and model-stamped results. Baseline (claude-fable-5, self-run regression floor): recall 13/13, 0 decoy false-positives. README gains a "Measured detection quality" section.
+- `docs/` — the Phoenix Commandments (hooks-safety) and scripts-quality doctrine are now published in-repo; DESIGN-PRINCIPLES.md previously linked them at `.claude/rules/...`, a gitignored path nobody on GitHub could open (caught by the user). Repo-wide link audit found no other broken links.
+
 ## [3.4.0] — 2026-06-12
 
 ### Changed (principle 4 — minimum necessary power: the fat-trim release)

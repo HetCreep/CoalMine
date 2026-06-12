@@ -1,0 +1,3 @@
+{ "findings": [
+  { "file": "src/write-once.js", "line": 4, "category": "concurrency", "severity": "HIGH", "note": "check-then-act race: two callers both pass the existsSync check and both write" }
+] }

@@ -1,0 +1,3 @@
+{ "findings": [
+  { "file": "src/pricing.js", "line": 2, "category": "doc-rot", "severity": "LOW", "note": "name and comment promise an average; the code returns the sum" }
+] }

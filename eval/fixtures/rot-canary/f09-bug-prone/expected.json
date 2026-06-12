@@ -1,0 +1,3 @@
+{ "findings": [
+  { "file": "src/cart-sum.js", "line": 3, "category": "bug-prone", "severity": "CRITICAL", "note": "off-by-one (<=) dereferences items[items.length] - crashes on every non-empty call" }
+] }

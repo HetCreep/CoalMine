@@ -1,0 +1,3 @@
+{ "findings": [
+  { "file": "src/header.js", "line": 8, "category": "resource-leak", "severity": "HIGH", "note": "fd leaked on the short-read early-return path" }
+] }
