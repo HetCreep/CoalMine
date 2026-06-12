@@ -247,11 +247,20 @@ function readManifest(destDir) {
   } catch { return null; }
 }
 
+// Defense against corrupt or hand-edited manifests: every name we are about to
+// rm must be a plain directory basename — no separators, no '.'/'..', no
+// dotfiles, no absolute/drive paths. Anything else is dropped, never deleted.
+function safeSkillNames(names) {
+  return names.filter((s) =>
+    typeof s === 'string' && s.length > 0 && s === path.basename(s) && !s.startsWith('.')
+  );
+}
+
 function cleanPreviousInstall(destDir, currentSkills) {
   // Manifest list when present; pre-manifest installs fall back to current
   // skill names (covers same-name upgrades only).
   const previous = readManifest(destDir);
-  const names = previous ? previous.skills : currentSkills;
+  const names = safeSkillNames(previous ? previous.skills : currentSkills);
   let cleaned = 0;
   for (const s of names) {
     const dir = path.join(destDir, s);
@@ -308,7 +317,7 @@ if (isUninstall) {
   // Manifest knows what was actually installed (incl. names from older
   // versions); fall back to current skill names for pre-manifest installs.
   const previous = readManifest(dest);
-  const removedCount = uninstallSkills(dest, previous ? previous.skills : skills);
+  const removedCount = uninstallSkills(dest, safeSkillNames(previous ? previous.skills : skills));
   try { fs.rmSync(path.join(dest, MANIFEST_NAME), { force: true }); } catch {}
   uninstallConfig(targetKey);
   uninstallGitHooks();

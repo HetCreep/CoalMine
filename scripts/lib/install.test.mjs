@@ -16,7 +16,7 @@ const INSTALL = path.join(repo, 'scripts', 'install.mjs');
 const MANIFEST = '.coalmine-manifest.json';
 
 function runInstall(target, cwd, extra = []) {
-  return spawnSync(process.execPath, [INSTALL, ...extra, target], { cwd, encoding: 'utf8' });
+  return spawnSync(process.execPath, [INSTALL, ...extra, target], { cwd, encoding: 'utf8', timeout: 60_000 });
 }
 
 test('manifest-driven reinstall removes renamed leftovers, spares foreign skills', () => {
@@ -54,6 +54,33 @@ test('manifest-driven reinstall removes renamed leftovers, spares foreign skills
     assert.ok(!fs.existsSync(path.join(target, 'rotcanary')), 'installed skill removed on uninstall');
     assert.ok(!fs.existsSync(path.join(target, MANIFEST)), 'manifest removed on uninstall');
     assert.ok(fs.existsSync(path.join(target, 'foreign-skill', 'SKILL.md')), 'foreign skill survives uninstall');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('corrupt manifest entries can never escape the target directory', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-escape-'));
+  const target = path.join(tmp, 'skills');
+  const sentinel = path.join(tmp, 'sentinel-dir');
+  try {
+    const first = runInstall(target, tmp);
+    assert.equal(first.status, 0);
+
+    // Sibling dir OUTSIDE the target — a '..' entry would wipe it (and the target).
+    fs.mkdirSync(sentinel);
+    fs.writeFileSync(path.join(sentinel, 'keep.txt'), 'must survive', 'utf8');
+
+    const manifest = JSON.parse(fs.readFileSync(path.join(target, MANIFEST), 'utf8'));
+    manifest.skills = ['..', '.', '../sentinel-dir', tmp, '.coalmine-manifest.json', 'rotcanary'];
+    fs.writeFileSync(path.join(target, MANIFEST), JSON.stringify(manifest), 'utf8');
+
+    const second = runInstall(target, tmp);
+    assert.equal(second.status, 0, `reinstall with corrupt manifest must still pass:\n${second.stdout}${second.stderr}`);
+    assert.ok(fs.existsSync(path.join(sentinel, 'keep.txt')), 'escape via .. must be impossible');
+    assert.ok(fs.existsSync(path.join(target, 'rotcanary', 'SKILL.md')), 'valid entries still install');
+    const after = JSON.parse(fs.readFileSync(path.join(target, MANIFEST), 'utf8'));
+    assert.equal(after.skills.length, 9, 'manifest rebuilt with the clean current set');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

@@ -4,6 +4,12 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [2.6.1] — 2026-06-11
+
+### Fixed (security hardening, found by rotcanary QUICK on the fresh manifest code)
+- Manifest skill names are sanitized to plain basenames before any `rm` (no separators, `.`/`..`, dotfiles, or absolute paths) — a corrupt or hand-edited `.coalmine-manifest.json` can no longer delete outside the install target or wipe the whole skills directory. Covered by an escape-attempt integration test (suite now 13).
+- Installer integration tests get a 60 s spawn timeout so a hung installer can't hang the git gate.
+
 ## [2.6.0] — 2026-06-11
 
 ### Added
