@@ -1,3 +1,4 @@
+<!-- coalmine: verified 2026-06-12 · revalidate 90d · definition file for resilience-audit -->
 # Resilience audit — concrete detection procedures
 
 ## 1. External I/O — what to grep

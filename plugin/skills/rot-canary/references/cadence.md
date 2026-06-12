@@ -1,3 +1,4 @@
+<!-- coalmine: verified 2026-06-12 · revalidate 30d · definition file for rot-canary -->
 # Rot-Canary — auto-cadence per platform
 
 Stop hook → auto QUICK scan on the session's touched files (report only). Platform support (verified Jun 2026):

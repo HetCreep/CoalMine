@@ -1,3 +1,4 @@
+<!-- coalmine: verified 2026-06-12 · revalidate 90d · definition file for telemetry-canary -->
 # Telemetry canary — concrete detection procedures
 
 ## 1. Empty / silent catch — grep first, then confirm by reading

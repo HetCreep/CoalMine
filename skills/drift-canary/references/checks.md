@@ -1,3 +1,4 @@
+<!-- coalmine: verified 2026-06-12 · revalidate 90d · definition file for drift-canary -->
 # Drift canary — concrete detection procedures
 
 ## 1. Breaking schema migrations — expand/contract rule

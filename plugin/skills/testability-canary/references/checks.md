@@ -1,3 +1,4 @@
+<!-- coalmine: verified 2026-06-12 · revalidate 90d · definition file for testability-canary -->
 # Testability canary — concrete detection procedures
 
 ## 1. Hardcoded constructors (no seam to mock)

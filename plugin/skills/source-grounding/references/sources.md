@@ -1,3 +1,4 @@
+<!-- coalmine: verified 2026-06-12 · revalidate 90d · definition file for source-grounding -->
 # Source-grounding — authoritative source map
 
 ## Where ground truth lives, per claim type

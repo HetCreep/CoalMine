@@ -1,3 +1,4 @@
+<!-- coalmine: verified 2026-06-12 · revalidate 90d · definition file for rot-canary -->
 # Rot-Canary — per-stack tooling
 
 | Stack | build/warnings | dead-code | lint |

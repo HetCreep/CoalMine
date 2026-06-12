@@ -4,6 +4,12 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.1.1] — 2026-06-12
+
+### Added (principle 4 of the antivirus model — definition freshness)
+- Every references/*.md now carries a coalmine: verified stamp (30d for the platform-coupled cadence file, 90d for pattern tables) — the shipped pattern DB ages visibly, like antivirus definitions.
+- /coalmine:stats section 3: definitions-freshness dashboard. Overdue definitions advise updating CoalMine itself (plugin update / fresh install) — never a local re-ground of shipped files.
+
 ## [3.1.0] — 2026-06-12
 
 The power-button release: install is the only command a user must know.

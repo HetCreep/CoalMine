@@ -1,3 +1,4 @@
+<!-- coalmine: verified 2026-06-12 · revalidate 90d · definition file for gold-standard -->
 # Gold-standard — method details
 
 ## Picking exemplars (3–5, fresh every run)
