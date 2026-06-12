@@ -41,10 +41,6 @@ Non-interactive runs: log unfetchable claims as `⚠️ UNVERIFIED` and continue
 - **AUTHORITATIVE** (one ground truth): API/version/config/spec → go to the actual source code or official docs.
 - **DIVERSE** (triangulate ≥ 3): "what's best" / landscape / patterns → multiple repos + docs + community; note conflicts.
 
-## Escalation — Scope & Model Quality
-
-| Level | Intent | Orchestration | Token Cost |
-|---|---|---|---|
 <!-- SHARED:ORCHESTRATION -->
 
 <!-- SHARED:ESCALATION_FOOTER -->

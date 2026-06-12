@@ -54,10 +54,6 @@ Stop hook → auto QUICK on session's touched files (report only). To protect th
 ## Tooling
 Per-stack build/dead-code/lint commands: read `references/tooling.md` when selecting scan tools.
 
-## Escalation — Scope & Model Quality
-
-| Level | Intent | Orchestration | Token Cost |
-|---|---|---|---|
 <!-- SHARED:ORCHESTRATION -->
 
 <!-- SHARED:ESCALATION_FOOTER -->

@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadShared, listSkills, installSkillDir } from './lib/render.mjs';
+import { REGION_TARGETS, syncRegion } from './lib/shared-regions.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const skillsSrc = path.join(repo, 'skills');
@@ -43,6 +44,30 @@ for (const s of skills) {
     n++;
   } catch (e) {
     console.error(`  [fail] ${s}: ${e.message}`);
+    process.exitCode = 1;
+  }
+}
+
+// Shared regions inside standalone hooks — synced from hooks/_shared so the
+// duplicated config plumbing has one source while each hook file stays
+// copy-one-file portable (Phoenix #9). Sync runs BEFORE the dist copy.
+for (const t of REGION_TARGETS) {
+  try {
+    const p = path.join(repo, t.file);
+    const partial = fs.readFileSync(path.join(repo, t.partial), 'utf8');
+    const cur = fs.readFileSync(p, 'utf8');
+    const synced = syncRegion(cur, t.name, t.comment, partial);
+    if (synced === null) {
+      console.error(`  [fail] ${t.file}: shared region '${t.name}' markers missing`);
+      process.exitCode = 1;
+      continue;
+    }
+    if (synced !== cur) {
+      fs.writeFileSync(p, synced);
+      console.log(`  synced shared region '${t.name}' in ${t.file}`);
+    }
+  } catch (e) {
+    console.error(`  [fail] ${t.file}: region sync failed: ${e.message}`);
     process.exitCode = 1;
   }
 }

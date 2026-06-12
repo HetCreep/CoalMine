@@ -32,10 +32,6 @@ In Agent Context, after the audit report, present via `ask_question`:
 
 Severity: CRITICAL (swallowed error with state mutation) · HIGH (missing stack trace in error logs) · MEDIUM (unstructured log in API boundary) · LOW (minor trace gaps)
 
-## Escalation — Scope & Model Quality
-
-| Level | Intent | Orchestration | Token Cost |
-|---|---|---|---|
 <!-- SHARED:ORCHESTRATION -->
 
 <!-- SHARED:ESCALATION_FOOTER -->

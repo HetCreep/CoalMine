@@ -1,0 +1,59 @@
+// Single source of truth for every .coalmine.json key.
+// verify.mjs validates against it; configure.mjs builds its CLI flags, parsing,
+// and help text from it — a key added here is automatically validated,
+// settable, and documented, so the two scripts can never drift apart.
+//
+// Spec fields:
+//   key       canonical .coalmine.json key
+//   type      'bool' | 'int' | 'enum' | 'strArr'
+//   values    allowed values for 'enum' (compared case-insensitively)
+//   titleCase store enum Title-Cased (defaultTier: Light/Standard/Heavy; 'auto' stays lowercase)
+//   lower     lowercase each 'strArr' item on write
+//   flags     extra CLI aliases besides --<key> (legacy names included)
+//   help      one-line description for --help
+
+export const CONFIG_SCHEMA = [
+  { key: 'language', type: 'enum', values: ['auto', 'th', 'en', 'ja', 'zh', 'es'], flags: ['-l'], help: 'Language override for prompts and nudges (auto, th, en, ja, zh, es)' },
+  { key: 'enableConductor', type: 'bool', flags: ['-d', '--conductor'], help: 'Enable/disable conductor rules injection at session start' },
+  { key: 'skipOnboarding', type: 'bool', flags: ['-o'], help: 'Skip the gold-standard onboarding offer at session start' },
+  { key: 'defaultTier', type: 'enum', values: ['light', 'standard', 'heavy', 'auto'], titleCase: true, flags: ['-t'], help: 'Force an execution tier (Light, Standard, Heavy, auto)' },
+  { key: 'autoScanFileCap', type: 'int', flags: ['-c', '--file-cap'], help: 'Max touched files scanned automatically at session end (default: 10)' },
+  { key: 'autoScanFileCapSlice', type: 'int', flags: ['-y'], help: 'Files kept when autoScanFileCap is exceeded (default: 5)' },
+  { key: 'tripwireMaxFileSizeKb', type: 'int', flags: ['-s', '--tripwire-cap'], help: 'Max file size in KB for the tripwire scan (default: 100)' },
+  { key: 'tripwireMaxLines', type: 'int', flags: ['-n'], help: 'Line count that flags a file as a smell (default: 800)' },
+  { key: 'tempSweepStaleDays', type: 'int', flags: ['-w'], help: 'Age in days before session temp files are swept (default: 7)' },
+  { key: 'watchedExtensions', type: 'strArr', lower: true, flags: ['-e'], help: 'Comma-separated file extensions the touch hook watches (empty = defaults)' },
+  { key: 'ruleRevalidateDays', type: 'int', flags: ['-v', '--antivirusStalenessDays'], help: 'Days before general rules need re-validation (default: 90)' },
+  { key: 'platformRuleRevalidateDays', type: 'int', flags: ['-g'], help: 'Days before platform/model rules need re-validation (default: 30)' },
+  { key: 'definitionRevalidateDays', type: 'int', flags: ['-j'], help: 'Days before general reference definitions are stale (default: 90)' },
+  { key: 'platformDefinitionRevalidateDays', type: 'int', flags: ['-k'], help: 'Days before platform definitions are stale (default: 30)' },
+  { key: 'skillUpdateCheckDays', type: 'int', flags: ['-u'], help: 'Days before installed skills are stale, triggering update offers (default: 30)' },
+  { key: 'disabledCanaries', type: 'strArr', lower: true, flags: ['-x', '--disable'], help: 'Comma-separated canaries to disable (or "all")' },
+  { key: 'rotCanaryMode', type: 'enum', values: ['auto', 'manual', 'off'], flags: ['-m', '--mode'], help: 'rot-canary auto-scan mode (auto, manual, off)' },
+  { key: 'autoFixMode', type: 'enum', values: ['interactive', 'safe', 'off'], flags: ['-f'], help: 'Default fix-mode behavior (interactive, safe, off)' },
+  { key: 'schemaPaths', type: 'strArr', flags: ['--schemas'], help: 'Comma-separated glob paths to schemas/API specs' },
+  { key: 'migrationDirs', type: 'strArr', flags: ['--migrations'], help: 'Comma-separated database migration directories' },
+  { key: 'packageManifests', type: 'strArr', flags: ['--manifests'], help: 'Comma-separated package manifest / lockfile paths' },
+  { key: 'trustedDomains', type: 'strArr', flags: ['--domains'], help: 'Comma-separated extra trusted domains for source grounding' },
+];
+
+// Validate an already-parsed JSON value against a spec.
+// Returns an error message fragment ("must be ...") or null when valid.
+export function validateValue(spec, v) {
+  switch (spec.type) {
+    case 'bool':
+      return typeof v === 'boolean' ? null : 'must be a boolean';
+    case 'int':
+      return typeof v === 'number' ? null : 'must be a number';
+    case 'enum':
+      return typeof v === 'string' && spec.values.includes(v.toLowerCase())
+        ? null
+        : `must be one of: ${spec.values.join(', ')}`;
+    case 'strArr':
+      return Array.isArray(v) && v.every((x) => typeof x === 'string')
+        ? null
+        : 'must be an array of strings';
+    default:
+      return `has an unknown spec type '${spec.type}'`;
+  }
+}

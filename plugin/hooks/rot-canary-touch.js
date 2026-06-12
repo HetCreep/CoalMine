@@ -21,6 +21,7 @@ function rcMode() {
   return 'auto';
 }
 
+// <coalmine-shared: node-config> — synced from hooks/_shared/node-config.js by build-plugin; edit the partial, not this block
 function findGitRoot(startDir) {
   let dir = path.resolve(startDir);
   while (true) {
@@ -52,6 +53,7 @@ function loadCfg() {
   } catch {}
   return _cfg;
 }
+// </coalmine-shared: node-config>
 
 // Per-project calibration: .coalmine.json at root may disable this canary or
 // override the mode for the project (principle 9 - calibrate, never assume).

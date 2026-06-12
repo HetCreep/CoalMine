@@ -47,10 +47,6 @@ Ordering/atomicity findings · Summary (counts + top fixes) · Not assessed
 
 Severity: CRITICAL (data loss/corruption/silent-success) · HIGH (crash/hang/partial-no-recovery) · MEDIUM (poor degradation/missing retry) · LOW (cosmetic)
 
-## Escalation — Scope & Model Quality
-
-| Level | Intent | Orchestration | Token Cost |
-|---|---|---|---|
 <!-- SHARED:ORCHESTRATION -->
 
 <!-- SHARED:ESCALATION_FOOTER -->

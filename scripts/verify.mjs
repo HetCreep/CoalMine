@@ -12,6 +12,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadShared, renderSkillMd, listSkills } from './lib/render.mjs';
 import { TARGETS } from './lib/targets.mjs';
+import { CONFIG_SCHEMA, validateValue } from './lib/config-schema.mjs';
+import { REGION_TARGETS, extractRegion } from './lib/shared-regions.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let ok = true;
@@ -64,84 +66,18 @@ if (fs.existsSync(configPath)) {
     const content = fs.readFileSync(configPath, 'utf8').replace(/^\uFEFF/, '');
     const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
     const cfg = JSON.parse(cleanJson);
-    const validKeys = [
-      'language', 'enableConductor', 'skipOnboarding', 'defaultTier',
-      'autoScanFileCap', 'autoScanFileCapSlice', 'tripwireMaxFileSizeKb', 'tripwireMaxLines',
-      'tempSweepStaleDays', 'watchedExtensions',
-      'ruleRevalidateDays', 'platformRuleRevalidateDays', 'definitionRevalidateDays',
-      'platformDefinitionRevalidateDays', 'skillUpdateCheckDays',
-      'disabledCanaries', 'rotCanaryMode', 'autoFixMode', 'schemaPaths', 'migrationDirs',
-      'packageManifests', 'trustedDomains'
-    ];
+    // Keys and types come from one table — scripts/lib/config-schema.mjs —
+    // shared with configure.mjs so the two can never drift apart.
+    const validKeys = CONFIG_SCHEMA.map((s) => s.key);
     const invalidKeys = Object.keys(cfg).filter((k) => !validKeys.includes(k));
     if (invalidKeys.length > 0) {
       fail(`.coalmine.json has unrecognized keys: ${invalidKeys.join(', ')}`);
     } else {
-      if (cfg.language !== undefined && (typeof cfg.language !== 'string' || !['auto', 'th', 'en', 'ja', 'zh', 'es'].includes(cfg.language.toLowerCase()))) {
-        fail(`.coalmine.json language must be one of: auto, th, en, ja, zh, es`);
-      }
-      if (cfg.enableConductor !== undefined && typeof cfg.enableConductor !== 'boolean') {
-        fail(`.coalmine.json enableConductor must be a boolean`);
-      }
-      if (cfg.skipOnboarding !== undefined && typeof cfg.skipOnboarding !== 'boolean') {
-        fail(`.coalmine.json skipOnboarding must be a boolean`);
-      }
-      if (cfg.defaultTier !== undefined && (typeof cfg.defaultTier !== 'string' || !['light', 'standard', 'heavy', 'auto'].includes(cfg.defaultTier.toLowerCase()))) {
-        fail(`.coalmine.json defaultTier must be one of: Light, Standard, Heavy, auto`);
-      }
-      if (cfg.autoScanFileCap !== undefined && typeof cfg.autoScanFileCap !== 'number') {
-        fail(`.coalmine.json autoScanFileCap must be a number`);
-      }
-      if (cfg.autoScanFileCapSlice !== undefined && typeof cfg.autoScanFileCapSlice !== 'number') {
-        fail(`.coalmine.json autoScanFileCapSlice must be a number`);
-      }
-      if (cfg.tripwireMaxFileSizeKb !== undefined && typeof cfg.tripwireMaxFileSizeKb !== 'number') {
-        fail(`.coalmine.json tripwireMaxFileSizeKb must be a number`);
-      }
-      if (cfg.tripwireMaxLines !== undefined && typeof cfg.tripwireMaxLines !== 'number') {
-        fail(`.coalmine.json tripwireMaxLines must be a number`);
-      }
-      if (cfg.tempSweepStaleDays !== undefined && typeof cfg.tempSweepStaleDays !== 'number') {
-        fail(`.coalmine.json tempSweepStaleDays must be a number`);
-      }
-      if (cfg.watchedExtensions !== undefined && (!Array.isArray(cfg.watchedExtensions) || cfg.watchedExtensions.some((x) => typeof x !== 'string'))) {
-        fail(`.coalmine.json watchedExtensions must be an array of strings`);
-      }
-      if (cfg.ruleRevalidateDays !== undefined && typeof cfg.ruleRevalidateDays !== 'number') {
-        fail(`.coalmine.json ruleRevalidateDays must be a number`);
-      }
-      if (cfg.platformRuleRevalidateDays !== undefined && typeof cfg.platformRuleRevalidateDays !== 'number') {
-        fail(`.coalmine.json platformRuleRevalidateDays must be a number`);
-      }
-      if (cfg.definitionRevalidateDays !== undefined && typeof cfg.definitionRevalidateDays !== 'number') {
-        fail(`.coalmine.json definitionRevalidateDays must be a number`);
-      }
-      if (cfg.platformDefinitionRevalidateDays !== undefined && typeof cfg.platformDefinitionRevalidateDays !== 'number') {
-        fail(`.coalmine.json platformDefinitionRevalidateDays must be a number`);
-      }
-      if (cfg.skillUpdateCheckDays !== undefined && typeof cfg.skillUpdateCheckDays !== 'number') {
-        fail(`.coalmine.json skillUpdateCheckDays must be a number`);
-      }
-      if (cfg.disabledCanaries !== undefined && (!Array.isArray(cfg.disabledCanaries) || cfg.disabledCanaries.some((x) => typeof x !== 'string'))) {
-        fail(`.coalmine.json disabledCanaries must be an array of strings`);
-      }
-      if (cfg.rotCanaryMode !== undefined && (typeof cfg.rotCanaryMode !== 'string' || !['auto', 'manual', 'off'].includes(cfg.rotCanaryMode.toLowerCase()))) {
-        fail(`.coalmine.json rotCanaryMode must be one of: auto, manual, off`);
-      }
-      if (cfg.autoFixMode !== undefined && (typeof cfg.autoFixMode !== 'string' || !['interactive', 'safe', 'off'].includes(cfg.autoFixMode.toLowerCase()))) {
-        fail(`.coalmine.json autoFixMode must be one of: interactive, safe, off`);
-      }
-      if (cfg.schemaPaths !== undefined && (!Array.isArray(cfg.schemaPaths) || cfg.schemaPaths.some((x) => typeof x !== 'string'))) {
-        fail(`.coalmine.json schemaPaths must be an array of strings`);
-      }
-      if (cfg.migrationDirs !== undefined && (!Array.isArray(cfg.migrationDirs) || cfg.migrationDirs.some((x) => typeof x !== 'string'))) {
-        fail(`.coalmine.json migrationDirs must be an array of strings`);
-      }
-      if (cfg.packageManifests !== undefined && (!Array.isArray(cfg.packageManifests) || cfg.packageManifests.some((x) => typeof x !== 'string'))) {
-        fail(`.coalmine.json packageManifests must be an array of strings`);
-      }
-      if (cfg.trustedDomains !== undefined && (!Array.isArray(cfg.trustedDomains) || cfg.trustedDomains.some((x) => typeof x !== 'string'))) {
-        fail(`.coalmine.json trustedDomains must be an array of strings`);
+      for (const spec of CONFIG_SCHEMA) {
+        const v = cfg[spec.key];
+        if (v === undefined) continue;
+        const err = validateValue(spec, v);
+        if (err) fail(`.coalmine.json ${spec.key} ${err}`);
       }
       if (ok) pass('.coalmine.json');
     }
@@ -154,6 +90,22 @@ if (fs.existsSync(configPath)) {
 console.log('hooks:');
 for (const h of ['hooks/rot-canary-touch.js', 'hooks/rot-canary-stop.js', 'hooks/coalmine-conductor.js']) {
   fs.existsSync(path.join(repo, h)) ? pass(h) : fail(`${h} missing`);
+}
+
+// 3.5 shared regions inside standalone hooks — must match their partial byte-for-byte
+console.log('shared regions:');
+for (const t of REGION_TARGETS) {
+  try {
+    const partial = fs.readFileSync(path.join(repo, t.partial), 'utf8');
+    const cur = fs.readFileSync(path.join(repo, t.file), 'utf8');
+    const got = extractRegion(cur, t.name, t.comment);
+    const want = (partial.endsWith('\n') ? partial : partial + '\n').replace(/\r\n/g, '\n');
+    if (got === null) fail(`${t.file}: shared region '${t.name}' markers missing`);
+    else if (got.replace(/\r\n/g, '\n') !== want) fail(`${t.file}: shared region '${t.name}' DRIFTED from ${t.partial} — run: node scripts/build-plugin.mjs`);
+    else pass(`${t.file} region '${t.name}' in sync`);
+  } catch (e) {
+    fail(`${t.file}: region check failed: ${e.message}`);
+  }
 }
 
 // Aux files (references/, skill-meta.json) ship verbatim — byte-compare both

@@ -4,6 +4,16 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.4.0] — 2026-06-12
+
+### Changed (principle 4 — minimum necessary power: the fat-trim release)
+- **Conductor injection −37%** (1930 → 1218 chars) — same rules, fewer tokens in every session's context; the per-key list is replaced by a pointer to the commented config file.
+- **Stop-nudge tail trimmed ~40% in all 5 languages** — the tail duplicated what the invoked skill already instructs; now just: confirmed-only report, offer the fix menu, kill-switch path.
+- **Shared regions for standalone hooks**: the duplicated config plumbing (findGitRoot/loadCfg + PowerShell twins) lives once in hooks/_shared/ and is synced into all 5 hook files between coalmine-shared markers by build-plugin — single source, each hook still copy-one-file portable (Phoenix #9); verify FAILs on drift. The conductor now uses the same cached loader.
+- **Table-driven config tooling**: the 22-key schema moved to scripts/lib/config-schema.mjs, shared by verify.mjs (a validation loop replaces 23 hand-written if-blocks) and configure.mjs (flags, parsing, validation, and --help generate from the table) — the "help forgot a flag" bug class can no longer ship; a gate test asserts help documents every key.
+- Escalation heading + table header deduplicated into the ORCHESTRATION partial (9 SKILL.md sources; rendered output unchanged).
+- Gate suite 22 → 25 tests (shared-region sync/drift, configurator help completeness).
+
 ## [3.3.0] — 2026-06-12
 
 ### Added (principle 9 — calibration: the config release, PR #7)

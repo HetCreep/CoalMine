@@ -1,5 +1,10 @@
+// CoalMine configurator — edit .coalmine.json from the command line.
+// Flags, parsing, validation, and help all come from one table
+// (scripts/lib/config-schema.mjs, shared with verify.mjs): a key added there
+// is automatically settable, validated, and documented here.
 import fs from 'fs';
 import path from 'path';
+import { CONFIG_SCHEMA } from './lib/config-schema.mjs';
 
 function findGitRoot(startDir) {
   let dir = path.resolve(startDir);
@@ -18,38 +23,52 @@ function findGitRoot(startDir) {
 }
 
 function printHelp() {
-  console.log(`CoalMine Configurator Utility
-Usage: node scripts/configure.mjs [options]
+  const lines = [
+    'CoalMine Configurator Utility',
+    'Usage: node scripts/configure.mjs [options]',
+    '',
+    'Options:',
+  ];
+  for (const spec of CONFIG_SCHEMA) {
+    const flags = [`--${spec.key}`, ...(spec.flags || [])].join(', ');
+    lines.push(`  ${flags.padEnd(48)} ${spec.help}`);
+  }
+  lines.push(`  ${'--help, -h'.padEnd(48)} Show this help message`);
+  lines.push('');
+  lines.push('Examples:');
+  lines.push('  node scripts/configure.mjs --language th --file-cap 15');
+  lines.push('  node scripts/configure.mjs --disable rot-canary,drift-canary');
+  console.log(lines.join('\n'));
+}
 
-Options:
-  --language, -l <lang>                       Set language override (auto, th, en, ja, zh, es)
-  --enableConductor, -d <true|false>          Enable or disable conductor rules injection
-  --skipOnboarding, -o <true|false>           Skip onboarding rules offer at session start
-  --defaultTier, -t <tier>                    Set default evaluation tier (Light, Standard, Heavy, auto)
-  --autoScanFileCap, -c <num>                 Set automatic file cap (default: 10)
-  --autoScanFileCapSlice, -y <num>            Set slice cap when exceeding autoScanFileCap (default: 5)
-  --tripwireMaxFileSizeKb, -s <num>           Set maximum file size in KB for tripwire scan (default: 100)
-  --tripwireMaxLines, -n <num>                Set maximum line count before smell warning (default: 800)
-  --rotCanaryMode, -m <mode>                  Set rot-canary auto-scan mode (auto, manual, off)
-  --tempSweepStaleDays, -w <days>             Set stale temp file age threshold in days (default: 7)
-  --watchedExtensions, -e <exts...>          Comma-separated file extensions to watch
-  --ruleRevalidateDays, -v <days>             Days before stable rules require re-validation (default: 90)
-  --platformRuleRevalidateDays, -g <days>     Days before platform/model rules require re-validation (default: 30)
-  --definitionRevalidateDays, -j <days>       Days before general reference definitions are stale (default: 90)
-  --platformDefinitionRevalidateDays, -k <d>  Days before platform definitions are stale (default: 30)
-  --skillUpdateCheckDays, -u <days>           Days before installed skills are stale (default: 30)
-  --disabledCanaries, -x <skills...>          Comma-separated list of skills to disable (or "all")
-  --autoFixMode, -f <mode>                    Set default fix mode behavior (interactive, safe, off)
-  --schemaPaths <paths...>                    Comma-separated glob paths pointing to schemas
-  --migrationDirs <dirs...>                   Comma-separated database migration directories
-  --packageManifests <files...>               Comma-separated package manifest paths
-  --trustedDomains <domains...>               Comma-separated trusted domains for source grounding
-  --help, -h                                  Show this help message
-
-Examples:
-  node scripts/configure.mjs --language th --autoScanFileCap 15
-  node scripts/configure.mjs --disabledCanaries rot-canary,drift-canary
-`);
+// Parse one raw CLI value against a spec. Returns { value } or { error }.
+function parseValue(spec, raw) {
+  switch (spec.type) {
+    case 'bool':
+      return { value: raw === 'true' };
+    case 'int': {
+      const n = parseInt(raw, 10);
+      return isNaN(n) ? { error: `${spec.key} must be a number` } : { value: n };
+    }
+    case 'enum': {
+      const v = (raw || '').toLowerCase();
+      if (!spec.values.includes(v)) {
+        return { error: `${spec.key} must be one of: ${spec.values.join(', ')}` };
+      }
+      if (spec.titleCase && v !== 'auto') {
+        return { value: v.charAt(0).toUpperCase() + v.slice(1) };
+      }
+      return { value: v };
+    }
+    case 'strArr': {
+      if (!raw) return { value: [] };
+      let items = raw.split(',').map((s) => s.trim()).filter(Boolean);
+      if (spec.lower) items = items.map((s) => s.toLowerCase());
+      return { value: items };
+    }
+    default:
+      return { error: `internal: unknown spec type '${spec.type}'` };
+  }
 }
 
 function main() {
@@ -63,12 +82,14 @@ function main() {
   const configPath = path.join(root, '.coalmine.json');
 
   let cfg = {};
+  let hadComments = false;
   if (fs.existsSync(configPath)) {
     try {
       const content = fs.readFileSync(configPath, 'utf8').replace(/^\uFEFF/, '');
+      hadComments = content.includes('//');
       const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
       cfg = JSON.parse(cleanJson) || {};
-      // Migrate old keys to new keys if present
+      // Migrate legacy/retired keys to their current forms.
       if (cfg.conductor !== undefined) {
         cfg.enableConductor = cfg.enableConductor ?? cfg.conductor;
         delete cfg.conductor;
@@ -104,145 +125,29 @@ function main() {
     }
   }
 
+  // Flag lookup: --<key> plus every alias in the table.
+  const flagMap = new Map();
+  for (const spec of CONFIG_SCHEMA) {
+    flagMap.set(`--${spec.key}`, spec);
+    for (const f of spec.flags || []) flagMap.set(f, spec);
+  }
+
   for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    if (arg === '--language' || arg === '-l') {
-      const val = args[++i];
-      if (!['auto', 'th', 'en', 'ja', 'zh', 'es'].includes(val?.toLowerCase())) {
-        console.error('Error: Language must be one of: auto, th, en, ja, zh, es');
-        process.exit(1);
-      }
-      cfg.language = val.toLowerCase();
-    } else if (arg === '--autoScanFileCap' || arg === '-c' || arg === '--file-cap') {
-      const val = parseInt(args[++i], 10);
-      if (isNaN(val)) {
-        console.error('Error: autoScanFileCap must be a number');
-        process.exit(1);
-      }
-      cfg.autoScanFileCap = val;
-    } else if (arg === '--tripwireMaxFileSizeKb' || arg === '-s' || arg === '--tripwire-cap') {
-      const val = parseInt(args[++i], 10);
-      if (isNaN(val)) {
-        console.error('Error: tripwireMaxFileSizeKb must be a number');
-        process.exit(1);
-      }
-      cfg.tripwireMaxFileSizeKb = val;
-    } else if (arg === '--enableConductor' || arg === '--conductor' || arg === '-d') {
-      const val = args[++i];
-      cfg.enableConductor = val === 'true';
-    } else if (arg === '--disabledCanaries' || arg === '--disable' || arg === '-x') {
-      const val = args[++i];
-      if (!val) {
-        console.error('Error: disabledCanaries list cannot be empty');
-        process.exit(1);
-      }
-      cfg.disabledCanaries = val.split(',').map(s => s.trim().toLowerCase());
-    } else if (arg === '--rotCanaryMode' || arg === '--mode' || arg === '-m') {
-      const val = args[++i];
-      if (!['auto', 'manual', 'off'].includes(val?.toLowerCase())) {
-        console.error('Error: rotCanaryMode must be one of: auto, manual, off');
-        process.exit(1);
-      }
-      cfg.rotCanaryMode = val.toLowerCase();
-    } else if (arg === '--defaultTier' || arg === '-t') {
-      const val = args[++i];
-      if (!['light', 'standard', 'heavy', 'auto'].includes(val?.toLowerCase())) {
-        console.error('Error: defaultTier must be one of: Light, Standard, Heavy, auto');
-        process.exit(1);
-      }
-      // Normalize tier to title case or auto
-      const cleanVal = val.toLowerCase();
-      cfg.defaultTier = cleanVal === 'auto' ? 'auto' : (cleanVal.charAt(0).toUpperCase() + cleanVal.slice(1));
-    } else if (arg === '--autoScanFileCapSlice' || arg === '-y') {
-      const val = parseInt(args[++i], 10);
-      if (isNaN(val)) {
-        console.error('Error: autoScanFileCapSlice must be a number');
-        process.exit(1);
-      }
-      cfg.autoScanFileCapSlice = val;
-    } else if (arg === '--tripwireMaxLines' || arg === '-n') {
-      const val = parseInt(args[++i], 10);
-      if (isNaN(val)) {
-        console.error('Error: tripwireMaxLines must be a number');
-        process.exit(1);
-      }
-      cfg.tripwireMaxLines = val;
-    } else if (arg === '--tempSweepStaleDays' || arg === '-w') {
-      const val = parseInt(args[++i], 10);
-      if (isNaN(val)) {
-        console.error('Error: tempSweepStaleDays must be a number');
-        process.exit(1);
-      }
-      cfg.tempSweepStaleDays = val;
-    } else if (arg === '--watchedExtensions' || arg === '-e') {
-      const val = args[++i];
-      cfg.watchedExtensions = val ? val.split(',').map(s => s.trim().toLowerCase()) : [];
-    } else if (arg === '--platformRuleRevalidateDays' || arg === '-g') {
-      const val = parseInt(args[++i], 10);
-      if (isNaN(val)) {
-        console.error('Error: platformRuleRevalidateDays must be a number');
-        process.exit(1);
-      }
-      cfg.platformRuleRevalidateDays = val;
-    } else if (arg === '--definitionRevalidateDays' || arg === '-j') {
-      const val = parseInt(args[++i], 10);
-      if (isNaN(val)) {
-        console.error('Error: definitionRevalidateDays must be a number');
-        process.exit(1);
-      }
-      cfg.definitionRevalidateDays = val;
-    } else if (arg === '--platformDefinitionRevalidateDays' || arg === '-k') {
-      const val = parseInt(args[++i], 10);
-      if (isNaN(val)) {
-        console.error('Error: platformDefinitionRevalidateDays must be a number');
-        process.exit(1);
-      }
-      cfg.platformDefinitionRevalidateDays = val;
-    } else if (arg === '--skillUpdateCheckDays' || arg === '-u') {
-      const val = parseInt(args[++i], 10);
-      if (isNaN(val)) {
-        console.error('Error: skillUpdateCheckDays must be a number');
-        process.exit(1);
-      }
-      cfg.skillUpdateCheckDays = val;
-    } else if (arg === '--schemaPaths' || arg === '--schemas') {
-      const val = args[++i];
-      cfg.schemaPaths = val ? val.split(',').map(s => s.trim()) : [];
-    } else if (arg === '--migrationDirs' || arg === '--migrations') {
-      const val = args[++i];
-      cfg.migrationDirs = val ? val.split(',').map(s => s.trim()) : [];
-    } else if (arg === '--packageManifests' || arg === '--manifests') {
-      const val = args[++i];
-      cfg.packageManifests = val ? val.split(',').map(s => s.trim()) : [];
-    } else if (arg === '--trustedDomains' || arg === '--domains') {
-      const val = args[++i];
-      cfg.trustedDomains = val ? val.split(',').map(s => s.trim()) : [];
-    } else if (arg === '--autoFixMode' || arg === '-f') {
-      const val = args[++i];
-      if (!['interactive', 'safe', 'off'].includes(val?.toLowerCase())) {
-        console.error('Error: autoFixMode must be one of: interactive, safe, off');
-        process.exit(1);
-      }
-      cfg.autoFixMode = val.toLowerCase();
-    } else if (arg === '--skipOnboarding' || arg === '-o') {
-      cfg.skipOnboarding = args[++i] === 'true';
-    } else if (arg === '--ruleRevalidateDays' || arg === '--antivirusStalenessDays' || arg === '-v') {
-      const val = parseInt(args[++i], 10);
-      if (isNaN(val)) {
-        console.error('Error: ruleRevalidateDays must be a number');
-        process.exit(1);
-      }
-      cfg.ruleRevalidateDays = val;
-    } else {
-      console.error(`Error: Unrecognized option '${arg}'`);
+    const spec = flagMap.get(args[i]);
+    if (!spec) {
+      console.error(`Error: Unrecognized option '${args[i]}'`);
       printHelp();
       process.exit(1);
     }
+    const parsed = parseValue(spec, args[++i]);
+    if (parsed.error) {
+      console.error(`Error: ${parsed.error}`);
+      process.exit(1);
+    }
+    cfg[spec.key] = parsed.value;
   }
 
   try {
-    let hadComments = false;
-    try { hadComments = fs.readFileSync(configPath, 'utf8').includes('//'); } catch {}
     fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2) + '\n', 'utf8');
     if (hadComments) {
       console.warn('Note: inline comments were stripped (this tool writes plain JSON). Every key stays documented in platform-configs/.coalmine.json.');

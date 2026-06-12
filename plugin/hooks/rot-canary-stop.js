@@ -39,6 +39,7 @@ function readFirstChunk(p, size = 4096) {
   }
 }
 
+// <coalmine-shared: node-config> — synced from hooks/_shared/node-config.js by build-plugin; edit the partial, not this block
 function findGitRoot(startDir) {
   let dir = path.resolve(startDir);
   while (true) {
@@ -70,6 +71,7 @@ function loadCfg() {
   } catch {}
   return _cfg;
 }
+// </coalmine-shared: node-config>
 
 // Heuristic user-language detection: explicit .coalmine.json override first, then
 // env locale, then regional characters in project docs (per hooks-safety.md section 5).
@@ -151,8 +153,7 @@ const TRANSLATIONS = {
       'Code-health auto-check (session end): code files were edited this session. Before stopping, ' +
       'invoke the rot-canary skill at DEPTH=QUICK with SCOPE = these touched files + their direct callers:\n' +
       list + smellText +
-      '\n\nThe skill has the full procedure. Report CONFIRMED findings only as a severity table; if nothing ' +
-      'material, say so in one line. If findings exist and the user is present, finish by offering the fix menu via your question tool — never fix without a chosen option. (To disable this auto-check: create ~/.claude/.rot-canary-off)',
+      '\n\nReport CONFIRMED findings only (severity table; one line if none). If findings exist and a user is present, end by offering the fix menu via your question tool — never fix without a chosen option. (Disable: create ~/.claude/.rot-canary-off)',
   },
   th: {
     smellPrefix: '\n\nสัญญาณเตือนความเสี่ยงที่พบขณะแก้ไข:\n',
@@ -161,8 +162,7 @@ const TRANSLATIONS = {
       'ระบบตรวจสอบสุขภาพโค้ดอัตโนมัติ (สิ้นสุดเซสชัน): มีการแก้ไขไฟล์โค้ดในเซสชันนี้ ก่อนที่คุณจะหยุดทำงาน ' +
       'โปรดเรียกใช้สกิล rot-canary ที่ DEPTH=QUICK โดยระบุ SCOPE = ไฟล์ที่แก้ไขเหล่านี้ + ไฟล์ที่เรียกใช้งานโดยตรง:\n' +
       list + smellText +
-      '\n\nขั้นตอนการทำงานทั้งหมดระบุไว้ในสกิลแล้ว ให้รายงานเฉพาะข้อมูลที่ยืนยันพบปัญหาแล้วเท่านั้นในรูปแบบตารางความรุนแรง ' +
-      'หากพบปัญหาและผู้ใช้อยู่ในเซสชัน ให้จบด้วยการเสนอเมนูตัวเลือกการแก้ไขผ่านเครื่องมือคำถาม — ห้ามแก้ไขโดยไม่มีตัวเลือกที่ถูกเลือก (หากต้องการปิดการตรวจเช็คอัตโนมัตินี้: ให้สร้างไฟล์ ~/.claude/.rot-canary-off)',
+      '\n\nรายงานเฉพาะปัญหาที่ยืนยันแล้ว (ตารางความรุนแรง; ไม่มีก็สรุปบรรทัดเดียว) หากพบปัญหาและผู้ใช้อยู่ในเซสชัน ให้จบด้วยการเสนอเมนูแก้ไขผ่านเครื่องมือคำถาม — ห้ามแก้โดยไม่มีตัวเลือกที่ถูกเลือก (ปิดระบบนี้: สร้าง ~/.claude/.rot-canary-off)',
   },
   ja: {
     smellPrefix: '\n\n編集時に検出されたリスク警告:\n',
@@ -171,8 +171,7 @@ const TRANSLATIONS = {
       'コードヘルス自動チェック（セッション終了）: このセッションでコードファイルが編集されました。終了する前に、' +
       'DEPTH=QUICKでrot-canaryスキルを実行し、SCOPE = これらの編集されたファイル + 直接的呼び出し元を指定してください:\n' +
       list + smellText +
-      '\n\nスキルの詳細な手順に従ってください。確認された問題のみを重要度テーブルとして報告し、重要な問題がない場合は1行でその旨を述べてください。' +
-      '問題が見つかりユーザーがセッションにいる場合は、質問ツールで修正メニューを提示して締めくくってください — 選択なしに修正してはいけません。（この自動チェックを無効にするには、~/.claude/.rot-canary-offを作成してください）',
+      '\n\n確認済みの問題のみ報告（重要度テーブル; なければ1行で）。問題がありユーザーが在席なら、質問ツールで修正メニューを提示して終了 — 選択なしの修正は禁止。（無効化: ~/.claude/.rot-canary-off を作成）',
   },
   zh: {
     smellPrefix: '\n\n编辑时标记的风险警告：\n',
@@ -181,8 +180,7 @@ const TRANSLATIONS = {
       '代码健康自动检查（会话结束）：此会话中编辑了代码文件。在停止之前，请运行 DEPTH=QUICK 的 rot-canary 技能，' +
       '并将 SCOPE 设置为这些被编辑的文件及其直接调用者：\n' +
       list + smellText +
-      '\n\n该技能有完整流程。仅以严重性表格形式报告已确认的问题；如果没有实质问题，请在一行中说明。' +
-      '若发现问题且用户在会话中，请以问题工具提供修复选项菜单作为结尾 — 未经选择不得修改代码。（要禁用此自动检查，请创建 ~/.claude/.rot-canary-off）',
+      '\n\n仅报告已确认的问题（严重性表格；没有则一行说明）。若有问题且用户在场，最后用问题工具提供修复菜单 — 未经选择不得修改。（停用: 创建 ~/.claude/.rot-canary-off）',
   },
   es: {
     smellPrefix: '\n\nAlertas de riesgo marcadas al editar:\n',
@@ -191,8 +189,7 @@ const TRANSLATIONS = {
       'Autocomprobación de salud del código (fin de sesión): se editaron archivos de código en esta sesión. Antes de detenerse, ' +
       'invoque la habilidad rot-canary con DEPTH=QUICK y SCOPE = estos archivos modificados + sus llamadores directos:\n' +
       list + smellText +
-      '\n\nLa habilidad tiene el procedimiento completo. Informe los hallazgos CONFIRMADOS solo como una tabla de gravedad; si no hay nada relevante, ' +
-      'indíquelo en una sola línea. Si hay hallazgos y el usuario está presente, termine ofreciendo el menú de correcciones mediante su herramienta de preguntas — nunca corrija sin una opción elegida. (Para desactivar esta comprobación: cree ~/.claude/.rot-canary-off)',
+      '\n\nInforme solo hallazgos CONFIRMADOS (tabla de gravedad; una línea si no hay nada). Si hay hallazgos y el usuario está presente, termine ofreciendo el menú de correcciones — nunca corrija sin una opción elegida. (Desactivar: cree ~/.claude/.rot-canary-off)',
   },
 };
 

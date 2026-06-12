@@ -32,10 +32,6 @@ In Agent Context, after the audit report, present via `ask_question`:
 
 Severity: CRITICAL (un-mockable external write/network call) · HIGH (SRP violation blocking unit testing) · MEDIUM (time/env coupling) · LOW (minor static dependency)
 
-## Escalation — Scope & Model Quality
-
-| Level | Intent | Orchestration | Token Cost |
-|---|---|---|---|
 <!-- SHARED:ORCHESTRATION -->
 
 <!-- SHARED:ESCALATION_FOOTER -->

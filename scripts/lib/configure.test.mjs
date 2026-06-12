@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CONFIG_SCHEMA } from './config-schema.mjs';
 
 const CONFIGURE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'configure.mjs');
 
@@ -30,6 +31,14 @@ test('configure writes values and migrates legacy/retired keys away', () => {
     assert.ok(!('disable' in cfg) && !('conductor' in cfg) && !('tempSweepProbability' in cfg),
       'legacy and retired keys must be removed');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('help documents every schema key — drift between table and help is impossible to ship', () => {
+  const r = spawnSync(process.execPath, [CONFIGURE, '--help'], { encoding: 'utf8', timeout: 60000 });
+  assert.strictEqual(r.status, 0);
+  for (const spec of CONFIG_SCHEMA) {
+    assert.ok(r.stdout.includes(`--${spec.key}`), `help is missing --${spec.key}`);
+  }
 });
 
 test('configure fails loud on an invalid value and writes nothing', () => {

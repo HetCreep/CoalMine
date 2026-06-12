@@ -49,10 +49,6 @@ NEVER auto-fix: dep version bump, lockfile regen (re-resolves entire transitive 
 `| package | direct/transitive | issue | severity | advisory | fixed-in | action |`
 Build+artifact checklist · Summary (counts + top fixes) · Not scanned
 
-## Escalation — Scope & Model Quality
-
-| Level | Intent | Orchestration | Token Cost |
-|---|---|---|---|
 <!-- SHARED:ORCHESTRATION -->
 
 <!-- SHARED:ESCALATION_FOOTER -->

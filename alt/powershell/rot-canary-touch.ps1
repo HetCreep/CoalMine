@@ -11,6 +11,7 @@ function Get-RcMode {
   return 'auto'
 }
 
+# <coalmine-shared: ps-config> — synced from hooks/_shared/ps-config.ps1 by build-plugin; edit the partial, not this block
 function Find-GitRoot {
   $dir = (Get-Location).Path
   while ($true) {
@@ -33,6 +34,7 @@ function Load-CoalmineConfig {
     return $null
   }
 }
+# </coalmine-shared: ps-config>
 
 try {
   $cfg = Load-CoalmineConfig

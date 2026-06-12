@@ -59,10 +59,6 @@ Correctness · Security · Performance · UX/DX · Docs/onboarding · Testing/CI
 4. Gaps — criterion · exemplar · effort · impact
 5. Verdict — 1 line + top 3 moves
 
-## Escalation — Scope & Model Quality
-
-| Level | Intent | Orchestration | Token Cost |
-|---|---|---|---|
 <!-- SHARED:ORCHESTRATION -->
 
 <!-- SHARED:ESCALATION_FOOTER -->
