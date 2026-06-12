@@ -45,7 +45,8 @@ function detectLang() {
   try {
     const root = findGitRoot(process.cwd());
     const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
-    const cfg = JSON.parse(content);
+    const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
+    const cfg = JSON.parse(cleanJson);
     if (cfg && typeof cfg.language === 'string' && TRANSLATIONS[cfg.language.toLowerCase()]) {
       return cfg.language.toLowerCase();
     }
@@ -87,7 +88,8 @@ function sweepStale() {
   try {
     const root = findGitRoot(process.cwd());
     const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
-    const cfg = JSON.parse(content);
+    const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
+    const cfg = JSON.parse(cleanJson);
     if (cfg && typeof cfg.tempSweepProbability === 'number') {
       prob = cfg.tempSweepProbability;
     }

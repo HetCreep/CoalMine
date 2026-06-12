@@ -50,7 +50,8 @@ function main() {
   if (fs.existsSync(configPath)) {
     try {
       const content = fs.readFileSync(configPath, 'utf8').replace(/^\uFEFF/, '');
-      cfg = JSON.parse(content) || {};
+      const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
+      cfg = JSON.parse(cleanJson) || {};
     } catch (e) {
       console.warn('Warning: existing .coalmine.json is malformed. Overwriting.');
     }

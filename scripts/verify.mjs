@@ -62,7 +62,8 @@ if (fs.existsSync(configPath)) {
   console.log('config (.coalmine.json):');
   try {
     const content = fs.readFileSync(configPath, 'utf8').replace(/^\uFEFF/, '');
-    const cfg = JSON.parse(content);
+    const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
+    const cfg = JSON.parse(cleanJson);
     const validKeys = ['language', 'autoScanFileCap', 'tempSweepProbability', 'tripwireMaxFileSizeKb', 'conductor', 'disable', 'mode'];
     const invalidKeys = Object.keys(cfg).filter((k) => !validKeys.includes(k));
     if (invalidKeys.length > 0) {
