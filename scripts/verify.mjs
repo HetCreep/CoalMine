@@ -65,9 +65,13 @@ if (fs.existsSync(configPath)) {
     const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
     const cfg = JSON.parse(cleanJson);
     const validKeys = [
-      'language', 'autoScanFileCap', 'tempSweepProbability', 'tripwireMaxFileSizeKb',
-      'enableConductor', 'disabledCanaries', 'rotCanaryMode', 'defaultTier', 'branchPrefix',
-      'pullRequestRemote', 'autoFixMode', 'skipOnboarding', 'ruleRevalidateDays'
+      'language', 'enableConductor', 'skipOnboarding', 'defaultTier',
+      'autoScanFileCap', 'autoScanFileCapSlice', 'tripwireMaxFileSizeKb', 'tripwireMaxLines',
+      'tempSweepProbability', 'tempSweepStaleDays', 'watchedExtensions',
+      'ruleRevalidateDays', 'platformRuleRevalidateDays', 'definitionRevalidateDays',
+      'platformDefinitionRevalidateDays', 'skillUpdateCheckDays',
+      'disabledCanaries', 'rotCanaryMode', 'autoFixMode', 'schemaPaths', 'migrationDirs',
+      'packageManifests', 'trustedDomains'
     ];
     const invalidKeys = Object.keys(cfg).filter((k) => !validKeys.includes(k));
     if (invalidKeys.length > 0) {
@@ -76,17 +80,50 @@ if (fs.existsSync(configPath)) {
       if (cfg.language !== undefined && !['auto', 'th', 'en', 'ja', 'zh', 'es'].includes(cfg.language.toLowerCase())) {
         fail(`.coalmine.json language must be one of: auto, th, en, ja, zh, es`);
       }
+      if (cfg.enableConductor !== undefined && typeof cfg.enableConductor !== 'boolean') {
+        fail(`.coalmine.json enableConductor must be a boolean`);
+      }
+      if (cfg.skipOnboarding !== undefined && typeof cfg.skipOnboarding !== 'boolean') {
+        fail(`.coalmine.json skipOnboarding must be a boolean`);
+      }
+      if (cfg.defaultTier !== undefined && !['light', 'standard', 'heavy', 'auto'].includes(cfg.defaultTier.toLowerCase())) {
+        fail(`.coalmine.json defaultTier must be one of: Light, Standard, Heavy, auto`);
+      }
       if (cfg.autoScanFileCap !== undefined && typeof cfg.autoScanFileCap !== 'number') {
         fail(`.coalmine.json autoScanFileCap must be a number`);
       }
-      if (cfg.tempSweepProbability !== undefined && (typeof cfg.tempSweepProbability !== 'number' || cfg.tempSweepProbability < 0 || cfg.tempSweepProbability > 1)) {
-        fail(`.coalmine.json tempSweepProbability must be a number between 0.0 and 1.0`);
+      if (cfg.autoScanFileCapSlice !== undefined && typeof cfg.autoScanFileCapSlice !== 'number') {
+        fail(`.coalmine.json autoScanFileCapSlice must be a number`);
       }
       if (cfg.tripwireMaxFileSizeKb !== undefined && typeof cfg.tripwireMaxFileSizeKb !== 'number') {
         fail(`.coalmine.json tripwireMaxFileSizeKb must be a number`);
       }
-      if (cfg.enableConductor !== undefined && typeof cfg.enableConductor !== 'boolean') {
-        fail(`.coalmine.json enableConductor must be a boolean`);
+      if (cfg.tripwireMaxLines !== undefined && typeof cfg.tripwireMaxLines !== 'number') {
+        fail(`.coalmine.json tripwireMaxLines must be a number`);
+      }
+      if (cfg.tempSweepProbability !== undefined && (typeof cfg.tempSweepProbability !== 'number' || cfg.tempSweepProbability < 0 || cfg.tempSweepProbability > 1)) {
+        fail(`.coalmine.json tempSweepProbability must be a number between 0.0 and 1.0`);
+      }
+      if (cfg.tempSweepStaleDays !== undefined && typeof cfg.tempSweepStaleDays !== 'number') {
+        fail(`.coalmine.json tempSweepStaleDays must be a number`);
+      }
+      if (cfg.watchedExtensions !== undefined && (!Array.isArray(cfg.watchedExtensions) || cfg.watchedExtensions.some((x) => typeof x !== 'string'))) {
+        fail(`.coalmine.json watchedExtensions must be an array of strings`);
+      }
+      if (cfg.ruleRevalidateDays !== undefined && typeof cfg.ruleRevalidateDays !== 'number') {
+        fail(`.coalmine.json ruleRevalidateDays must be a number`);
+      }
+      if (cfg.platformRuleRevalidateDays !== undefined && typeof cfg.platformRuleRevalidateDays !== 'number') {
+        fail(`.coalmine.json platformRuleRevalidateDays must be a number`);
+      }
+      if (cfg.definitionRevalidateDays !== undefined && typeof cfg.definitionRevalidateDays !== 'number') {
+        fail(`.coalmine.json definitionRevalidateDays must be a number`);
+      }
+      if (cfg.platformDefinitionRevalidateDays !== undefined && typeof cfg.platformDefinitionRevalidateDays !== 'number') {
+        fail(`.coalmine.json platformDefinitionRevalidateDays must be a number`);
+      }
+      if (cfg.skillUpdateCheckDays !== undefined && typeof cfg.skillUpdateCheckDays !== 'number') {
+        fail(`.coalmine.json skillUpdateCheckDays must be a number`);
       }
       if (cfg.disabledCanaries !== undefined && (!Array.isArray(cfg.disabledCanaries) || cfg.disabledCanaries.some((x) => typeof x !== 'string'))) {
         fail(`.coalmine.json disabledCanaries must be an array of strings`);
@@ -94,23 +131,20 @@ if (fs.existsSync(configPath)) {
       if (cfg.rotCanaryMode !== undefined && !['auto', 'manual', 'off'].includes(cfg.rotCanaryMode.toLowerCase())) {
         fail(`.coalmine.json rotCanaryMode must be one of: auto, manual, off`);
       }
-      if (cfg.defaultTier !== undefined && !['light', 'standard', 'heavy', 'auto'].includes(cfg.defaultTier.toLowerCase())) {
-        fail(`.coalmine.json defaultTier must be one of: Light, Standard, Heavy, auto`);
-      }
-      if (cfg.branchPrefix !== undefined && typeof cfg.branchPrefix !== 'string') {
-        fail(`.coalmine.json branchPrefix must be a string`);
-      }
-      if (cfg.pullRequestRemote !== undefined && typeof cfg.pullRequestRemote !== 'string') {
-        fail(`.coalmine.json pullRequestRemote must be a string`);
-      }
       if (cfg.autoFixMode !== undefined && !['interactive', 'safe', 'off'].includes(cfg.autoFixMode.toLowerCase())) {
         fail(`.coalmine.json autoFixMode must be one of: interactive, safe, off`);
       }
-      if (cfg.skipOnboarding !== undefined && typeof cfg.skipOnboarding !== 'boolean') {
-        fail(`.coalmine.json skipOnboarding must be a boolean`);
+      if (cfg.schemaPaths !== undefined && (!Array.isArray(cfg.schemaPaths) || cfg.schemaPaths.some((x) => typeof x !== 'string'))) {
+        fail(`.coalmine.json schemaPaths must be an array of strings`);
       }
-      if (cfg.ruleRevalidateDays !== undefined && typeof cfg.ruleRevalidateDays !== 'number') {
-        fail(`.coalmine.json ruleRevalidateDays must be a number`);
+      if (cfg.migrationDirs !== undefined && (!Array.isArray(cfg.migrationDirs) || cfg.migrationDirs.some((x) => typeof x !== 'string'))) {
+        fail(`.coalmine.json migrationDirs must be an array of strings`);
+      }
+      if (cfg.packageManifests !== undefined && (!Array.isArray(cfg.packageManifests) || cfg.packageManifests.some((x) => typeof x !== 'string'))) {
+        fail(`.coalmine.json packageManifests must be an array of strings`);
+      }
+      if (cfg.trustedDomains !== undefined && (!Array.isArray(cfg.trustedDomains) || cfg.trustedDomains.some((x) => typeof x !== 'string'))) {
+        fail(`.coalmine.json trustedDomains must be an array of strings`);
       }
       if (ok) pass('.coalmine.json');
     }

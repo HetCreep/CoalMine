@@ -1,66 +1,127 @@
 {
+  // =========================================================================
+  // SECTION 1: SYSTEM & INTERACTIVE BEHAVIORS (พฤติกรรมและการโต้ตอบของเอเจนต์)
+  // =========================================================================
+
   // ## The language to use for conductor prompts, agent interactions, and canary nudge messages.
   // # Setting type: String (auto, th, en, ja, zh, es)
   // # Default value: auto (heuristic detection based on environment and docs)
   "language": "auto",
-
-  // ## Maximum number of edited files allowed to be scanned automatically at session end.
-  // # Setting type: Int32
-  // # Default value: 10
-  "autoScanFileCap": 10,
-
-  // ## Probability of sweeping stale temporary session files from the OS temp directory.
-  // # Setting type: Double (between 0.0 and 1.0)
-  // # Default value: 0.05 (5% chance per stop hook execution)
-  "tempSweepProbability": 0.05,
-
-  // ## Maximum file size in KB for editor tripwire smells check (e.g. merge conflict markers).
-  // # Setting type: Int32
-  // # Default value: 100 (100KB)
-  "tripwireMaxFileSizeKb": 100,
 
   // ## Enable or disable the always-on conductor rules injection at session start.
   // # Setting type: Boolean
   // # Default value: true
   "enableConductor": true,
 
-  // ## List of quality canaries or features to disable (e.g. ["rot-canary", "drift-canary"] or ["all"]).
-  // # Setting type: Array of Strings
-  // # Default value: []
-  "disabledCanaries": [],
-
-  // ## Execution mode for the rot-canary auto-scan (auto = run stop hook, manual = scan only when triggered, off = disabled).
-  // # Setting type: String (auto, manual, off)
-  // # Default value: auto
-  "rotCanaryMode": "auto",
+  // ## Whether to completely skip the gold-standard onboarding rules offer at session start.
+  // # Setting type: Boolean
+  // # Default value: false
+  "skipOnboarding": false,
 
   // ## Default execution tier to override the recommendation rubric for all canary scans.
   // # Setting type: String (Light, Standard, Heavy, auto)
   // # Default value: auto (interpreted dynamically by the AI Agent based on the skill's rubric)
   "defaultTier": "auto",
 
-  // ## Prefix for git branches created during skill updates or onboarding PRs.
-  // # Setting type: String
-  // # Default value: feature/
-  "branchPrefix": "feature/",
+  // =========================================================================
+  // SECTION 2: AUTOMATIC SCAN & FILE WATCH LIMITS (การสแกนและขีดจำกัดไฟล์)
+  // =========================================================================
 
-  // ## Remote repository name for git push when creating Pull Requests.
-  // # Setting type: String
-  // # Default value: origin
-  "pullRequestRemote": "origin",
+  // ## Maximum number of edited files allowed to be scanned automatically at session end.
+  // # Setting type: Int32
+  // # Default value: 10
+  "autoScanFileCap": 10,
+
+  // ## Number of files to slice the scan to when edited files exceed the cap.
+  // # Setting type: Int32
+  // # Default value: 5
+  "autoScanFileCapSlice": 5,
+
+  // ## Maximum file size in KB for editor tripwire smells check (e.g. merge conflict markers).
+  // # Setting type: Int32
+  // # Default value: 100 (100KB)
+  "tripwireMaxFileSizeKb": 100,
+
+  // ## Maximum line count for a file before flagging it as a code-health warning/smell.
+  // # Setting type: Int32
+  // # Default value: 800 (800 lines)
+  "tripwireMaxLines": 800,
+
+  // ## Probability of sweeping stale temporary session files from the OS temp directory.
+  // # Setting type: Double (between 0.0 and 1.0)
+  // # Default value: 0.05 (5% chance per stop hook execution)
+  "tempSweepProbability": 0.05,
+
+  // ## Number of days before temporary session files in the OS temp directory are flagged as stale and swept.
+  // # Setting type: Int32
+  // # Default value: 7
+  "tempSweepStaleDays": 7,
+
+  // ## Custom list of file extensions that the touch hook monitors (empty array uses defaults).
+  // # Setting type: Array of Strings
+  // # Default value: []
+  "watchedExtensions": [],
+
+  // =========================================================================
+  // SECTION 3: UPDATE & REVALIDATION CADENCES (ความถี่การอัปเดตกฎและคำนิยาม)
+  // =========================================================================
+
+  // ## Number of days before stable engineering/general rules are flagged as stale and require re-validation.
+  // # Setting type: Int32
+  // # Default value: 90
+  "ruleRevalidateDays": 90,
+
+  // ## Number of days before fast-moving platform/model rules are flagged as stale and require re-validation.
+  // # Setting type: Int32
+  // # Default value: 30
+  "platformRuleRevalidateDays": 30,
+
+  // ## Number of days before general reference definitions (antivirus patterns) are flagged as stale.
+  // # Setting type: Int32
+  // # Default value: 90
+  "definitionRevalidateDays": 90,
+
+  // ## Number of days before fast-moving platform definitions are flagged as stale.
+  // # Setting type: Int32
+  // # Default value: 30
+  "platformDefinitionRevalidateDays": 30,
+
+  // ## Number of days before installed skills are flagged as stale, triggering update checks.
+  // # Setting type: Int32
+  // # Default value: 30
+  "skillUpdateCheckDays": 30,
+
+  // =========================================================================
+  // SECTION 4: CUSTOM CANARY PATHS & SCOPES (การกำหนดขอบเขตและโดเมนของโครงการ)
+  // =========================================================================
+
+  // ## List of quality canaries or features to disable (e.g. ["rot-canary", "drift-canary"] or ["all"]).
+  // # Setting type: Array of Strings
+  // # Default value: []
+  "disabledCanaries": [],
 
   // ## Default behavior for the rot-canary fix mode menu (interactive = ask user, safe = auto-apply safe fixes, off = report only).
   // # Setting type: String (interactive, safe, off)
   // # Default value: interactive
   "autoFixMode": "interactive",
 
-  // ## Whether to completely skip the gold-standard onboarding rules offer at session start.
-  // # Setting type: Boolean
-  // # Default value: false
-  "skipOnboarding": false,
+  // ## Custom glob paths pointing to database schema files or API specifications (GraphQL, OpenAPI, etc.).
+  // # Setting type: Array of Strings
+  // # Default value: []
+  "schemaPaths": [],
 
-  // ## Number of days before rules and reference definitions are flagged as stale and requiring validation.
-  // # Setting type: Int32
-  // # Default value: 90
-  "ruleRevalidateDays": 90
+  // ## Custom directory paths containing database migration scripts.
+  // # Setting type: Array of Strings
+  // # Default value: []
+  "migrationDirs": [],
+
+  // ## Custom paths pointing to package manifests / dependency lockfiles to scan.
+  // # Setting type: Array of Strings
+  // # Default value: []
+  "packageManifests": [],
+
+  // ## Additional trusted documentation or internal wiki domains for source grounding.
+  // # Setting type: Array of Strings
+  // # Default value: []
+  "trustedDomains": []
 }

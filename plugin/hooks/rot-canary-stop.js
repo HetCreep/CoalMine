@@ -77,11 +77,22 @@ function detectLang() {
 // Phoenix #1 (zero garbage): delete this session's temp state once the batch is
 // acknowledged, and sweep rot-canary-* files older than 7 days left behind by
 // sessions that never reached a second stop (crash/kill).
-const STALE_MS = 7 * 24 * 60 * 60 * 1000;
 function cleanupSession(base) {
   for (const f of [base + '.touched', base + '.smells', base + '.scanned']) {
     try { fs.unlinkSync(f); } catch {}
   }
+}
+function getTempSweepStaleDays() {
+  try {
+    const root = findGitRoot(process.cwd());
+    const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
+    const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
+    const cfg = JSON.parse(cleanJson);
+    if (cfg && typeof cfg.tempSweepStaleDays === 'number') {
+      return cfg.tempSweepStaleDays;
+    }
+  } catch {}
+  return 7;
 }
 function sweepStale() {
   let prob = 0.05;
@@ -97,7 +108,8 @@ function sweepStale() {
   if (Math.random() >= prob) return;
   try {
     const tmp = os.tmpdir();
-    const cutoff = Date.now() - STALE_MS;
+    const staleDays = getTempSweepStaleDays();
+    const cutoff = Date.now() - (staleDays * 24 * 60 * 60 * 1000);
     for (const f of fs.readdirSync(tmp)) {
       if (!f.startsWith('rot-canary-') && !f.startsWith('rotcanary-')) continue; // sweep legacy prefix too
       const p = path.join(tmp, f);
@@ -242,6 +254,7 @@ function main() {
 
   const root = findGitRoot(process.cwd());
   let fileCap = 10;
+  let fileCapSlice = 5;
   try {
     const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
     const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
@@ -249,16 +262,19 @@ function main() {
     if (cfg && typeof cfg.autoScanFileCap === 'number') {
       fileCap = cfg.autoScanFileCap;
     }
+    if (cfg && typeof cfg.autoScanFileCapSlice === 'number') {
+      fileCapSlice = cfg.autoScanFileCapSlice;
+    }
   } catch {}
 
   let capNoticeText = '';
   if (files.length > fileCap) {
-    // Sort by mtime (newest first) and slice to top 5 files to protect token budget
+    // Sort by mtime (newest first) and slice to top files to protect token budget
     files.sort((a, b) => {
       try { return fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs; } catch { return 0; }
     });
-    files = files.slice(0, 5);
-    capNoticeText = t.capNotice || '';
+    files = files.slice(0, fileCapSlice);
+    capNoticeText = (t.capNotice || '').replace('5', String(fileCapSlice));
   } else {
     files.sort();
   }

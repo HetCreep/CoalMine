@@ -22,23 +22,32 @@ function printHelp() {
 Usage: node scripts/configure.mjs [options]
 
 Options:
-  --language, -l <lang>               Set language override (auto, th, en, ja, zh, es)
-  --autoScanFileCap, -c <num>         Set automatic file cap (default: 10)
-  --tempSweepProbability, -p <num>    Set temp file sweep probability (0.0 to 1.0, default: 0.05)
-  --tripwireMaxFileSizeKb, -s <num>   Set maximum file size in KB for tripwire scan (default: 100)
-  --enableConductor, -d <true|false>  Enable or disable conductor rules injection
-  --disabledCanaries, -x <skills...>  Comma-separated list of skills to disable (or "all")
-  --rotCanaryMode, -m <mode>          Set rot-canary mode (auto, manual, off)
-  --defaultTier, -t <tier>            Set default evaluation tier (Light, Standard, Heavy, auto)
-  --branchPrefix, -b <prefix>         Set git branch prefix for PRs (default: feature/)
-  --pullRequestRemote, -r <remote>    Set git remote name for PRs (default: origin)
-  --autoFixMode, -f <mode>            Set default fix mode behavior (interactive, safe, off)
-  --skipOnboarding, -o <true|false>   Skip onboarding rules offer at session start
-  --ruleRevalidateDays, -v <days>     Days before reference files are flagged as stale
-  --help, -h                          Show this help message
+  --language, -l <lang>                       Set language override (auto, th, en, ja, zh, es)
+  --enableConductor, -d <true|false>          Enable or disable conductor rules injection
+  --skipOnboarding, -o <true|false>           Skip onboarding rules offer at session start
+  --defaultTier, -t <tier>                    Set default evaluation tier (Light, Standard, Heavy, auto)
+  --autoScanFileCap, -c <num>                 Set automatic file cap (default: 10)
+  --autoScanFileCapSlice, -y <num>            Set slice cap when exceeding autoScanFileCap (default: 5)
+  --tripwireMaxFileSizeKb, -s <num>           Set maximum file size in KB for tripwire scan (default: 100)
+  --tripwireMaxLines, -n <num>                Set maximum line count before smell warning (default: 800)
+  --tempSweepProbability, -p <num>            Set temp file sweep probability (0.0 to 1.0, default: 0.05)
+  --tempSweepStaleDays, -w <days>             Set stale temp file age threshold in days (default: 7)
+  --watchedExtensions, -e <exts...>          Comma-separated file extensions to watch
+  --ruleRevalidateDays, -v <days>             Days before stable rules require re-validation (default: 90)
+  --platformRuleRevalidateDays, -g <days>     Days before platform/model rules require re-validation (default: 30)
+  --definitionRevalidateDays, -j <days>       Days before general reference definitions are stale (default: 90)
+  --platformDefinitionRevalidateDays, -k <d>  Days before platform definitions are stale (default: 30)
+  --skillUpdateCheckDays, -u <days>           Days before installed skills are stale (default: 30)
+  --disabledCanaries, -x <skills...>          Comma-separated list of skills to disable (or "all")
+  --autoFixMode, -f <mode>                    Set default fix mode behavior (interactive, safe, off)
+  --schemaPaths <paths...>                    Comma-separated glob paths pointing to schemas
+  --migrationDirs <dirs...>                   Comma-separated database migration directories
+  --packageManifests <files...>               Comma-separated package manifest paths
+  --trustedDomains <domains...>               Comma-separated trusted domains for source grounding
+  --help, -h                                  Show this help message
 
 Examples:
-  node scripts/configure.mjs --language th --file-cap 15
+  node scripts/configure.mjs --language th --autoScanFileCap 15
   node scripts/configure.mjs --disabledCanaries rot-canary,drift-canary
 `);
 }
@@ -75,6 +84,12 @@ function main() {
       if (cfg.antivirusStalenessDays !== undefined) {
         cfg.ruleRevalidateDays = cfg.ruleRevalidateDays ?? cfg.antivirusStalenessDays;
         delete cfg.antivirusStalenessDays;
+      }
+      if (cfg.branchPrefix !== undefined) {
+        delete cfg.branchPrefix;
+      }
+      if (cfg.pullRequestRemote !== undefined) {
+        delete cfg.pullRequestRemote;
       }
     } catch (e) {
       console.warn('Warning: existing .coalmine.json is malformed. Overwriting.');
@@ -137,10 +152,70 @@ function main() {
       // Normalize tier to title case or auto
       const cleanVal = val.toLowerCase();
       cfg.defaultTier = cleanVal === 'auto' ? 'auto' : (cleanVal.charAt(0).toUpperCase() + cleanVal.slice(1));
-    } else if (arg === '--branchPrefix' || arg === '-b') {
-      cfg.branchPrefix = args[++i];
-    } else if (arg === '--pullRequestRemote' || arg === '-r') {
-      cfg.pullRequestRemote = args[++i];
+    } else if (arg === '--autoScanFileCapSlice' || arg === '-y') {
+      const val = parseInt(args[++i], 10);
+      if (isNaN(val)) {
+        console.error('Error: autoScanFileCapSlice must be a number');
+        process.exit(1);
+      }
+      cfg.autoScanFileCapSlice = val;
+    } else if (arg === '--tripwireMaxLines' || arg === '-n') {
+      const val = parseInt(args[++i], 10);
+      if (isNaN(val)) {
+        console.error('Error: tripwireMaxLines must be a number');
+        process.exit(1);
+      }
+      cfg.tripwireMaxLines = val;
+    } else if (arg === '--tempSweepStaleDays' || arg === '-w') {
+      const val = parseInt(args[++i], 10);
+      if (isNaN(val)) {
+        console.error('Error: tempSweepStaleDays must be a number');
+        process.exit(1);
+      }
+      cfg.tempSweepStaleDays = val;
+    } else if (arg === '--watchedExtensions' || arg === '-e') {
+      const val = args[++i];
+      cfg.watchedExtensions = val ? val.split(',').map(s => s.trim().toLowerCase()) : [];
+    } else if (arg === '--platformRuleRevalidateDays' || arg === '-g') {
+      const val = parseInt(args[++i], 10);
+      if (isNaN(val)) {
+        console.error('Error: platformRuleRevalidateDays must be a number');
+        process.exit(1);
+      }
+      cfg.platformRuleRevalidateDays = val;
+    } else if (arg === '--definitionRevalidateDays' || arg === '-j') {
+      const val = parseInt(args[++i], 10);
+      if (isNaN(val)) {
+        console.error('Error: definitionRevalidateDays must be a number');
+        process.exit(1);
+      }
+      cfg.definitionRevalidateDays = val;
+    } else if (arg === '--platformDefinitionRevalidateDays' || arg === '-k') {
+      const val = parseInt(args[++i], 10);
+      if (isNaN(val)) {
+        console.error('Error: platformDefinitionRevalidateDays must be a number');
+        process.exit(1);
+      }
+      cfg.platformDefinitionRevalidateDays = val;
+    } else if (arg === '--skillUpdateCheckDays' || arg === '-u') {
+      const val = parseInt(args[++i], 10);
+      if (isNaN(val)) {
+        console.error('Error: skillUpdateCheckDays must be a number');
+        process.exit(1);
+      }
+      cfg.skillUpdateCheckDays = val;
+    } else if (arg === '--schemaPaths' || arg === '--schemas') {
+      const val = args[++i];
+      cfg.schemaPaths = val ? val.split(',').map(s => s.trim()) : [];
+    } else if (arg === '--migrationDirs' || arg === '--migrations') {
+      const val = args[++i];
+      cfg.migrationDirs = val ? val.split(',').map(s => s.trim()) : [];
+    } else if (arg === '--packageManifests' || arg === '--manifests') {
+      const val = args[++i];
+      cfg.packageManifests = val ? val.split(',').map(s => s.trim()) : [];
+    } else if (arg === '--trustedDomains' || arg === '--domains') {
+      const val = args[++i];
+      cfg.trustedDomains = val ? val.split(',').map(s => s.trim()) : [];
     } else if (arg === '--autoFixMode' || arg === '-f') {
       const val = args[++i];
       if (!['interactive', 'safe', 'off'].includes(val?.toLowerCase())) {

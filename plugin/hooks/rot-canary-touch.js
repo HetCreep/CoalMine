@@ -69,6 +69,35 @@ function getTripwireMaxFileSizeKb() {
   } catch {}
   return 100;
 }
+function getTripwireMaxLines() {
+  try {
+    const root = findGitRoot(process.cwd());
+    const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
+    const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
+    const cfg = JSON.parse(cleanJson);
+    if (cfg && typeof cfg.tripwireMaxLines === 'number') {
+      return cfg.tripwireMaxLines;
+    }
+  } catch {}
+  return 800;
+}
+function getWatchedExtensions() {
+  const defaultExts = [
+    '.cs', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.rs', '.go',
+    '.java', '.kt', '.kts', '.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.rb',
+    '.php', '.swift', '.dart', '.fs', '.vb', '.scala', '.m', '.mm',
+  ];
+  try {
+    const root = findGitRoot(process.cwd());
+    const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
+    const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
+    const cfg = JSON.parse(cleanJson);
+    if (cfg && Array.isArray(cfg.watchedExtensions) && cfg.watchedExtensions.length > 0) {
+      return new Set(cfg.watchedExtensions.map((x) => x.startsWith('.') ? x.toLowerCase() : '.' + x.toLowerCase()));
+    }
+  } catch {}
+  return new Set(defaultExts);
+}
 function main() {
   const ov = projectOverride();
   if (ov === 'off') return;
@@ -84,7 +113,8 @@ function main() {
   if (!f) return;
   // Convert to absolute normalized path to prevent subdirectory bugs
   const normF = path.resolve(process.cwd(), f);
-  if (!CODE_EXT.has(path.extname(normF).toLowerCase())) return;
+  const watchedExts = getWatchedExtensions();
+  if (!watchedExts.has(path.extname(normF).toLowerCase())) return;
 
   // No session id → no consumer (the stop hook bails without one). Record nothing.
   const sid = input.session_id;
@@ -107,7 +137,8 @@ function main() {
 
   const smells = [];
   if (lines.some((l) => /^(<<<<<<< |>>>>>>> |=======$)/.test(l))) smells.push('merge-conflict markers');
-  if (lines.length > 800) smells.push(`file >800 lines (${lines.length})`);
+  const maxLines = getTripwireMaxLines();
+  if (lines.length > maxLines) smells.push(`file >${maxLines} lines (${lines.length})`);
   if (smells.length) {
     // One line per file — the stop hook reports each .smells line verbatim.
     try { fs.appendFileSync(base + '.smells', `${normF}: ${smells.join('; ')}\n`); } catch {}
