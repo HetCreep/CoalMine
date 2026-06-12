@@ -1,7 +1,7 @@
 {
-  // ## The language to use for conductor prompts and canary nudge messages.
-  // # Setting type: String (th, en, ja, zh, es)
-  // # Default value: auto (heuristic detection)
+  // ## The language to use for conductor prompts, agent interactions, and canary nudge messages.
+  // # Setting type: String (auto, th, en, ja, zh, es)
+  // # Default value: auto (heuristic detection based on environment and docs)
   "language": "auto",
 
   // ## Maximum number of edited files allowed to be scanned automatically at session end.
@@ -11,7 +11,7 @@
 
   // ## Probability of sweeping stale temporary session files from the OS temp directory.
   // # Setting type: Double (between 0.0 and 1.0)
-  // # Default value: 0.05 (5% chance)
+  // # Default value: 0.05 (5% chance per stop hook execution)
   "tempSweepProbability": 0.05,
 
   // ## Maximum file size in KB for editor tripwire smells check (e.g. merge conflict markers).
@@ -19,7 +19,7 @@
   // # Default value: 100 (100KB)
   "tripwireMaxFileSizeKb": 100,
 
-  // ## Enable or disable always-on rules injection at session start.
+  // ## Enable or disable the always-on conductor rules injection at session start.
   // # Setting type: Boolean
   // # Default value: true
   "conductor": true,
@@ -27,5 +27,40 @@
   // ## List of quality canaries or features to disable (e.g. ["rot-canary", "drift-canary"] or ["all"]).
   // # Setting type: Array of Strings
   // # Default value: []
-  "disable": []
+  "disable": [],
+
+  // ## Execution mode for the rot-canary auto-scan (auto = run stop hook, manual = scan only when triggered, off = disabled).
+  // # Setting type: String (auto, manual, off)
+  // # Default value: auto
+  "mode": "auto",
+
+  // ## Default execution tier to override the recommendation rubric for all canary scans.
+  // # Setting type: String (Light, Standard, Heavy, auto)
+  // # Default value: auto (evaluates dynamically based on scoring rules)
+  "defaultTier": "auto",
+
+  // ## Prefix for git branches created during skill updates or onboarding PRs.
+  // # Setting type: String
+  // # Default value: feature/
+  "branchPrefix": "feature/",
+
+  // ## Remote repository name for git push when creating Pull Requests.
+  // # Setting type: String
+  // # Default value: origin
+  "pullRequestRemote": "origin",
+
+  // ## Default behavior for the rot-canary fix mode menu (interactive = ask user, safe = auto-apply safe fixes, off = report only).
+  // # Setting type: String (interactive, safe, off)
+  // # Default value: interactive
+  "autoFixMode": "interactive",
+
+  // ## Whether to completely skip the gold-standard onboarding rules offer at session start.
+  // # Setting type: Boolean
+  // # Default value: false
+  "skipOnboarding": false,
+
+  // ## Number of days before rules and reference definitions are flagged as stale and requiring validation.
+  // # Setting type: Int32
+  // # Default value: 90
+  "antivirusStalenessDays": 90
 }

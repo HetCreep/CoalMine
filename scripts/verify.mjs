@@ -64,13 +64,17 @@ if (fs.existsSync(configPath)) {
     const content = fs.readFileSync(configPath, 'utf8').replace(/^\uFEFF/, '');
     const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
     const cfg = JSON.parse(cleanJson);
-    const validKeys = ['language', 'autoScanFileCap', 'tempSweepProbability', 'tripwireMaxFileSizeKb', 'conductor', 'disable', 'mode'];
+    const validKeys = [
+      'language', 'autoScanFileCap', 'tempSweepProbability', 'tripwireMaxFileSizeKb',
+      'conductor', 'disable', 'mode', 'defaultTier', 'branchPrefix',
+      'pullRequestRemote', 'autoFixMode', 'skipOnboarding', 'antivirusStalenessDays'
+    ];
     const invalidKeys = Object.keys(cfg).filter((k) => !validKeys.includes(k));
     if (invalidKeys.length > 0) {
       fail(`.coalmine.json has unrecognized keys: ${invalidKeys.join(', ')}`);
     } else {
-      if (cfg.language !== undefined && !['th', 'en', 'ja', 'zh', 'es'].includes(cfg.language.toLowerCase())) {
-        fail(`.coalmine.json language must be one of: th, en, ja, zh, es`);
+      if (cfg.language !== undefined && !['auto', 'th', 'en', 'ja', 'zh', 'es'].includes(cfg.language.toLowerCase())) {
+        fail(`.coalmine.json language must be one of: auto, th, en, ja, zh, es`);
       }
       if (cfg.autoScanFileCap !== undefined && typeof cfg.autoScanFileCap !== 'number') {
         fail(`.coalmine.json autoScanFileCap must be a number`);
@@ -86,6 +90,27 @@ if (fs.existsSync(configPath)) {
       }
       if (cfg.disable !== undefined && (!Array.isArray(cfg.disable) || cfg.disable.some((x) => typeof x !== 'string'))) {
         fail(`.coalmine.json disable must be an array of strings`);
+      }
+      if (cfg.mode !== undefined && !['auto', 'manual', 'off'].includes(cfg.mode.toLowerCase())) {
+        fail(`.coalmine.json mode must be one of: auto, manual, off`);
+      }
+      if (cfg.defaultTier !== undefined && !['light', 'standard', 'heavy', 'auto'].includes(cfg.defaultTier.toLowerCase())) {
+        fail(`.coalmine.json defaultTier must be one of: Light, Standard, Heavy, auto`);
+      }
+      if (cfg.branchPrefix !== undefined && typeof cfg.branchPrefix !== 'string') {
+        fail(`.coalmine.json branchPrefix must be a string`);
+      }
+      if (cfg.pullRequestRemote !== undefined && typeof cfg.pullRequestRemote !== 'string') {
+        fail(`.coalmine.json pullRequestRemote must be a string`);
+      }
+      if (cfg.autoFixMode !== undefined && !['interactive', 'safe', 'off'].includes(cfg.autoFixMode.toLowerCase())) {
+        fail(`.coalmine.json autoFixMode must be one of: interactive, safe, off`);
+      }
+      if (cfg.skipOnboarding !== undefined && typeof cfg.skipOnboarding !== 'boolean') {
+        fail(`.coalmine.json skipOnboarding must be a boolean`);
+      }
+      if (cfg.antivirusStalenessDays !== undefined && typeof cfg.antivirusStalenessDays !== 'number') {
+        fail(`.coalmine.json antivirusStalenessDays must be a number`);
       }
       if (ok) pass('.coalmine.json');
     }

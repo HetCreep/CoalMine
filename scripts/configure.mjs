@@ -22,12 +22,19 @@ function printHelp() {
 Usage: node scripts/configure.mjs [options]
 
 Options:
-  --language, -l <lang>               Set language override (th, en, ja, zh, es)
+  --language, -l <lang>               Set language override (auto, th, en, ja, zh, es)
   --autoScanFileCap, -c <num>         Set automatic file cap (default: 10)
   --tempSweepProbability, -p <num>    Set temp file sweep probability (0.0 to 1.0, default: 0.05)
   --tripwireMaxFileSizeKb, -s <num>   Set maximum file size in KB for tripwire scan (default: 100)
   --conductor, -d <true|false>        Enable or disable conductor rules injection
   --disable, -x <skills...>           Comma-separated list of skills to disable (or "all")
+  --mode, -m <mode>                   Set rot-canary mode (auto, manual, off)
+  --defaultTier, -t <tier>            Set default evaluation tier (Light, Standard, Heavy, auto)
+  --branchPrefix, -b <prefix>         Set git branch prefix for PRs (default: feature/)
+  --pullRequestRemote, -r <remote>    Set git remote name for PRs (default: origin)
+  --autoFixMode, -f <mode>            Set default fix mode behavior (interactive, safe, off)
+  --skipOnboarding, -o <true|false>   Skip onboarding rules offer at session start
+  --antivirusStalenessDays, -v <days> Days before reference files are flagged as stale
   --help, -h                          Show this help message
 
 Examples:
@@ -61,8 +68,8 @@ function main() {
     const arg = args[i];
     if (arg === '--language' || arg === '-l') {
       const val = args[++i];
-      if (!['th', 'en', 'ja', 'zh', 'es'].includes(val?.toLowerCase())) {
-        console.error('Error: Language must be one of: th, en, ja, zh, es');
+      if (!['auto', 'th', 'en', 'ja', 'zh', 'es'].includes(val?.toLowerCase())) {
+        console.error('Error: Language must be one of: auto, th, en, ja, zh, es');
         process.exit(1);
       }
       cfg.language = val.toLowerCase();
@@ -97,6 +104,42 @@ function main() {
         process.exit(1);
       }
       cfg.disable = val.split(',').map(s => s.trim().toLowerCase());
+    } else if (arg === '--mode' || arg === '-m') {
+      const val = args[++i];
+      if (!['auto', 'manual', 'off'].includes(val?.toLowerCase())) {
+        console.error('Error: mode must be one of: auto, manual, off');
+        process.exit(1);
+      }
+      cfg.mode = val.toLowerCase();
+    } else if (arg === '--defaultTier' || arg === '-t') {
+      const val = args[++i];
+      if (!['light', 'standard', 'heavy', 'auto'].includes(val?.toLowerCase())) {
+        console.error('Error: defaultTier must be one of: Light, Standard, Heavy, auto');
+        process.exit(1);
+      }
+      // Normalize tier to title case or auto
+      const cleanVal = val.toLowerCase();
+      cfg.defaultTier = cleanVal === 'auto' ? 'auto' : (cleanVal.charAt(0).toUpperCase() + cleanVal.slice(1));
+    } else if (arg === '--branchPrefix' || arg === '-b') {
+      cfg.branchPrefix = args[++i];
+    } else if (arg === '--pullRequestRemote' || arg === '-r') {
+      cfg.pullRequestRemote = args[++i];
+    } else if (arg === '--autoFixMode' || arg === '-f') {
+      const val = args[++i];
+      if (!['interactive', 'safe', 'off'].includes(val?.toLowerCase())) {
+        console.error('Error: autoFixMode must be one of: interactive, safe, off');
+        process.exit(1);
+      }
+      cfg.autoFixMode = val.toLowerCase();
+    } else if (arg === '--skipOnboarding' || arg === '-o') {
+      cfg.skipOnboarding = args[++i] === 'true';
+    } else if (arg === '--antivirusStalenessDays' || arg === '-v') {
+      const val = parseInt(args[++i], 10);
+      if (isNaN(val)) {
+        console.error('Error: antivirusStalenessDays must be a number');
+        process.exit(1);
+      }
+      cfg.antivirusStalenessDays = val;
     } else {
       console.error(`Error: Unrecognized option '${arg}'`);
       printHelp();
