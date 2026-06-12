@@ -37,6 +37,21 @@
 
 ---
 
+## 🔋 One button: install — the suite drives itself
+
+You memorize nothing. Installing is the power button; from there the agent conducts the canaries and asks before anything costs you tokens:
+
+| What | When it fires | Your part |
+|---|---|---|
+| **gold-standard** | Offered once when a project has no golden rules yet, and again whenever a rule's `revalidate` date passes | Pick Run now / Queue / Skip |
+| **rot-canary** | Auto-scans every session's touched files at session end (QUICK, capped); findings end with a fix menu | Pick a fix option — nothing is changed without one |
+| **The 6 specialists** | Offered the moment your conversation enters their domain (deps → supply-chain, schema → drift, async → resilience, loops → scale, tests → testability, logging → telemetry) | Accept or skip |
+| **source-grounding** | Standing rule — version-sensitive facts get verified against live sources during any canary run | — |
+
+Consent rule (Design Principle 4): nothing expensive ever runs silently — it is offered via your agent's question tool, or covered by the standing auto-scan consent you gave by installing (revocable: `.coalmine.json`, `~/.claude/.rot-canary-off`, or `--uninstall`).
+
+---
+
 ## 📝 Ultra-Short Summary Format
 
 To prevent alert fatigue and conserve token budget, every canary reports in the same lean shape (defined in each skill's Output section): a one-line verdict, then a severity table of CONFIRMED findings only — no conversational filler.

@@ -58,7 +58,7 @@ for (const m of ['.claude-plugin/plugin.json', '.claude-plugin/marketplace.json'
 
 // 3. hooks present
 console.log('hooks:');
-for (const h of ['hooks/rot-canary-touch.js', 'hooks/rot-canary-stop.js']) {
+for (const h of ['hooks/rot-canary-touch.js', 'hooks/rot-canary-stop.js', 'hooks/coalmine-conductor.js']) {
   fs.existsSync(path.join(repo, h)) ? pass(h) : fail(`${h} missing`);
 }
 
@@ -155,7 +155,7 @@ if (!fs.existsSync(pluginDir)) {
       for (const e of distEntries) {
         if (e.isDirectory()) {
           fail(`plugin/hooks/${e.name} is an orphan directory — run: node scripts/build-plugin.mjs`);
-        } else if (!['hooks.json', 'rot-canary-touch.js', 'rot-canary-stop.js'].includes(e.name)) {
+        } else if (!['hooks.json', 'rot-canary-touch.js', 'rot-canary-stop.js', 'coalmine-conductor.js'].includes(e.name)) {
           fail(`plugin/hooks/${e.name} is an orphan file — run: node scripts/build-plugin.mjs`);
         }
       }
@@ -186,7 +186,7 @@ if (!fs.existsSync(pluginDir)) {
       fail(`plugin/${extra} has no source — run: node scripts/build-plugin.mjs`);
     }
   }
-  for (const f of ['hooks/hooks.json', 'hooks/rot-canary-touch.js', 'hooks/rot-canary-stop.js', '.claude-plugin/plugin.json']) {
+  for (const f of ['hooks/hooks.json', 'hooks/rot-canary-touch.js', 'hooks/rot-canary-stop.js', 'hooks/coalmine-conductor.js', '.claude-plugin/plugin.json']) {
     const distFile = path.join(pluginDir, f);
     if (!fs.existsSync(distFile)) { fail(`plugin/${f} missing — run: node scripts/build-plugin.mjs`); continue; }
     try {

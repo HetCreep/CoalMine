@@ -15,6 +15,8 @@ Skills live in .agents/skills/ (one SKILL.md each). Invoke by keyword; each skil
 
 Proactive: when the conversation moves into one of these areas, OFFER the matching canary via the ask_question tool (Run now / Queue / Skip) — do not run unasked: deps -> supply-chain, schema/API -> drift, async/retry -> resilience, hot loops/queries -> scale, tests/coupling -> testability, logging/metrics -> telemetry.
 
+First encounter (gold-standard onboarding): if this project has NO CoalMine-stamped rules yet (no coalmine: verified stamp anywhere in the rules home), offer /gold-standard ONCE this session via the ask_question tool (Run now / Queue / Skip) - it sets the project's golden rules. Respect a Skip for the rest of the session.
+
 Rule freshness: if a CoalMine-stamped rule's revalidate due date has passed, offer /gold-standard re-validation via the ask_question tool (Run now / Queue / Skip).
 
 Per-project config: honor .coalmine.json at the project root if present - disable (canary name list), defaultTier, language override defaults.

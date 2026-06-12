@@ -4,6 +4,15 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.1.0] — 2026-06-12
+
+The power-button release: install is the only command a user must know.
+
+### Added
+- **Conductor hook** (SessionStart, plugin route): injects the offer rules into every Claude Code session — gold-standard onboarding (offered once when a project has no golden rules), specialist offers by conversation domain, consent and per-project-config rules. Silenceable via .coalmine.json (conductor:false). The plugin route now carries the full always-on layer that previously existed only in installer trigger templates.
+- **gold-standard onboarding offer** in all 4 trigger templates (installer route) — same first-encounter rule.
+- README: One button - the suite drives itself (who fires when, and where consent lives).
+
 ## [3.0.1] — 2026-06-12
 
 ### Fixed

@@ -50,10 +50,10 @@ for (const s of skills) {
 // Hooks — hooks.json references ${CLAUDE_PLUGIN_ROOT}/hooks/*.js, which
 // resolves inside the dist once it is the plugin root.
 fs.mkdirSync(path.join(pluginDir, 'hooks'), { recursive: true });
-for (const f of ['hooks.json', 'rot-canary-touch.js', 'rot-canary-stop.js']) {
+for (const f of ['hooks.json', 'rot-canary-touch.js', 'rot-canary-stop.js', 'coalmine-conductor.js']) {
   fs.copyFileSync(path.join(repo, 'hooks', f), path.join(pluginDir, 'hooks', f));
 }
-console.log('  copied hooks/ (hooks.json + rot-canary-touch.js + rot-canary-stop.js)');
+console.log('  copied hooks/ (hooks.json + rot-canary touch/stop + coalmine-conductor)');
 
 // Bundled extras Claude Code auto-discovers at plugin root. Recursive copy:
 // same EISDIR class as installSkillDir — never assume flat.
