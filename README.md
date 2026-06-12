@@ -138,6 +138,11 @@ The marketplace serves the committed [`plugin/`](plugin/) dist — the **same co
 
 > 🔧 **Maintainers:** `plugin/` is generated output — never hand-edit it. After changing `skills/`, `skills/_shared/`, `hooks/`, or `.claude-plugin/plugin.json`, run `node scripts/build-plugin.mjs`. `verify.mjs` (and the pre-commit hook) FAILs while the dist is stale.
 
+### Option A2 — skills.sh (any agent, one line)
+```bash
+npx skills add HetCreep/CoalMine
+```
+
 ### Option B — Universal Installer (all 12+ agents)
 
 #### 1. Clone the Repository

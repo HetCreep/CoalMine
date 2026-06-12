@@ -4,6 +4,12 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.2.0] — 2026-06-12
+
+### Added
+- **Self error-report (offer-gated)**: when a CoalMine component itself misbehaves, the agent OFFERS to file it at github.com/HetCreep/CoalMine/issues with a user-reviewed summary — never auto-submitted, never includes unapproved code/paths, zero tokens to send (browser form). Wired in the conductor and the shared footer (all 9 skills, all platforms).
+- skills.sh one-line install (npx skills add HetCreep/CoalMine) in README; GitHub repo topics set for discovery.
+
 ## [3.1.1] — 2026-06-12
 
 ### Added (principle 4 of the antivirus model — definition freshness)
