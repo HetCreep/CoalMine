@@ -128,11 +128,12 @@ node scripts/configure.mjs --disable rot-canary,drift-canary
 
 "Antivirus-grade" needs a number, not an adjective — so CoalMine ships an AV-Comparatives-style [eval harness](eval/README.md): fixtures with **planted, line-labeled defects** plus **clean decoys**, scored mechanically (no judgment calls at scoring time).
 
-| Canary | Recall | Precision | Decoy false-positives | Severity accuracy | Corpus |
+| Canary | Engine | Recall | Precision | Decoy false-positives | Severity accuracy |
 |---|---|---|---|---|---|
-| `rot-canary` | **100%** (13/13) | **100%** | **0**/4 decoys | 100% | 16 fixtures · 7 categories |
+| `rot-canary` | claude-fable-5 (author baseline) | **100%** (13/13) | **100%** | **0**/4 | 13/13 |
+| `rot-canary` | Antigravity (independent, blind) | **100%** (13/13) | **100%** | **0**/4 | 12/13 |
 
-Latest scored run: [eval/RESULTS.md](eval/RESULTS.md) (model- and skill-version-stamped — re-run on any model or skill change to catch regressions). The baseline run is self-authored; treat it as a regression floor, not an independent benchmark.
+Corpus: 16 fixtures · 7 categories. Scored runs: [eval/RESULTS.md](eval/RESULTS.md) (model- and skill-version-stamped — re-run on any model or skill change to catch regressions). The two engines' sole disagreement was one severity grade — detection was identical.
 
 ---
 

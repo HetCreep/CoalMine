@@ -1,0 +1,111 @@
+{
+  "model": "Antigravity",
+  "date": "2026-06-13",
+  "skillVersion": "3.4.0",
+  "findings": [
+    {
+      "fixture": "f01-dead-code",
+      "file": "src/report.js",
+      "line": 11,
+      "category": "dead-code",
+      "severity": "MEDIUM",
+      "evidence": "Unreachable code after return statement"
+    },
+    {
+      "fixture": "f01-dead-code",
+      "file": "src/report.js",
+      "line": 5,
+      "category": "dead-code",
+      "severity": "MEDIUM",
+      "evidence": "Function legacyCsvExport is declared but never exported or used"
+    },
+    {
+      "fixture": "f02-dead-code",
+      "file": "src/util.js",
+      "line": 5,
+      "category": "dead-code",
+      "severity": "MEDIUM",
+      "evidence": "Function titleCase is exported but not referenced anywhere in the fixture"
+    },
+    {
+      "fixture": "f03-resource-leak",
+      "file": "src/poller.js",
+      "line": 11,
+      "category": "resource-leak",
+      "severity": "HIGH",
+      "evidence": "setInterval timer is never cleared (clearInterval) when stop() is called"
+    },
+    {
+      "fixture": "f04-resource-leak",
+      "file": "src/header.js",
+      "line": 8,
+      "category": "resource-leak",
+      "severity": "HIGH",
+      "evidence": "Early return when n < 16 bypasses fs.closeSync, causing a file descriptor leak"
+    },
+    {
+      "fixture": "f05-concurrency",
+      "file": "src/write-once.js",
+      "line": 5,
+      "category": "concurrency",
+      "severity": "HIGH",
+      "evidence": "TOCTOU race condition: async await between fs.existsSync check and fs.writeFileSync"
+    },
+    {
+      "fixture": "f06-concurrency",
+      "file": "src/totals.js",
+      "line": 7,
+      "category": "concurrency",
+      "severity": "HIGH",
+      "evidence": "Using async callback inside Array.forEach, causing addAll to return before promises resolve"
+    },
+    {
+      "fixture": "f07-silent-failure",
+      "file": "src/settings.js",
+      "line": 7,
+      "category": "silent-failure",
+      "severity": "HIGH",
+      "evidence": "Empty catch block silently swallows any synchronous file write errors"
+    },
+    {
+      "fixture": "f08-silent-failure",
+      "file": "src/importer.js",
+      "line": 11,
+      "category": "silent-failure",
+      "severity": "HIGH",
+      "evidence": "Reports success returning rows.length rather than okCount, hiding partial failures"
+    },
+    {
+      "fixture": "f09-bug-prone",
+      "file": "src/cart-sum.js",
+      "line": 3,
+      "category": "bug-prone",
+      "severity": "HIGH",
+      "evidence": "Off-by-one error (i <= items.length) will cause out-of-bounds property access"
+    },
+    {
+      "fixture": "f10-bug-prone",
+      "file": "src/quantity.js",
+      "line": 5,
+      "category": "bug-prone",
+      "severity": "HIGH",
+      "evidence": "parseInt can return NaN which bypasses the qty == null and qty < 0 validation checks"
+    },
+    {
+      "fixture": "f11-input-boundary",
+      "file": "src/files.js",
+      "line": 6,
+      "category": "input-boundary",
+      "severity": "CRITICAL",
+      "evidence": "Unvalidated user input in path.join leads to potential directory traversal vulnerability"
+    },
+    {
+      "fixture": "f12-doc-rot",
+      "file": "src/pricing.js",
+      "line": 1,
+      "category": "doc-rot",
+      "severity": "LOW",
+      "evidence": "Docstring incorrectly states function returns average, but code returns the sum"
+    }
+  ]
+}

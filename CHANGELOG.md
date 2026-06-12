@@ -4,7 +4,8 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
-### Added (cross-model convergence run)
+### Added (cross-model convergence runs)
+- **Second eval engine**: Antigravity ran the rot-canary corpus blind — recall 13/13, 0 decoy false-positives, severity 12/13; the sole disagreement (one CRITICAL rated HIGH) sits exactly in the predicted severity-judgment band. README and eval/RESULTS.md now show the two-engine table.
 - hooks-safety doctrine gains **section 7 — Hermetic Hook Testing** (spawn the real hook, sandboxed env, assert exit/silence/state) — proposed by an independent Antigravity RE-VALIDATE whose verdicts and exemplars matched the existing stamps 2/2 (the lifecycle's anti-churn + exemplar-anchor mechanics held across models); published copy in docs/.
 
 ### Fixed
