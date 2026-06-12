@@ -36,7 +36,7 @@
 
   // ## Default execution tier to override the recommendation rubric for all canary scans.
   // # Setting type: String (Light, Standard, Heavy, auto)
-  // # Default value: auto (evaluates dynamically based on scoring rules)
+  // # Default value: auto (interpreted dynamically by the AI Agent based on the skill's rubric)
   "defaultTier": "auto",
 
   // ## Prefix for git branches created during skill updates or onboarding PRs.
