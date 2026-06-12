@@ -48,5 +48,11 @@ test('configure fails loud on an invalid value and writes nothing', () => {
     assert.notStrictEqual(r.status, 0);
     assert.match(r.stderr, /defaultTier/);
     assert.ok(!fs.existsSync(path.join(dir, '.coalmine.json')), 'no config may be written on failure');
+
+    // A trailing list flag with no value must error, not silently clear the list.
+    const r2 = spawnSync(process.execPath, [CONFIGURE, '--disable'], { cwd: dir, encoding: 'utf8', timeout: 60000 });
+    assert.notStrictEqual(r2.status, 0);
+    assert.match(r2.stderr, /disabledCanaries/);
+    assert.ok(!fs.existsSync(path.join(dir, '.coalmine.json')), 'no config may be written on failure');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

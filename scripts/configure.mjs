@@ -61,7 +61,10 @@ function parseValue(spec, raw) {
       return { value: v };
     }
     case 'strArr': {
-      if (!raw) return { value: [] };
+      if (raw === undefined) {
+        return { error: `${spec.key} needs a comma-separated value (pass "" to clear the list)` };
+      }
+      if (raw === '' || raw === '""') return { value: [] };
       let items = raw.split(',').map((s) => s.trim()).filter(Boolean);
       if (spec.lower) items = items.map((s) => s.toLowerCase());
       return { value: items };

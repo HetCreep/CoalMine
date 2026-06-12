@@ -4,10 +4,13 @@
 
 **9 Quality-Safeguard Canaries for AI Coding Agents** — Detect code rot, weak rules, hallucinations, supply-chain vulnerabilities, brittle architectures, and API contract drift before they pollute your codebase.
 
+![version](https://img.shields.io/github/v/tag/HetCreep/CoalMine?label=version&color=blue)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![SKILL.md](https://img.shields.io/badge/SKILL.md-open_standard_·_12%2B_agents-success)
 ![skills](https://img.shields.io/badge/skills-9-success)
 ![agents](https://img.shields.io/badge/works_with-12_agents_·_Claude_·_Cursor_·_Windsurf_·_more-informational)
+
+[Design Principles](DESIGN-PRINCIPLES.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Releases](https://github.com/HetCreep/CoalMine/releases)
 
 </div>
 
