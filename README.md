@@ -99,12 +99,14 @@ CoalMine adapts dynamically to the developer's skill level and preferences:
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `language` | String | *Heuristic* | Override heuristic language detection (`en` \| `th` \| `ja` \| `zh` \| `es`) |
+| `language` | String | `auto` | Override heuristic language detection (`en` \| `th` \| `ja` \| `zh` \| `es`) |
+| `defaultTier` | String | `auto` | Force an execution tier for every canary run (`Light` \| `Standard` \| `Heavy`) |
 | `autoScanFileCap` | Number | `10` | Maximum touched files allowed to scan automatically at session end before capping |
-| `tempSweepProbability` | Number | `0.05` | Probability (0.0 to 1.0) of sweeping stale session temp files from OS temp dir |
 | `tripwireMaxFileSizeKb` | Number | `100` | Size limit in KB for files analyzed by editor tripwire checks (e.g. merge conflict smells) |
-| `conductor` | Boolean | `true` | Set to `false` to disable rules injection on Session Start |
-| `disable` | Array of Strings | `[]` | List of canaries or features to disable (e.g. `["rot-canary", "drift-canary"]` or `["all"]`) |
+| `enableConductor` | Boolean | `true` | Set to `false` to disable rules injection on Session Start (legacy alias: `conductor`) |
+| `disabledCanaries` | Array of Strings | `[]` | Canaries to disable (e.g. `["rot-canary", "drift-canary"]` or `["all"]`; legacy alias: `disable`) |
+
+The generated `.coalmine.json` documents the **full schema** — every key, grouped and commented (see `platform-configs/.coalmine.json`); `scripts/verify.mjs` validates keys and types.
 
 ### Configurator Utility
 

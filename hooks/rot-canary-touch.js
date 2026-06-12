@@ -21,13 +21,6 @@ function rcMode() {
   return 'auto';
 }
 
-const CODE_EXT = new Set([
-  '.cs', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.rs', '.go',
-  '.java', '.kt', '.kts', '.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.rb',
-  '.php', '.swift', '.dart', '.fs', '.vb', '.scala', '.m', '.mm',
-]);
-
-
 function findGitRoot(startDir) {
   let dir = path.resolve(startDir);
   while (true) {
@@ -44,25 +37,38 @@ function findGitRoot(startDir) {
   return startDir;
 }
 
-// Per-project calibration: .coalmine.json at root may disable this canary or
-// override the mode for the project (principle 9 - calibrate, never assume).
-function projectOverride() {
+// Single cached read of .coalmine.json, resolved from the project root, BOM- and
+// comment-tolerant. Every override below shares it — one disk read per invocation
+// (Phoenix #3: budget the work, not the process).
+let _cfg;
+function loadCfg() {
+  if (_cfg !== undefined) return _cfg;
+  _cfg = null;
   try {
     const root = findGitRoot(process.cwd());
     const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
     const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
-    const cfg = JSON.parse(cleanJson);
-    if (cfg && Array.isArray(cfg.disabledCanaries) && (cfg.disabledCanaries.includes('rot-canary') || cfg.disabledCanaries.includes('all'))) return 'off';
-    if (cfg && (cfg.rotCanaryMode === 'off' || cfg.rotCanaryMode === 'manual')) return cfg.rotCanaryMode;
+    _cfg = JSON.parse(cleanJson);
+  } catch {}
+  return _cfg;
+}
+
+// Per-project calibration: .coalmine.json at root may disable this canary or
+// override the mode for the project (principle 9 - calibrate, never assume).
+function projectOverride() {
+  try {
+    const cfg = loadCfg();
+    if (!cfg) return null;
+    const disabled = cfg.disabledCanaries !== undefined ? cfg.disabledCanaries : cfg.disable; // legacy key honored
+    if (Array.isArray(disabled) && (disabled.includes('rot-canary') || disabled.includes('all'))) return 'off';
+    const mode = cfg.rotCanaryMode !== undefined ? cfg.rotCanaryMode : cfg.mode; // legacy key honored
+    if (mode === 'off' || mode === 'manual') return mode;
   } catch {}
   return null;
 }
 function getTripwireMaxFileSizeKb() {
   try {
-    const root = findGitRoot(process.cwd());
-    const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
-    const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
-    const cfg = JSON.parse(cleanJson);
+    const cfg = loadCfg();
     if (cfg && typeof cfg.tripwireMaxFileSizeKb === 'number') {
       return cfg.tripwireMaxFileSizeKb;
     }
@@ -71,10 +77,7 @@ function getTripwireMaxFileSizeKb() {
 }
 function getTripwireMaxLines() {
   try {
-    const root = findGitRoot(process.cwd());
-    const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
-    const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
-    const cfg = JSON.parse(cleanJson);
+    const cfg = loadCfg();
     if (cfg && typeof cfg.tripwireMaxLines === 'number') {
       return cfg.tripwireMaxLines;
     }
@@ -88,10 +91,7 @@ function getWatchedExtensions() {
     '.php', '.swift', '.dart', '.fs', '.vb', '.scala', '.m', '.mm',
   ];
   try {
-    const root = findGitRoot(process.cwd());
-    const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
-    const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
-    const cfg = JSON.parse(cleanJson);
+    const cfg = loadCfg();
     if (cfg && Array.isArray(cfg.watchedExtensions) && cfg.watchedExtensions.length > 0) {
       return new Set(cfg.watchedExtensions.map((x) => x.startsWith('.') ? x.toLowerCase() : '.' + x.toLowerCase()));
     }
@@ -107,7 +107,8 @@ function main() {
   if (!raw) return;
 
   let input;
-  try { input = JSON.parse(raw); } catch { return; }
+  // trim() also strips a leading BOM some shells prepend when piping stdin.
+  try { input = JSON.parse(raw.trim()); } catch { return; }
 
   const f = input && input.tool_input && input.tool_input.file_path;
   if (!f) return;
@@ -130,7 +131,8 @@ function main() {
   if (!existingCompare.includes(fCompare)) { try { fs.appendFileSync(touched, normF + '\n'); } catch {} }
 
   // Tripwire scan — skip very large files to stay inside the latency budget
-  // (Phoenix #3: ≤100ms with scan). Capped at 100KB to prevent CPU lock and token bloat.
+  // (Phoenix #3: ≤100ms with scan). Default cap 100KB (tripwireMaxFileSizeKb) to
+  // prevent CPU lock and token bloat.
   try { if (fs.statSync(normF).size > getTripwireMaxFileSizeKb() * 1024) return; } catch { return; }
   let lines;
   try { lines = fs.readFileSync(normF, 'utf8').split(/\r?\n/); } catch { return; }
@@ -146,4 +148,3 @@ function main() {
 }
 
 try { main(); } catch {}
-

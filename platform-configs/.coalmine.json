@@ -27,6 +27,11 @@
   // SECTION 2: AUTOMATIC SCAN & FILE WATCH LIMITS (การสแกนและขีดจำกัดไฟล์)
   // =========================================================================
 
+  // ## rot-canary auto-scan mode (auto = scan touched files at session end, manual = on request only, off = fully disabled).
+  // # Setting type: String (auto, manual, off)
+  // # Default value: auto
+  "rotCanaryMode": "auto",
+
   // ## Maximum number of edited files allowed to be scanned automatically at session end.
   // # Setting type: Int32
   // # Default value: 10
@@ -46,11 +51,6 @@
   // # Setting type: Int32
   // # Default value: 800 (800 lines)
   "tripwireMaxLines": 800,
-
-  // ## Probability of sweeping stale temporary session files from the OS temp directory.
-  // # Setting type: Double (between 0.0 and 1.0)
-  // # Default value: 0.05 (5% chance per stop hook execution)
-  "tempSweepProbability": 0.05,
 
   // ## Number of days before temporary session files in the OS temp directory are flagged as stale and swept.
   // # Setting type: Int32

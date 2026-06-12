@@ -11,7 +11,7 @@ const CONDUCTOR = [
   '- rot-canary: auto-scans touched files at session end via hooks (QUICK, then offer the fix menu if a user is present). Capped automatically at 10 files (configurable via "autoScanFileCap" in .coalmine.json) to prevent token bloat; Agent should dynamically filter and scan only core logic files for large edits.',
   '- gold-standard (important): if this project has NO CoalMine-stamped rules yet (no "coalmine: verified" stamp in .claude/rules/, .agents/rules/, or AGENTS.md), offer /gold-standard ONCE this session (Run now / Queue / Skip) — it sets the project\'s golden rules. Also offer it when any stamp\'s revalidate date is past due. Respect a Skip for the rest of the session.',
   '- Specialists — offer (never auto-run) the moment the conversation enters their domain: deps/packages → supply-chain-audit · DB schema/API contract/serialization → drift-canary · async/retry/failure paths → resilience-audit · hot loops/queries/caches → scale-canary · tests/coupling/DI → testability-canary · logging/metrics/tracing → telemetry-canary · version-sensitive facts → source-grounding.',
-  '- Per-project config: honor .coalmine.json overrides (disabledCanaries, defaultTier, language, autoScanFileCap, autoScanFileCapSlice, autoFixMode, skipOnboarding, ruleRevalidateDays, platformRuleRevalidateDays, definitionRevalidateDays, platformDefinitionRevalidateDays, skillUpdateCheckDays, schemaPaths, migrationDirs, packageManifests, trustedDomains) if present.',
+  '- Per-project config: honor ALL .coalmine.json overrides if present — language/tier/conductor behavior, scan caps, revalidation cadences, disabled canaries, enterprise paths. The installed commented .coalmine.json documents every key.',
   '- Self error-report: if a CoalMine component itself misbehaves (wrong finding, hook error, skill contradiction), OFFER to file it — open https://github.com/HetCreep/CoalMine/issues/new/choose with a short summary the user has reviewed. Never auto-submit; never include code or paths the user has not approved.',
 ].join('\n');
 
@@ -37,8 +37,9 @@ function main() {
     const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
     const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
     const cfg = JSON.parse(cleanJson);
-    if (cfg && cfg.enableConductor === false) return;
-    if (cfg && Array.isArray(cfg.disabledCanaries) && (cfg.disabledCanaries.includes('conductor') || cfg.disabledCanaries.includes('all'))) return;
+    if (cfg && (cfg.enableConductor === false || cfg.conductor === false)) return; // legacy key honored
+    const disabled = cfg && (cfg.disabledCanaries !== undefined ? cfg.disabledCanaries : cfg.disable); // legacy key honored
+    if (Array.isArray(disabled) && (disabled.includes('conductor') || disabled.includes('all'))) return;
   } catch {}
   process.stdout.write(CONDUCTOR);
 }

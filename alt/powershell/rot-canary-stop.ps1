@@ -12,8 +12,18 @@ function Get-RcMode {
   return 'auto'
 }
 
+function Find-GitRoot {
+  $dir = (Get-Location).Path
+  while ($true) {
+    if (Test-Path (Join-Path $dir '.git')) { return $dir }
+    $parent = Split-Path $dir -Parent
+    if (-not $parent -or $parent -eq $dir) { return (Get-Location).Path }
+    $dir = $parent
+  }
+}
+
 function Load-CoalmineConfig {
-  $p = Join-Path (Get-Location) '.coalmine.json'
+  $p = Join-Path (Find-GitRoot) '.coalmine.json'
   if (-not (Test-Path $p)) { return $null }
   try {
     $rawJson = [System.IO.File]::ReadAllText($p)
@@ -29,19 +39,33 @@ try {
   $cfg = Load-CoalmineConfig
   $staleDays = 7
   if ($cfg) {
-    if ($cfg.disabledCanaries -contains 'rot-canary' -or $cfg.disabledCanaries -contains 'all') { exit 0 }
-    if ($cfg.rotCanaryMode -eq 'off' -or $cfg.rotCanaryMode -eq 'manual') { exit 0 }
-    if ($cfg.tempSweepStaleDays -ne $null) { $staleDays = $cfg.tempSweepStaleDays }
+    $disabled = if ($null -ne $cfg.disabledCanaries) { $cfg.disabledCanaries } else { $cfg.disable } # legacy key honored
+    if ($disabled -contains 'rot-canary' -or $disabled -contains 'all') { exit 0 }
+    $rcCfgMode = if ($null -ne $cfg.rotCanaryMode) { $cfg.rotCanaryMode } else { $cfg.mode } # legacy key honored
+    if ($rcCfgMode -eq 'off' -or $rcCfgMode -eq 'manual') { exit 0 }
+    if ($null -ne $cfg.tempSweepStaleDays) { $staleDays = $cfg.tempSweepStaleDays }
   }
   if ((Get-RcMode) -ne 'auto') { exit 0 }
 
-  # Phoenix #1 (zero garbage): sweep rot-canary-* temp files older than configured days
-  Get-ChildItem (Join-Path $env:TEMP 'rot-canary-*') -ErrorAction SilentlyContinue |
-    Where-Object { $_.LastWriteTimeUtc -lt [DateTime]::UtcNow.AddDays(-$staleDays) } |
-    Remove-Item -Force -ErrorAction SilentlyContinue
+  # Phoenix #1 (zero garbage) + #8 (deterministic): sweep stale rot-canary temp files
+  # (legacy rotcanary-* prefix too), throttled to once per 24h by a marker file's
+  # timestamp - no randomness. The 0-byte marker is the machine-level gate itself.
+  $marker = Join-Path $env:TEMP 'rot-canary-sweep.marker'
+  $doSweep = $true
+  if ([System.IO.File]::Exists($marker)) {
+    if ([System.IO.File]::GetLastWriteTimeUtc($marker) -gt [DateTime]::UtcNow.AddHours(-24)) { $doSweep = $false }
+  }
+  if ($doSweep) {
+    [System.IO.File]::WriteAllText($marker, '')
+    Get-ChildItem (Join-Path $env:TEMP 'rot-canary-*'), (Join-Path $env:TEMP 'rotcanary-*') -ErrorAction SilentlyContinue |
+      Where-Object { $_.Name -ne 'rot-canary-sweep.marker' -and $_.LastWriteTimeUtc -lt [DateTime]::UtcNow.AddDays(-$staleDays) } |
+      Remove-Item -Force -ErrorAction SilentlyContinue
+  }
 
   $raw = [Console]::In.ReadToEnd()
   if (-not $raw) { exit 0 }
+  # Strip a leading BOM some shells prepend when piping stdin.
+  $raw = $raw.TrimStart([char]0xFEFF)
   $in = $raw | ConvertFrom-Json
   if ($in.stop_hook_active) { exit 0 }
   $sid = $in.session_id; if (-not $sid) { exit 0 }

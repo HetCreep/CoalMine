@@ -27,7 +27,7 @@ In Agent Context, after the audit report, present via `ask_question`:
 - **Let me pick:** Allow the user to select specific optimizations.
 - **Report only:** Exit without making changes.
 
-## Output Format
+## Output
 `| file:line | bottleneck | severity | finding | optimization plan |`
 
 Severity: CRITICAL (O(N^2) on user-facing API / unclosed file handles) · HIGH (N+1 query pattern / blocking main loop) · MEDIUM (unbounded cache growth) · LOW (minor efficiency suggestions)

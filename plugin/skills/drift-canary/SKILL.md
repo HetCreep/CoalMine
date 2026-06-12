@@ -30,7 +30,7 @@ In Agent Context, after the audit report, present via `ask_question`:
 - **Let me pick:** Allow the user to select specific compatibility fixes.
 - **Report only:** Exit without making changes.
 
-## Output Format
+## Output
 `| file:line | contract interface | severity | finding | migration path |`
 
 Severity: CRITICAL (breaking DB schema mutation / breaking API change) · HIGH (serialization type change) · MEDIUM (unmapped new required env key) · LOW (missing deprecation doc)

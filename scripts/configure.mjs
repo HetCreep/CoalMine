@@ -30,7 +30,7 @@ Options:
   --autoScanFileCapSlice, -y <num>            Set slice cap when exceeding autoScanFileCap (default: 5)
   --tripwireMaxFileSizeKb, -s <num>           Set maximum file size in KB for tripwire scan (default: 100)
   --tripwireMaxLines, -n <num>                Set maximum line count before smell warning (default: 800)
-  --tempSweepProbability, -p <num>            Set temp file sweep probability (0.0 to 1.0, default: 0.05)
+  --rotCanaryMode, -m <mode>                  Set rot-canary auto-scan mode (auto, manual, off)
   --tempSweepStaleDays, -w <days>             Set stale temp file age threshold in days (default: 7)
   --watchedExtensions, -e <exts...>          Comma-separated file extensions to watch
   --ruleRevalidateDays, -v <days>             Days before stable rules require re-validation (default: 90)
@@ -85,6 +85,9 @@ function main() {
         cfg.ruleRevalidateDays = cfg.ruleRevalidateDays ?? cfg.antivirusStalenessDays;
         delete cfg.antivirusStalenessDays;
       }
+      if (cfg.tempSweepProbability !== undefined) {
+        delete cfg.tempSweepProbability; // retired: the sweep is deterministically throttled (24h marker), per Phoenix #8
+      }
       if (cfg.branchPrefix !== undefined) {
         delete cfg.branchPrefix;
       }
@@ -92,7 +95,12 @@ function main() {
         delete cfg.pullRequestRemote;
       }
     } catch (e) {
-      console.warn('Warning: existing .coalmine.json is malformed. Overwriting.');
+      try {
+        fs.copyFileSync(configPath, configPath + '.bak');
+        console.warn('Warning: existing .coalmine.json is malformed — backed it up to .coalmine.json.bak and rebuilding.');
+      } catch {
+        console.warn('Warning: existing .coalmine.json is malformed. Overwriting.');
+      }
     }
   }
 
@@ -112,13 +120,6 @@ function main() {
         process.exit(1);
       }
       cfg.autoScanFileCap = val;
-    } else if (arg === '--tempSweepProbability' || arg === '-p' || arg === '--sweep-prob') {
-      const val = parseFloat(args[++i]);
-      if (isNaN(val) || val < 0 || val > 1) {
-        console.error('Error: tempSweepProbability must be a float between 0.0 and 1.0');
-        process.exit(1);
-      }
-      cfg.tempSweepProbability = val;
     } else if (arg === '--tripwireMaxFileSizeKb' || arg === '-s' || arg === '--tripwire-cap') {
       const val = parseInt(args[++i], 10);
       if (isNaN(val)) {
@@ -240,7 +241,12 @@ function main() {
   }
 
   try {
+    let hadComments = false;
+    try { hadComments = fs.readFileSync(configPath, 'utf8').includes('//'); } catch {}
     fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2) + '\n', 'utf8');
+    if (hadComments) {
+      console.warn('Note: inline comments were stripped (this tool writes plain JSON). Every key stays documented in platform-configs/.coalmine.json.');
+    }
     console.log(`Successfully updated configuration in: ${configPath}`);
     console.log(JSON.stringify(cfg, null, 2));
   } catch (e) {

@@ -67,7 +67,7 @@ if (fs.existsSync(configPath)) {
     const validKeys = [
       'language', 'enableConductor', 'skipOnboarding', 'defaultTier',
       'autoScanFileCap', 'autoScanFileCapSlice', 'tripwireMaxFileSizeKb', 'tripwireMaxLines',
-      'tempSweepProbability', 'tempSweepStaleDays', 'watchedExtensions',
+      'tempSweepStaleDays', 'watchedExtensions',
       'ruleRevalidateDays', 'platformRuleRevalidateDays', 'definitionRevalidateDays',
       'platformDefinitionRevalidateDays', 'skillUpdateCheckDays',
       'disabledCanaries', 'rotCanaryMode', 'autoFixMode', 'schemaPaths', 'migrationDirs',
@@ -77,7 +77,7 @@ if (fs.existsSync(configPath)) {
     if (invalidKeys.length > 0) {
       fail(`.coalmine.json has unrecognized keys: ${invalidKeys.join(', ')}`);
     } else {
-      if (cfg.language !== undefined && !['auto', 'th', 'en', 'ja', 'zh', 'es'].includes(cfg.language.toLowerCase())) {
+      if (cfg.language !== undefined && (typeof cfg.language !== 'string' || !['auto', 'th', 'en', 'ja', 'zh', 'es'].includes(cfg.language.toLowerCase()))) {
         fail(`.coalmine.json language must be one of: auto, th, en, ja, zh, es`);
       }
       if (cfg.enableConductor !== undefined && typeof cfg.enableConductor !== 'boolean') {
@@ -86,7 +86,7 @@ if (fs.existsSync(configPath)) {
       if (cfg.skipOnboarding !== undefined && typeof cfg.skipOnboarding !== 'boolean') {
         fail(`.coalmine.json skipOnboarding must be a boolean`);
       }
-      if (cfg.defaultTier !== undefined && !['light', 'standard', 'heavy', 'auto'].includes(cfg.defaultTier.toLowerCase())) {
+      if (cfg.defaultTier !== undefined && (typeof cfg.defaultTier !== 'string' || !['light', 'standard', 'heavy', 'auto'].includes(cfg.defaultTier.toLowerCase()))) {
         fail(`.coalmine.json defaultTier must be one of: Light, Standard, Heavy, auto`);
       }
       if (cfg.autoScanFileCap !== undefined && typeof cfg.autoScanFileCap !== 'number') {
@@ -100,9 +100,6 @@ if (fs.existsSync(configPath)) {
       }
       if (cfg.tripwireMaxLines !== undefined && typeof cfg.tripwireMaxLines !== 'number') {
         fail(`.coalmine.json tripwireMaxLines must be a number`);
-      }
-      if (cfg.tempSweepProbability !== undefined && (typeof cfg.tempSweepProbability !== 'number' || cfg.tempSweepProbability < 0 || cfg.tempSweepProbability > 1)) {
-        fail(`.coalmine.json tempSweepProbability must be a number between 0.0 and 1.0`);
       }
       if (cfg.tempSweepStaleDays !== undefined && typeof cfg.tempSweepStaleDays !== 'number') {
         fail(`.coalmine.json tempSweepStaleDays must be a number`);
@@ -128,10 +125,10 @@ if (fs.existsSync(configPath)) {
       if (cfg.disabledCanaries !== undefined && (!Array.isArray(cfg.disabledCanaries) || cfg.disabledCanaries.some((x) => typeof x !== 'string'))) {
         fail(`.coalmine.json disabledCanaries must be an array of strings`);
       }
-      if (cfg.rotCanaryMode !== undefined && !['auto', 'manual', 'off'].includes(cfg.rotCanaryMode.toLowerCase())) {
+      if (cfg.rotCanaryMode !== undefined && (typeof cfg.rotCanaryMode !== 'string' || !['auto', 'manual', 'off'].includes(cfg.rotCanaryMode.toLowerCase()))) {
         fail(`.coalmine.json rotCanaryMode must be one of: auto, manual, off`);
       }
-      if (cfg.autoFixMode !== undefined && !['interactive', 'safe', 'off'].includes(cfg.autoFixMode.toLowerCase())) {
+      if (cfg.autoFixMode !== undefined && (typeof cfg.autoFixMode !== 'string' || !['interactive', 'safe', 'off'].includes(cfg.autoFixMode.toLowerCase()))) {
         fail(`.coalmine.json autoFixMode must be one of: interactive, safe, off`);
       }
       if (cfg.schemaPaths !== undefined && (!Array.isArray(cfg.schemaPaths) || cfg.schemaPaths.some((x) => typeof x !== 'string'))) {

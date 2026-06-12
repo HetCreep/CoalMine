@@ -37,10 +37,6 @@ Per-ecosystem vuln/license/outdated commands + offline fallback: read `reference
 - Don't auto-change deps — report + recommend; user decides (bumps break builds).
 - State what was NOT scanned. Blocked network scans → lockfile inspection fallback (see `references/tooling.md`), mark live checks N-A.
 
-## Output
-`| package | direct/transitive | issue | severity | advisory | fixed-in | action |`
-Build+artifact checklist · Summary (counts + top fixes) · Not scanned
-
 ## Fix mode (choice-gated)
 After the report, present via `ask_question`:
 - **Pin safe now** — commit already-present unchanged lockfile, pin CI action to current SHA, add missing checksum step. Each: checkpoint → apply → verify.
@@ -48,6 +44,10 @@ After the report, present via `ask_question`:
 - **Report only** — change nothing.
 
 NEVER auto-fix: dep version bump, lockfile regen (re-resolves entire transitive tree).
+
+## Output
+`| package | direct/transitive | issue | severity | advisory | fixed-in | action |`
+Build+artifact checklist · Summary (counts + top fixes) · Not scanned
 
 ## Escalation — Scope & Model Quality
 

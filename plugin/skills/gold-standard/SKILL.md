@@ -33,6 +33,7 @@ ADOPT and every CONFORM fix are gated through `ask_question` — never assume ap
    - **still valid** → re-stamp the date, touch nothing else (no churn);
    - **stale but needed** → rewrite against today's exemplar;
    - **obsolete** (its subject was removed, its platform died, or its substance moved into another rule) → **delete the rule** and record a one-line tombstone in the project's memory/decision log (`retired <rule> <date>: <reason>`) — dead rules burn context every session, and the tombstone prevents the next FILL from resurrecting them.
+
 Exemplar-picking rules, scorecard mechanics, stamp/tombstone formats: read `references/method.md` before the first AUDIT.
 
 ## Method

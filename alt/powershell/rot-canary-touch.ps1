@@ -11,8 +11,18 @@ function Get-RcMode {
   return 'auto'
 }
 
+function Find-GitRoot {
+  $dir = (Get-Location).Path
+  while ($true) {
+    if (Test-Path (Join-Path $dir '.git')) { return $dir }
+    $parent = Split-Path $dir -Parent
+    if (-not $parent -or $parent -eq $dir) { return (Get-Location).Path }
+    $dir = $parent
+  }
+}
+
 function Load-CoalmineConfig {
-  $p = Join-Path (Get-Location) '.coalmine.json'
+  $p = Join-Path (Find-GitRoot) '.coalmine.json'
   if (-not (Test-Path $p)) { return $null }
   try {
     $rawJson = [System.IO.File]::ReadAllText($p)
@@ -27,16 +37,24 @@ function Load-CoalmineConfig {
 try {
   $cfg = Load-CoalmineConfig
   if ($cfg) {
-    if ($cfg.disabledCanaries -contains 'rot-canary' -or $cfg.disabledCanaries -contains 'all') { exit 0 }
-    if ('off' -eq $cfg.rotCanaryMode) { exit 0 }
+    $disabled = if ($null -ne $cfg.disabledCanaries) { $cfg.disabledCanaries } else { $cfg.disable } # legacy key honored
+    if ($disabled -contains 'rot-canary' -or $disabled -contains 'all') { exit 0 }
+    $rcCfgMode = if ($null -ne $cfg.rotCanaryMode) { $cfg.rotCanaryMode } else { $cfg.mode } # legacy key honored
+    if ('off' -eq $rcCfgMode) { exit 0 }
   }
   if ((Get-RcMode) -eq 'off') { exit 0 }
 
   $raw = [Console]::In.ReadToEnd()
   if (-not $raw) { exit 0 }
+  # Strip a leading BOM some shells prepend when piping stdin.
+  $raw = $raw.TrimStart([char]0xFEFF)
   $in = $raw | ConvertFrom-Json
   $f = $in.tool_input.file_path
   if (-not $f) { exit 0 }
+  # Convert to an absolute normalized path so the stop hook can find the file
+  # even when later runs use a different working directory.
+  if (-not [System.IO.Path]::IsPathRooted($f)) { $f = Join-Path (Get-Location) $f }
+  $f = [System.IO.Path]::GetFullPath($f)
 
   # watchedExtensions override
   $codeExt = @('.cs','.ts','.tsx','.js','.jsx','.mjs','.cjs','.py','.rs','.go','.java','.kt','.kts','.cpp','.cc','.cxx','.c','.h','.hpp','.rb','.php','.swift','.dart','.fs','.vb','.scala','.m','.mm')

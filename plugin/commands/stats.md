@@ -23,6 +23,6 @@ Grep the installed CoalMine skills' `references/*.md` files for their `coalmine:
 To calculate the revalidation threshold (days) for each definition file:
 - If the stamp has `revalidate 30d` (platform definition), check `platformDefinitionRevalidateDays` from `.coalmine.json` (default: 30).
 - If the stamp has `revalidate 90d` (general definition), check `definitionRevalidateDays` from `.coalmine.json` (default: 90).
-These ship with CoalMine itself — if any is OVERDUE, do NOT re-ground locally; advise updating CoalMine instead (e.g. reinstalling via `install.mjs` from a fresh clone), like updating antivirus definitions.
+These ship with CoalMine itself — if any is OVERDUE, do NOT re-ground locally; advise updating CoalMine instead (`claude plugin update coalmine@coalmine` on Claude Code; reinstall via `install.mjs` from a fresh clone elsewhere), like updating antivirus definitions.
 
 No prose beyond the tables and the single offer. Do not modify any file.
