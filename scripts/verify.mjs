@@ -123,7 +123,7 @@ if (!fs.existsSync(pluginDir)) {
     const pluginEntries = fs.readdirSync(pluginDir, { withFileTypes: true });
     for (const e of pluginEntries) {
       if (e.isDirectory()) {
-        if (!['skills', 'hooks', '.claude-plugin'].includes(e.name)) {
+        if (!['skills', 'hooks', '.claude-plugin', 'agents'].includes(e.name)) {
           fail(`plugin/${e.name} is an orphan directory — run: node scripts/build-plugin.mjs`);
         }
       } else {
@@ -175,6 +175,13 @@ if (!fs.existsSync(pluginDir)) {
       }
     }
   } catch (e) { fail(`plugin/.claude-plugin check failed: ${e.message}`); }
+  // Bundled agent definitions ship verbatim — same both-direction guarantee.
+  const agentsSrc = path.join(repo, 'agents');
+  if (fs.existsSync(agentsSrc)) {
+    const agentsDist = path.join(pluginDir, 'agents');
+    if (!fs.existsSync(agentsDist)) fail('plugin/agents missing — run: node scripts/build-plugin.mjs');
+    else compareAux(agentsSrc, agentsDist, 'plugin/agents');
+  }
   for (const f of ['hooks/hooks.json', 'hooks/rotcanary-touch.js', 'hooks/rotcanary-stop.js', '.claude-plugin/plugin.json']) {
     const distFile = path.join(pluginDir, f);
     if (!fs.existsSync(distFile)) { fail(`plugin/${f} missing — run: node scripts/build-plugin.mjs`); continue; }

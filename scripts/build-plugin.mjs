@@ -55,6 +55,16 @@ for (const f of ['hooks.json', 'rotcanary-touch.js', 'rotcanary-stop.js']) {
 }
 console.log('  copied hooks/ (hooks.json + rotcanary-touch.js + rotcanary-stop.js)');
 
+// Agents — bundled subagent definitions (Claude Code auto-discovers agents/).
+const agentsSrc = path.join(repo, 'agents');
+if (fs.existsSync(agentsSrc)) {
+  fs.mkdirSync(path.join(pluginDir, 'agents'), { recursive: true });
+  for (const f of fs.readdirSync(agentsSrc)) {
+    fs.copyFileSync(path.join(agentsSrc, f), path.join(pluginDir, 'agents', f));
+  }
+  console.log('  copied agents/');
+}
+
 // Plugin manifest — authored once at .claude-plugin/plugin.json, copied in.
 fs.mkdirSync(path.join(pluginDir, '.claude-plugin'), { recursive: true });
 fs.copyFileSync(

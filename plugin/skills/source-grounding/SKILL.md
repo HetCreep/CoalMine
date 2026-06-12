@@ -53,4 +53,4 @@ Non-interactive runs: log unfetchable claims as `⚠️ UNVERIFIED` and continue
 
 **Hook Context (non-interactive):** auto-select Light. No questions, no fixes, no sub-agents — report only.
 
-**Heavy durability:** chunk long multi-agent runs into short phases, reading results between them; if a run dies mid-way, recover completed sub-agent results from your platform's run records and re-spawn only the missing pieces.
+**Heavy durability:** chunk long multi-agent runs into short phases, reading results between them; if a run dies mid-way, recover completed sub-agent results from your platform's run records and re-spawn only the missing pieces. On Claude Code, fan out with the bundled `coalmine-scanner` agent (one per category/module — read-only, compressed table output).

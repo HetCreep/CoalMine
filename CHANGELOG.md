@@ -4,6 +4,15 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [2.7.0] — 2026-06-11
+
+User-driven improvement loop, modeled on what makes living rule-sets (e.g. ECC) improve from real usage.
+
+### Added
+- **Feedback funnel**: GitHub issue forms — platform field report (per-agent works/breaks), bug report, and a security contact link routing through SECURITY.md. Templates only; no CI workflows.
+- **`coalmine-scanner` bundled agent** (Claude Code auto-discovers `agents/`): read-only scan worker for Standard/Heavy fan-out — one dimension per spawn, compressed findings-table output, no prose. Shared footer points Heavy runs at it; `build-plugin.mjs` ships it and `verify.mjs` byte-checks it both directions.
+- Work Execution Gate now ships the `task.md` format (`| # | Task | Detail | Tier |`, auto-create if absent) in all 4 trigger templates.
+
 ## [2.6.1] — 2026-06-11
 
 ### Fixed (security hardening, found by rotcanary QUICK on the fresh manifest code)
