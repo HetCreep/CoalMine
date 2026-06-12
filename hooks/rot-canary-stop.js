@@ -39,9 +39,47 @@ function readFirstChunk(p, size = 4096) {
   }
 }
 
-// Heuristic user-language detection: env locale first, then regional characters
-// in project docs (per hooks-safety.md section 5).
+function findGitRoot(startDir) {
+  let dir = path.resolve(startDir);
+  while (true) {
+    const gitPath = path.join(dir, '.git');
+    if (fs.existsSync(gitPath)) {
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      break;
+    }
+    dir = parent;
+  }
+  return startDir;
+}
+
+// Single cached read of .coalmine.json, resolved from the project root, BOM- and
+// comment-tolerant. Every override below shares it — one disk read per invocation
+// (Phoenix #3: budget the work, not the process).
+let _cfg;
+function loadCfg() {
+  if (_cfg !== undefined) return _cfg;
+  _cfg = null;
+  try {
+    const root = findGitRoot(process.cwd());
+    const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
+    const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
+    _cfg = JSON.parse(cleanJson);
+  } catch {}
+  return _cfg;
+}
+
+// Heuristic user-language detection: explicit .coalmine.json override first, then
+// env locale, then regional characters in project docs (per hooks-safety.md section 5).
 function detectLang() {
+  try {
+    const cfg = loadCfg();
+    if (cfg && typeof cfg.language === 'string' && TRANSLATIONS[cfg.language.toLowerCase()]) {
+      return cfg.language.toLowerCase();
+    }
+  } catch {}
   try {
     const langEnv = (process.env.LANG || process.env.LC_ALL || process.env.LC_MESSAGES || process.env.LANGUAGE || '').toLowerCase();
     if (langEnv.includes('th')) return 'th';
@@ -49,14 +87,14 @@ function detectLang() {
     if (langEnv.includes('zh') || langEnv.includes('cn')) return 'zh';
     if (langEnv.includes('es')) return 'es';
 
-    const cwd = process.cwd();
+    const root = findGitRoot(process.cwd());
     for (const file of ['README.md', 'MEMORY.md', 'AGENTS.md']) {
-      const p = path.join(cwd, file);
+      const p = path.join(root, file);
       if (fs.existsSync(p)) {
         const content = readFirstChunk(p);
-        if (/[\u0e00-\u0e7f]/.test(content)) return 'th';
-        if (/[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/.test(content)) {
-          if (/[\u3040-\u309f\u30a0-\u30ff]/.test(content)) return 'ja';
+        if (/[฀-๿]/.test(content)) return 'th';
+        if (/[぀-ヿ㐀-䶿一-鿿]/.test(content)) {
+          if (/[぀-ゟ゠-ヿ]/.test(content)) return 'ja';
           return 'zh';
         }
       }
@@ -66,20 +104,39 @@ function detectLang() {
 }
 
 // Phoenix #1 (zero garbage): delete this session's temp state once the batch is
-// acknowledged, and sweep rot-canary-* files older than 7 days left behind by
-// sessions that never reached a second stop (crash/kill).
-const STALE_MS = 7 * 24 * 60 * 60 * 1000;
+// acknowledged, and sweep rot-canary-* files older than the configured age left
+// behind by sessions that never reached a second stop (crash/kill).
 function cleanupSession(base) {
   for (const f of [base + '.touched', base + '.smells', base + '.scanned']) {
     try { fs.unlinkSync(f); } catch {}
   }
 }
+function getTempSweepStaleDays() {
+  try {
+    const cfg = loadCfg();
+    if (cfg && typeof cfg.tempSweepStaleDays === 'number') {
+      return cfg.tempSweepStaleDays;
+    }
+  } catch {}
+  return 7;
+}
 function sweepStale() {
   try {
     const tmp = os.tmpdir();
-    const cutoff = Date.now() - STALE_MS;
+    // Deterministic throttle (Phoenix #8 — no randomness): the marker file's mtime
+    // gates the whole-tmpdir scan to at most once per 24h on this machine. The
+    // marker is a 0-byte machine-level gate, not session garbage — it is excluded
+    // from the sweep, and if the OS clears tmp the next stop simply sweeps again.
+    const marker = path.join(tmp, 'rot-canary-sweep.marker');
+    try {
+      if (Date.now() - fs.statSync(marker).mtimeMs < 24 * 60 * 60 * 1000) return;
+    } catch {} // no marker yet → sweep now
+    try { fs.writeFileSync(marker, ''); } catch {}
+    const staleDays = getTempSweepStaleDays();
+    const cutoff = Date.now() - (staleDays * 24 * 60 * 60 * 1000);
     for (const f of fs.readdirSync(tmp)) {
       if (!f.startsWith('rot-canary-') && !f.startsWith('rotcanary-')) continue; // sweep legacy prefix too
+      if (f === 'rot-canary-sweep.marker') continue; // the throttle gate itself
       const p = path.join(tmp, f);
       try { if (fs.statSync(p).mtimeMs < cutoff) fs.unlinkSync(p); } catch {}
     }
@@ -89,6 +146,7 @@ function sweepStale() {
 const TRANSLATIONS = {
   en: {
     smellPrefix: '\n\nTripwires flagged at edit time:\n',
+    capNotice: '\n\n(Auto-scan capped at {N} files to prevent token leakage; remaining files can be scanned manually)',
     reason: (list, smellText) =>
       'Code-health auto-check (session end): code files were edited this session. Before stopping, ' +
       'invoke the rot-canary skill at DEPTH=QUICK with SCOPE = these touched files + their direct callers:\n' +
@@ -98,6 +156,7 @@ const TRANSLATIONS = {
   },
   th: {
     smellPrefix: '\n\nสัญญาณเตือนความเสี่ยงที่พบขณะแก้ไข:\n',
+    capNotice: '\n\n(จำกัดการสแกนอัตโนมัติที่ {N} ไฟล์หลักเพื่อป้องกันโทเค็นรั่วไหล คุณสามารถสั่งสแกนไฟล์ที่เหลือแบบแมนวลได้)',
     reason: (list, smellText) =>
       'ระบบตรวจสอบสุขภาพโค้ดอัตโนมัติ (สิ้นสุดเซสชัน): มีการแก้ไขไฟล์โค้ดในเซสชันนี้ ก่อนที่คุณจะหยุดทำงาน ' +
       'โปรดเรียกใช้สกิล rot-canary ที่ DEPTH=QUICK โดยระบุ SCOPE = ไฟล์ที่แก้ไขเหล่านี้ + ไฟล์ที่เรียกใช้งานโดยตรง:\n' +
@@ -107,15 +166,17 @@ const TRANSLATIONS = {
   },
   ja: {
     smellPrefix: '\n\n編集時に検出されたリスク警告:\n',
+    capNotice: '\n\n(トークン漏洩を防ぐため、自動スキャンは主要{N}ファイルに制限されています。残りのファイルは手動でスキャンできます)',
     reason: (list, smellText) =>
       'コードヘルス自動チェック（セッション終了）: このセッションでコードファイルが編集されました。終了する前に、' +
-      'DEPTH=QUICKでrot-canaryスキルを実行し、SCOPE = これらの編集されたファイル + 直接の呼び出し元を指定してください:\n' +
+      'DEPTH=QUICKでrot-canaryスキルを実行し、SCOPE = これらの編集されたファイル + 直接的呼び出し元を指定してください:\n' +
       list + smellText +
       '\n\nスキルの詳細な手順に従ってください。確認された問題のみを重要度テーブルとして報告し、重要な問題がない場合は1行でその旨を述べてください。' +
       '問題が見つかりユーザーがセッションにいる場合は、質問ツールで修正メニューを提示して締めくくってください — 選択なしに修正してはいけません。（この自動チェックを無効にするには、~/.claude/.rot-canary-offを作成してください）',
   },
   zh: {
     smellPrefix: '\n\n编辑时标记的风险警告：\n',
+    capNotice: '\n\n(为防止 Token 泄露，自动扫描限制为前 {N} 个主要文件；其余文件可手动扫描)',
     reason: (list, smellText) =>
       '代码健康自动检查（会话结束）：此会话中编辑了代码文件。在停止之前，请运行 DEPTH=QUICK 的 rot-canary 技能，' +
       '并将 SCOPE 设置为这些被编辑的文件及其直接调用者：\n' +
@@ -125,6 +186,7 @@ const TRANSLATIONS = {
   },
   es: {
     smellPrefix: '\n\nAlertas de riesgo marcadas al editar:\n',
+    capNotice: '\n\n(Escaneo automático limitado a {N} archivos para evitar fugas de tokens; los archivos restantes se pueden escanear manualmente)',
     reason: (list, smellText) =>
       'Autocomprobación de salud del código (fin de sesión): se editaron archivos de código en esta sesión. Antes de detenerse, ' +
       'invoque la habilidad rot-canary con DEPTH=QUICK y SCOPE = estos archivos modificados + sus llamadores directos:\n' +
@@ -134,17 +196,20 @@ const TRANSLATIONS = {
   },
 };
 
-
-// Per-project calibration: .coalmine.json at cwd may disable this canary or
+// Per-project calibration: .coalmine.json at root may disable this canary or
 // override the mode for the project (principle 9 - calibrate, never assume).
 function projectOverride() {
   try {
-    const cfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), '.coalmine.json'), 'utf8'));
-    if (cfg && Array.isArray(cfg.disable) && cfg.disable.includes('rot-canary')) return 'off';
-    if (cfg && (cfg.mode === 'off' || cfg.mode === 'manual')) return cfg.mode;
+    const cfg = loadCfg();
+    if (!cfg) return null;
+    const disabled = cfg.disabledCanaries !== undefined ? cfg.disabledCanaries : cfg.disable; // legacy key honored
+    if (Array.isArray(disabled) && (disabled.includes('rot-canary') || disabled.includes('all'))) return 'off';
+    const mode = cfg.rotCanaryMode !== undefined ? cfg.rotCanaryMode : cfg.mode; // legacy key honored
+    if (mode === 'off' || mode === 'manual') return mode;
   } catch {}
   return null;
 }
+
 function main() {
   sweepStale();
 
@@ -157,7 +222,8 @@ function main() {
   if (!raw) return;
 
   let input;
-  try { input = JSON.parse(raw); } catch { return; }
+  // trim() also strips a leading BOM some shells prepend when piping stdin.
+  try { input = JSON.parse(raw.trim()); } catch { return; }
   if (!input || input.stop_hook_active) return;
 
   const sid = input.session_id;
@@ -187,13 +253,39 @@ function main() {
 
   let files = [];
   try {
-    files = [...new Set(fs.readFileSync(touched, 'utf8').split('\n').filter(Boolean).map((x) => path.normalize(x)))].sort();
+    files = [...new Set(fs.readFileSync(touched, 'utf8').split('\n').filter(Boolean).map((x) => path.normalize(x)))];
   } catch { return; }
   // Drop lines that aren't real paths (corrupt/garbage .touched content).
   files = files.filter(fs.existsSync);
   if (!files.length) return;
 
-  const t = TRANSLATIONS[detectLang()] || TRANSLATIONS.en;
+  const lang = detectLang();
+  const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
+
+  let fileCap = 10;
+  let fileCapSlice = 5;
+  try {
+    const cfg = loadCfg();
+    if (cfg && typeof cfg.autoScanFileCap === 'number') {
+      fileCap = cfg.autoScanFileCap;
+    }
+    if (cfg && typeof cfg.autoScanFileCapSlice === 'number') {
+      fileCapSlice = cfg.autoScanFileCapSlice;
+    }
+  } catch {}
+
+  let capNoticeText = '';
+  if (files.length > fileCap) {
+    // Sort by mtime (newest first) and slice to protect the token budget —
+    // one stat per file, not one per comparison.
+    const mtimes = new Map();
+    for (const f of files) { try { mtimes.set(f, fs.statSync(f).mtimeMs); } catch { mtimes.set(f, 0); } }
+    files.sort((a, b) => mtimes.get(b) - mtimes.get(a));
+    files = files.slice(0, fileCapSlice);
+    capNoticeText = (t.capNotice || '').replace('{N}', String(fileCapSlice));
+  } else {
+    files.sort();
+  }
 
   let smellText = '';
   try {
@@ -211,7 +303,7 @@ function main() {
   } catch {}
 
   const list = files.map((x) => '  - ' + x).join('\n');
-  const reason = t.reason(list, smellText);
+  const reason = t.reason(list, smellText) + capNoticeText;
 
   process.stdout.write(JSON.stringify({ decision: 'block', reason }));
 }

@@ -40,7 +40,7 @@ export function renderSkillMd(skillDir, shared) {
   const raw = fs.readFileSync(path.join(skillDir, 'SKILL.md'), 'utf8');
   const metaPath = path.join(skillDir, 'skill-meta.json');
   const meta = fs.existsSync(metaPath)
-    ? JSON.parse(fs.readFileSync(metaPath, 'utf8'))
+    ? JSON.parse(fs.readFileSync(metaPath, 'utf8').replace(/^\uFEFF/, ''))
     : {};
   return inject(raw, shared, meta);
 }

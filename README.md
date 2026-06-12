@@ -89,6 +89,36 @@ Canaries offer flexible execution tiers based on work complexity to optimize tok
 3. **Proactive Suggestions:**
    * The agent monitors chat context. If a change matches one of the 6 On-demand canaries (e.g., adding a package, updating a database schema), the agent will proactively trigger the `ask_question` tool to offer a canary run, rather than typing plain-text questions.
 
+## ⚙️ Configuration (.coalmine.json)
+
+CoalMine adapts dynamically to the developer's skill level and preferences:
+* **For General Users (Zero-Config / "ชาวบ้าน"):** The installer automatically generates a ready-made `.coalmine.json` file at the root of the project pre-configured with safe, token-optimal, and secure gold-standard defaults, meaning they can run it out of the box with zero effort.
+* **For Programmers (Advanced Overrides):** The automatically generated `.coalmine.json` file contains inline descriptive comments explaining every key, type, and default value. Programmers can directly modify this file (manually or via the Agent) or run the configurator tool to adjust settings as they like.
+
+### Configuration Schema
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `language` | String | `auto` | Override heuristic language detection (`en` \| `th` \| `ja` \| `zh` \| `es`) |
+| `defaultTier` | String | `auto` | Force an execution tier for every canary run (`Light` \| `Standard` \| `Heavy`) |
+| `autoScanFileCap` | Number | `10` | Maximum touched files allowed to scan automatically at session end before capping |
+| `tripwireMaxFileSizeKb` | Number | `100` | Size limit in KB for files analyzed by editor tripwire checks (e.g. merge conflict smells) |
+| `enableConductor` | Boolean | `true` | Set to `false` to disable rules injection on Session Start (legacy alias: `conductor`) |
+| `disabledCanaries` | Array of Strings | `[]` | Canaries to disable (e.g. `["rot-canary", "drift-canary"]` or `["all"]`; legacy alias: `disable`) |
+
+The generated `.coalmine.json` documents the **full schema** — every key, grouped and commented (see `platform-configs/.coalmine.json`); `scripts/verify.mjs` validates keys and types.
+
+### Configurator Utility
+
+Programmers can easily view, write, and update `.coalmine.json` configurations using the built-in utility script:
+```bash
+# Set language override to Thai and file cap limit to 15
+node scripts/configure.mjs --language th --file-cap 15
+
+# Disable specific canaries
+node scripts/configure.mjs --disable rot-canary,drift-canary
+```
+
 ---
 
 ## 🔌 Universal Agent Support

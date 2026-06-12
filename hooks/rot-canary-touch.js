@@ -21,22 +21,82 @@ function rcMode() {
   return 'auto';
 }
 
-const CODE_EXT = new Set([
-  '.cs', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.rs', '.go',
-  '.java', '.kt', '.kts', '.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.rb',
-  '.php', '.swift', '.dart', '.fs', '.vb', '.scala', '.m', '.mm',
-]);
+function findGitRoot(startDir) {
+  let dir = path.resolve(startDir);
+  while (true) {
+    const gitPath = path.join(dir, '.git');
+    if (fs.existsSync(gitPath)) {
+      return dir;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) {
+      break;
+    }
+    dir = parent;
+  }
+  return startDir;
+}
 
+// Single cached read of .coalmine.json, resolved from the project root, BOM- and
+// comment-tolerant. Every override below shares it — one disk read per invocation
+// (Phoenix #3: budget the work, not the process).
+let _cfg;
+function loadCfg() {
+  if (_cfg !== undefined) return _cfg;
+  _cfg = null;
+  try {
+    const root = findGitRoot(process.cwd());
+    const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
+    const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
+    _cfg = JSON.parse(cleanJson);
+  } catch {}
+  return _cfg;
+}
 
-// Per-project calibration: .coalmine.json at cwd may disable this canary or
+// Per-project calibration: .coalmine.json at root may disable this canary or
 // override the mode for the project (principle 9 - calibrate, never assume).
 function projectOverride() {
   try {
-    const cfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), '.coalmine.json'), 'utf8'));
-    if (cfg && Array.isArray(cfg.disable) && cfg.disable.includes('rot-canary')) return 'off';
-    if (cfg && (cfg.mode === 'off' || cfg.mode === 'manual')) return cfg.mode;
+    const cfg = loadCfg();
+    if (!cfg) return null;
+    const disabled = cfg.disabledCanaries !== undefined ? cfg.disabledCanaries : cfg.disable; // legacy key honored
+    if (Array.isArray(disabled) && (disabled.includes('rot-canary') || disabled.includes('all'))) return 'off';
+    const mode = cfg.rotCanaryMode !== undefined ? cfg.rotCanaryMode : cfg.mode; // legacy key honored
+    if (mode === 'off' || mode === 'manual') return mode;
   } catch {}
   return null;
+}
+function getTripwireMaxFileSizeKb() {
+  try {
+    const cfg = loadCfg();
+    if (cfg && typeof cfg.tripwireMaxFileSizeKb === 'number') {
+      return cfg.tripwireMaxFileSizeKb;
+    }
+  } catch {}
+  return 100;
+}
+function getTripwireMaxLines() {
+  try {
+    const cfg = loadCfg();
+    if (cfg && typeof cfg.tripwireMaxLines === 'number') {
+      return cfg.tripwireMaxLines;
+    }
+  } catch {}
+  return 800;
+}
+function getWatchedExtensions() {
+  const defaultExts = [
+    '.cs', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.rs', '.go',
+    '.java', '.kt', '.kts', '.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.rb',
+    '.php', '.swift', '.dart', '.fs', '.vb', '.scala', '.m', '.mm',
+  ];
+  try {
+    const cfg = loadCfg();
+    if (cfg && Array.isArray(cfg.watchedExtensions) && cfg.watchedExtensions.length > 0) {
+      return new Set(cfg.watchedExtensions.map((x) => x.startsWith('.') ? x.toLowerCase() : '.' + x.toLowerCase()));
+    }
+  } catch {}
+  return new Set(defaultExts);
 }
 function main() {
   const ov = projectOverride();
@@ -47,12 +107,15 @@ function main() {
   if (!raw) return;
 
   let input;
-  try { input = JSON.parse(raw); } catch { return; }
+  // trim() also strips a leading BOM some shells prepend when piping stdin.
+  try { input = JSON.parse(raw.trim()); } catch { return; }
 
   const f = input && input.tool_input && input.tool_input.file_path;
   if (!f) return;
-  const normF = path.normalize(f);
-  if (!CODE_EXT.has(path.extname(normF).toLowerCase())) return;
+  // Convert to absolute normalized path to prevent subdirectory bugs
+  const normF = path.resolve(process.cwd(), f);
+  const watchedExts = getWatchedExtensions();
+  if (!watchedExts.has(path.extname(normF).toLowerCase())) return;
 
   // No session id → no consumer (the stop hook bails without one). Record nothing.
   const sid = input.session_id;
@@ -68,14 +131,16 @@ function main() {
   if (!existingCompare.includes(fCompare)) { try { fs.appendFileSync(touched, normF + '\n'); } catch {} }
 
   // Tripwire scan — skip very large files to stay inside the latency budget
-  // (Phoenix #3: ≤100ms with scan).
-  try { if (fs.statSync(normF).size > 1024 * 1024) return; } catch { return; }
+  // (Phoenix #3: ≤100ms with scan). Default cap 100KB (tripwireMaxFileSizeKb) to
+  // prevent CPU lock and token bloat.
+  try { if (fs.statSync(normF).size > getTripwireMaxFileSizeKb() * 1024) return; } catch { return; }
   let lines;
   try { lines = fs.readFileSync(normF, 'utf8').split(/\r?\n/); } catch { return; }
 
   const smells = [];
   if (lines.some((l) => /^(<<<<<<< |>>>>>>> |=======$)/.test(l))) smells.push('merge-conflict markers');
-  if (lines.length > 800) smells.push(`file >800 lines (${lines.length})`);
+  const maxLines = getTripwireMaxLines();
+  if (lines.length > maxLines) smells.push(`file >${maxLines} lines (${lines.length})`);
   if (smells.length) {
     // One line per file — the stop hook reports each .smells line verbatim.
     try { fs.appendFileSync(base + '.smells', `${normF}: ${smells.join('; ')}\n`); } catch {}

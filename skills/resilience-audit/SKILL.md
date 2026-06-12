@@ -33,12 +33,6 @@ Per-stack timeout/atomicity/idempotency patterns to grep: read `references/check
 - "partial = failure" — any path reporting success on partial completion = CRITICAL.
 - "logged" ≠ "handled" — swallowed+logged error that corrupts state or returns success = CRITICAL.
 
-## Output
-`| operation | failure mode | effect | handling (file:line) | severity | recommended guard |`
-Ordering/atomicity findings · Summary (counts + top fixes) · Not assessed
-
-Severity: CRITICAL (data loss/corruption/silent-success) · HIGH (crash/hang/partial-no-recovery) · MEDIUM (poor degradation/missing retry) · LOW (cosmetic)
-
 ## Fix mode (choice-gated)
 After the report, present via `ask_question`:
 - **Fix safe ones** — add missing timeout, null/input validation, clear error+log on unhandled path. Each: checkpoint → fix → build+tests → revert if newly red.
@@ -46,6 +40,12 @@ After the report, present via `ask_question`:
 - **Report only** — change nothing.
 
 NEVER auto-fix: retry/rollback/recovery/atomicity logic (semantic changes can introduce new failure modes).
+
+## Output
+`| operation | failure mode | effect | handling (file:line) | severity | recommended guard |`
+Ordering/atomicity findings · Summary (counts + top fixes) · Not assessed
+
+Severity: CRITICAL (data loss/corruption/silent-success) · HIGH (crash/hang/partial-no-recovery) · MEDIUM (poor degradation/missing retry) · LOW (cosmetic)
 
 ## Escalation — Scope & Model Quality
 

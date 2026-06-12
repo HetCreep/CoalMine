@@ -27,7 +27,7 @@ In Agent Context, after the audit report, present via `ask_question`:
 - **Let me pick:** Allow the user to select which telemetry gaps to resolve.
 - **Report only:** Exit without making changes.
 
-## Output Format
+## Output
 `| file:line | category | severity | finding | recommendation |`
 
 Severity: CRITICAL (swallowed error with state mutation) · HIGH (missing stack trace in error logs) · MEDIUM (unstructured log in API boundary) · LOW (minor trace gaps)

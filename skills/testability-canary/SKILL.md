@@ -27,7 +27,7 @@ In Agent Context, after the audit report, present via `ask_question`:
 - **Let me pick:** Allow the user to select specific refactoring moves.
 - **Report only:** Exit without making changes.
 
-## Output Format
+## Output
 `| file:line | coupling point | severity | finding | mock strategy |`
 
 Severity: CRITICAL (un-mockable external write/network call) · HIGH (SRP violation blocking unit testing) · MEDIUM (time/env coupling) · LOW (minor static dependency)

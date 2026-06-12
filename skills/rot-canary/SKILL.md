@@ -11,7 +11,7 @@ description: >-
 Scan code for rot. Report CONFIRMED findings. Fix on request.
 
 ## Parameters
-- **SCOPE:** touched files (default) | diff | named files | whole repo
+- **SCOPE:** touched files (default) | diff | named files | whole repo. Touched files scan uses hybrid capping (scans all if <= autoScanFileCap, otherwise caps at autoScanFileCapSlice most recently modified files and warns user).
 - **DEPTH:** QUICK (default) | DEEP
 
 ## Categories
@@ -49,7 +49,7 @@ Then: SUSPECTED list · coverage gaps · counts + top 3 to fix.
 Severity: CRITICAL (data loss/security/crash on normal path) · HIGH (real bug/leak on reachable path) · MEDIUM (dead/dup/unwired) · LOW (style/doc rot)
 
 ## Cadence
-Stop hook → auto QUICK on session's touched files (report only); manual whole-repo DEEP sweep when needed. Auto-wiring is platform-dependent — read `references/cadence.md` before claiming auto-scan works on the current platform.
+Stop hook → auto QUICK on session's touched files (report only). To protect the token budget, the Stop hook applies a hybrid cap: if the number of touched files is <= autoScanFileCap (configurable in `.coalmine.json`), all files are scanned; if greater, the scan is capped at the top autoScanFileCapSlice most recently modified files, and a localized warning is displayed to the user. Manual whole-repo DEEP sweep when needed. Auto-wiring is platform-dependent — read `references/cadence.md` before claiming auto-scan works on the current platform.
 
 ## Tooling
 Per-stack build/dead-code/lint commands: read `references/tooling.md` when selecting scan tools.

@@ -53,7 +53,101 @@ console.log('manifests:');
 for (const m of ['.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', 'hooks/hooks.json']) {
   const p = path.join(repo, m);
   if (!fs.existsSync(p)) { fail(`${m} missing`); continue; }
-  try { JSON.parse(fs.readFileSync(p, 'utf8')); pass(m); } catch (e) { fail(`${m} invalid JSON: ${e.message}`); }
+  try { JSON.parse(fs.readFileSync(p, 'utf8').replace(/^\uFEFF/, '')); pass(m); } catch (e) { fail(`${m} invalid JSON: ${e.message}`); }
+}
+
+// 2.5 config (if present)
+const configPath = path.join(repo, '.coalmine.json');
+if (fs.existsSync(configPath)) {
+  console.log('config (.coalmine.json):');
+  try {
+    const content = fs.readFileSync(configPath, 'utf8').replace(/^\uFEFF/, '');
+    const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
+    const cfg = JSON.parse(cleanJson);
+    const validKeys = [
+      'language', 'enableConductor', 'skipOnboarding', 'defaultTier',
+      'autoScanFileCap', 'autoScanFileCapSlice', 'tripwireMaxFileSizeKb', 'tripwireMaxLines',
+      'tempSweepStaleDays', 'watchedExtensions',
+      'ruleRevalidateDays', 'platformRuleRevalidateDays', 'definitionRevalidateDays',
+      'platformDefinitionRevalidateDays', 'skillUpdateCheckDays',
+      'disabledCanaries', 'rotCanaryMode', 'autoFixMode', 'schemaPaths', 'migrationDirs',
+      'packageManifests', 'trustedDomains'
+    ];
+    const invalidKeys = Object.keys(cfg).filter((k) => !validKeys.includes(k));
+    if (invalidKeys.length > 0) {
+      fail(`.coalmine.json has unrecognized keys: ${invalidKeys.join(', ')}`);
+    } else {
+      if (cfg.language !== undefined && (typeof cfg.language !== 'string' || !['auto', 'th', 'en', 'ja', 'zh', 'es'].includes(cfg.language.toLowerCase()))) {
+        fail(`.coalmine.json language must be one of: auto, th, en, ja, zh, es`);
+      }
+      if (cfg.enableConductor !== undefined && typeof cfg.enableConductor !== 'boolean') {
+        fail(`.coalmine.json enableConductor must be a boolean`);
+      }
+      if (cfg.skipOnboarding !== undefined && typeof cfg.skipOnboarding !== 'boolean') {
+        fail(`.coalmine.json skipOnboarding must be a boolean`);
+      }
+      if (cfg.defaultTier !== undefined && (typeof cfg.defaultTier !== 'string' || !['light', 'standard', 'heavy', 'auto'].includes(cfg.defaultTier.toLowerCase()))) {
+        fail(`.coalmine.json defaultTier must be one of: Light, Standard, Heavy, auto`);
+      }
+      if (cfg.autoScanFileCap !== undefined && typeof cfg.autoScanFileCap !== 'number') {
+        fail(`.coalmine.json autoScanFileCap must be a number`);
+      }
+      if (cfg.autoScanFileCapSlice !== undefined && typeof cfg.autoScanFileCapSlice !== 'number') {
+        fail(`.coalmine.json autoScanFileCapSlice must be a number`);
+      }
+      if (cfg.tripwireMaxFileSizeKb !== undefined && typeof cfg.tripwireMaxFileSizeKb !== 'number') {
+        fail(`.coalmine.json tripwireMaxFileSizeKb must be a number`);
+      }
+      if (cfg.tripwireMaxLines !== undefined && typeof cfg.tripwireMaxLines !== 'number') {
+        fail(`.coalmine.json tripwireMaxLines must be a number`);
+      }
+      if (cfg.tempSweepStaleDays !== undefined && typeof cfg.tempSweepStaleDays !== 'number') {
+        fail(`.coalmine.json tempSweepStaleDays must be a number`);
+      }
+      if (cfg.watchedExtensions !== undefined && (!Array.isArray(cfg.watchedExtensions) || cfg.watchedExtensions.some((x) => typeof x !== 'string'))) {
+        fail(`.coalmine.json watchedExtensions must be an array of strings`);
+      }
+      if (cfg.ruleRevalidateDays !== undefined && typeof cfg.ruleRevalidateDays !== 'number') {
+        fail(`.coalmine.json ruleRevalidateDays must be a number`);
+      }
+      if (cfg.platformRuleRevalidateDays !== undefined && typeof cfg.platformRuleRevalidateDays !== 'number') {
+        fail(`.coalmine.json platformRuleRevalidateDays must be a number`);
+      }
+      if (cfg.definitionRevalidateDays !== undefined && typeof cfg.definitionRevalidateDays !== 'number') {
+        fail(`.coalmine.json definitionRevalidateDays must be a number`);
+      }
+      if (cfg.platformDefinitionRevalidateDays !== undefined && typeof cfg.platformDefinitionRevalidateDays !== 'number') {
+        fail(`.coalmine.json platformDefinitionRevalidateDays must be a number`);
+      }
+      if (cfg.skillUpdateCheckDays !== undefined && typeof cfg.skillUpdateCheckDays !== 'number') {
+        fail(`.coalmine.json skillUpdateCheckDays must be a number`);
+      }
+      if (cfg.disabledCanaries !== undefined && (!Array.isArray(cfg.disabledCanaries) || cfg.disabledCanaries.some((x) => typeof x !== 'string'))) {
+        fail(`.coalmine.json disabledCanaries must be an array of strings`);
+      }
+      if (cfg.rotCanaryMode !== undefined && (typeof cfg.rotCanaryMode !== 'string' || !['auto', 'manual', 'off'].includes(cfg.rotCanaryMode.toLowerCase()))) {
+        fail(`.coalmine.json rotCanaryMode must be one of: auto, manual, off`);
+      }
+      if (cfg.autoFixMode !== undefined && (typeof cfg.autoFixMode !== 'string' || !['interactive', 'safe', 'off'].includes(cfg.autoFixMode.toLowerCase()))) {
+        fail(`.coalmine.json autoFixMode must be one of: interactive, safe, off`);
+      }
+      if (cfg.schemaPaths !== undefined && (!Array.isArray(cfg.schemaPaths) || cfg.schemaPaths.some((x) => typeof x !== 'string'))) {
+        fail(`.coalmine.json schemaPaths must be an array of strings`);
+      }
+      if (cfg.migrationDirs !== undefined && (!Array.isArray(cfg.migrationDirs) || cfg.migrationDirs.some((x) => typeof x !== 'string'))) {
+        fail(`.coalmine.json migrationDirs must be an array of strings`);
+      }
+      if (cfg.packageManifests !== undefined && (!Array.isArray(cfg.packageManifests) || cfg.packageManifests.some((x) => typeof x !== 'string'))) {
+        fail(`.coalmine.json packageManifests must be an array of strings`);
+      }
+      if (cfg.trustedDomains !== undefined && (!Array.isArray(cfg.trustedDomains) || cfg.trustedDomains.some((x) => typeof x !== 'string'))) {
+        fail(`.coalmine.json trustedDomains must be an array of strings`);
+      }
+      if (ok) pass('.coalmine.json');
+    }
+  } catch (e) {
+    fail(`.coalmine.json invalid JSON: ${e.message}`);
+  }
 }
 
 // 3. hooks present
@@ -77,7 +171,7 @@ function compareAux(srcDir, dstDir, label) {
       } else {
         try {
           if (!fs.existsSync(dp)) fail(`${label}/${e.name} missing — run: node scripts/build-plugin.mjs`);
-          else if (fs.readFileSync(sp, 'utf8') !== fs.readFileSync(dp, 'utf8')) fail(`${label}/${e.name} STALE vs source — run: node scripts/build-plugin.mjs`);
+          else if (fs.readFileSync(sp, 'utf8').replace(/\r\n/g, '\n') !== fs.readFileSync(dp, 'utf8').replace(/\r\n/g, '\n')) fail(`${label}/${e.name} STALE vs source — run: node scripts/build-plugin.mjs`);
         } catch (err) { fail(`${label}/${e.name} compare failed: ${err.message}`); }
       }
     }
@@ -114,7 +208,7 @@ if (!fs.existsSync(pluginDir)) {
     let want;
     try { want = renderSkillMd(path.join(skillsSrc, s), shared); }
     catch (e) { fail(`plugin/skills/${s} render failed: ${e.message}`); continue; }
-    if (got !== want) { fail(`plugin/skills/${s} STALE vs source — run: node scripts/build-plugin.mjs`); continue; }
+    if (got.replace(/\r\n/g, '\n') !== want.replace(/\r\n/g, '\n')) { fail(`plugin/skills/${s} STALE vs source — run: node scripts/build-plugin.mjs`); continue; }
     compareAux(path.join(skillsSrc, s), path.join(pluginDir, 'skills', s), `plugin/skills/${s}`);
     pass(`plugin/skills/${s} in sync`);
   }
@@ -190,13 +284,13 @@ if (!fs.existsSync(pluginDir)) {
     const distFile = path.join(pluginDir, f);
     if (!fs.existsSync(distFile)) { fail(`plugin/${f} missing — run: node scripts/build-plugin.mjs`); continue; }
     try {
-      if (fs.readFileSync(path.join(repo, f), 'utf8') !== fs.readFileSync(distFile, 'utf8')) {
+      if (fs.readFileSync(path.join(repo, f), 'utf8').replace(/\r\n/g, '\n') !== fs.readFileSync(distFile, 'utf8').replace(/\r\n/g, '\n')) {
         fail(`plugin/${f} STALE vs ${f} — run: node scripts/build-plugin.mjs`);
       } else pass(`plugin/${f} in sync`);
     } catch (e) { fail(`plugin/${f} compare failed: ${e.message}`); }
   }
   try {
-    const mkt = JSON.parse(fs.readFileSync(path.join(repo, '.claude-plugin', 'marketplace.json'), 'utf8'));
+    const mkt = JSON.parse(fs.readFileSync(path.join(repo, '.claude-plugin', 'marketplace.json'), 'utf8').replace(/^\uFEFF/, ''));
     const srcField = mkt.plugins?.[0]?.source;
     if (srcField === './plugin') pass('marketplace serves ./plugin (conformed dist)');
     else fail(`marketplace plugins[0].source is ${JSON.stringify(srcField)} — must be "./plugin" so installs get conformed skills`);

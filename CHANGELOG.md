@@ -4,6 +4,21 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.3.0] — 2026-06-12
+
+### Added (principle 9 — calibration: the config release, PR #7)
+- **Categorized .coalmine.json config system**: 22-key schema in 4 commented groups (interactive behavior, scan & watch limits, re-validation cadences, enterprise paths). The installer drops a fully documented copy at the project root — zero-config defaults for everyone, overrides for programmers. scripts/configure.mjs edits it with validation + legacy-key migration; verify.mjs type-checks every key; hooks read it dynamically.
+- Hooks resolve .coalmine.json from the **git root**, not the cwd — config honored when the agent works from a subdirectory (issue #5 C2). Installer supports worktree/submodule .git files via gitdir: resolution (C5) and refuses to target CoalMine's own skills/ source (C1).
+- Auto-scan token cap: more than autoScanFileCap touched files → newest autoScanFileCapSlice scanned, localized notice appended (all 5 languages).
+
+### Fixed (issue #5 + Fable-5 review of the PR)
+- Touched files recorded as **absolute paths** in Node + PowerShell touch hooks — subdirectory edits no longer vanish from the stop-hook scan (C4).
+- **Temp sweep made deterministic** (C3 + Phoenix #8): the shipped Math.random() throttle is replaced by a 24h marker-file gate in Node + PowerShell; tempSweepProbability retired (configurator migrates it away); PowerShell sweep now also clears legacy rotcanary-* files.
+- **Legacy v3.0.0 config keys honored again**: disable/mode/conductor work alongside the new names in all five hooks; README schema table now documents the canonical keys it contradicted.
+- **Hook stdin BOM-hardened** — some shells prepend a BOM when piping; JSON parsing now survives it (S1, found when the test probe itself hit it).
+- Config read once per hook invocation (was 4–5 reads with git-root walks each); dead CODE_EXT set removed; hooks.test.mjs had raw NUL+SOH bytes that made git treat it as binary — escaped, the file diffs as text again.
+- Skill docs conform to the canonical mold (Fix mode before Output, one heading name — S2); /coalmine:stats restores the claude plugin update advice; gate suite 20 → 22 tests (configurator covered).
+
 ## [3.2.1] — 2026-06-12
 
 ### Fixed
