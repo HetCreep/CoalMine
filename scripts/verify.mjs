@@ -56,6 +56,43 @@ for (const m of ['.claude-plugin/plugin.json', '.claude-plugin/marketplace.json'
   try { JSON.parse(fs.readFileSync(p, 'utf8').replace(/^\uFEFF/, '')); pass(m); } catch (e) { fail(`${m} invalid JSON: ${e.message}`); }
 }
 
+// 2.5 config (if present)
+const configPath = path.join(repo, '.coalmine.json');
+if (fs.existsSync(configPath)) {
+  console.log('config (.coalmine.json):');
+  try {
+    const content = fs.readFileSync(configPath, 'utf8').replace(/^\uFEFF/, '');
+    const cfg = JSON.parse(content);
+    const validKeys = ['language', 'autoScanFileCap', 'tempSweepProbability', 'tripwireMaxFileSizeKb', 'conductor', 'disable', 'mode'];
+    const invalidKeys = Object.keys(cfg).filter((k) => !validKeys.includes(k));
+    if (invalidKeys.length > 0) {
+      fail(`.coalmine.json has unrecognized keys: ${invalidKeys.join(', ')}`);
+    } else {
+      if (cfg.language !== undefined && !['th', 'en', 'ja', 'zh', 'es'].includes(cfg.language.toLowerCase())) {
+        fail(`.coalmine.json language must be one of: th, en, ja, zh, es`);
+      }
+      if (cfg.autoScanFileCap !== undefined && typeof cfg.autoScanFileCap !== 'number') {
+        fail(`.coalmine.json autoScanFileCap must be a number`);
+      }
+      if (cfg.tempSweepProbability !== undefined && (typeof cfg.tempSweepProbability !== 'number' || cfg.tempSweepProbability < 0 || cfg.tempSweepProbability > 1)) {
+        fail(`.coalmine.json tempSweepProbability must be a number between 0.0 and 1.0`);
+      }
+      if (cfg.tripwireMaxFileSizeKb !== undefined && typeof cfg.tripwireMaxFileSizeKb !== 'number') {
+        fail(`.coalmine.json tripwireMaxFileSizeKb must be a number`);
+      }
+      if (cfg.conductor !== undefined && typeof cfg.conductor !== 'boolean') {
+        fail(`.coalmine.json conductor must be a boolean`);
+      }
+      if (cfg.disable !== undefined && (!Array.isArray(cfg.disable) || cfg.disable.some((x) => typeof x !== 'string'))) {
+        fail(`.coalmine.json disable must be an array of strings`);
+      }
+      if (ok) pass('.coalmine.json');
+    }
+  } catch (e) {
+    fail(`.coalmine.json invalid JSON: ${e.message}`);
+  }
+}
+
 // 3. hooks present
 console.log('hooks:');
 for (const h of ['hooks/rot-canary-touch.js', 'hooks/rot-canary-stop.js', 'hooks/coalmine-conductor.js']) {

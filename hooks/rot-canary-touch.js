@@ -49,11 +49,23 @@ function findGitRoot(startDir) {
 function projectOverride() {
   try {
     const root = findGitRoot(process.cwd());
-    const cfg = JSON.parse(fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8'));
-    if (cfg && Array.isArray(cfg.disable) && cfg.disable.includes('rot-canary')) return 'off';
+    const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
+    const cfg = JSON.parse(content);
+    if (cfg && Array.isArray(cfg.disable) && (cfg.disable.includes('rot-canary') || cfg.disable.includes('all'))) return 'off';
     if (cfg && (cfg.mode === 'off' || cfg.mode === 'manual')) return cfg.mode;
   } catch {}
   return null;
+}
+function getTripwireMaxFileSizeKb() {
+  try {
+    const root = findGitRoot(process.cwd());
+    const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
+    const cfg = JSON.parse(content);
+    if (cfg && typeof cfg.tripwireMaxFileSizeKb === 'number') {
+      return cfg.tripwireMaxFileSizeKb;
+    }
+  } catch {}
+  return 100;
 }
 function main() {
   const ov = projectOverride();
@@ -87,7 +99,7 @@ function main() {
 
   // Tripwire scan — skip very large files to stay inside the latency budget
   // (Phoenix #3: ≤100ms with scan). Capped at 100KB to prevent CPU lock and token bloat.
-  try { if (fs.statSync(normF).size > 100 * 1024) return; } catch { return; }
+  try { if (fs.statSync(normF).size > getTripwireMaxFileSizeKb() * 1024) return; } catch { return; }
   let lines;
   try { lines = fs.readFileSync(normF, 'utf8').split(/\r?\n/); } catch { return; }
 

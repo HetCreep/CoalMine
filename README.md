@@ -89,6 +89,34 @@ Canaries offer flexible execution tiers based on work complexity to optimize tok
 3. **Proactive Suggestions:**
    * The agent monitors chat context. If a change matches one of the 6 On-demand canaries (e.g., adding a package, updating a database schema), the agent will proactively trigger the `ask_question` tool to offer a canary run, rather than typing plain-text questions.
 
+## ⚙️ Configuration (.coalmine.json)
+
+CoalMine adapts dynamically to the developer's skill level and preferences:
+* **For General Users (Zero-Config / "ชาวบ้าน"):** No configuration file is required. The system automatically applies the "Gold-Standard Defaults" (safe, token-optimal, heuristic language detection).
+* **For Programmers (Advanced Overrides):** Create a `.coalmine.json` at the root of your project to override configuration parameters.
+
+### Configuration Schema
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `language` | String | *Heuristic* | Override heuristic language detection (`en` \| `th` \| `ja` \| `zh` \| `es`) |
+| `autoScanFileCap` | Number | `10` | Maximum touched files allowed to scan automatically at session end before capping |
+| `tempSweepProbability` | Number | `0.05` | Probability (0.0 to 1.0) of sweeping stale session temp files from OS temp dir |
+| `tripwireMaxFileSizeKb` | Number | `100` | Size limit in KB for files analyzed by editor tripwire checks (e.g. merge conflict smells) |
+| `conductor` | Boolean | `true` | Set to `false` to disable rules injection on Session Start |
+| `disable` | Array of Strings | `[]` | List of canaries or features to disable (e.g. `["rot-canary", "drift-canary"]` or `["all"]`) |
+
+### Configurator Utility
+
+Programmers can easily view, write, and update `.coalmine.json` configurations using the built-in utility script:
+```bash
+# Set language override to Thai and file cap limit to 15
+node scripts/configure.mjs --language th --file-cap 15
+
+# Disable specific canaries
+node scripts/configure.mjs --disable rot-canary,drift-canary
+```
+
 ---
 
 ## 🔌 Universal Agent Support

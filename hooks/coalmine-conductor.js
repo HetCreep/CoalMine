@@ -35,9 +35,10 @@ function findGitRoot(startDir) {
 function main() {
   try {
     const root = findGitRoot(process.cwd());
-    const cfg = JSON.parse(fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8'));
+    const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
+    const cfg = JSON.parse(content);
     if (cfg && cfg.conductor === false) return;
-    if (cfg && Array.isArray(cfg.disable) && cfg.disable.includes('conductor')) return;
+    if (cfg && Array.isArray(cfg.disable) && (cfg.disable.includes('conductor') || cfg.disable.includes('all'))) return;
   } catch {}
   process.stdout.write(CONDUCTOR);
 }

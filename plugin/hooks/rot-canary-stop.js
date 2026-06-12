@@ -43,6 +43,14 @@ function readFirstChunk(p, size = 4096) {
 // in project docs (per hooks-safety.md section 5).
 function detectLang() {
   try {
+    const root = findGitRoot(process.cwd());
+    const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
+    const cfg = JSON.parse(content);
+    if (cfg && typeof cfg.language === 'string' && TRANSLATIONS[cfg.language.toLowerCase()]) {
+      return cfg.language.toLowerCase();
+    }
+  } catch {}
+  try {
     const langEnv = (process.env.LANG || process.env.LC_ALL || process.env.LC_MESSAGES || process.env.LANGUAGE || '').toLowerCase();
     if (langEnv.includes('th')) return 'th';
     if (langEnv.includes('ja') || langEnv.includes('jp')) return 'ja';
@@ -75,8 +83,16 @@ function cleanupSession(base) {
   }
 }
 function sweepStale() {
-  // Performance optimization: only sweep with 5% probability to prevent blocking the event loop on every stop.
-  if (Math.random() >= 0.05) return;
+  let prob = 0.05;
+  try {
+    const root = findGitRoot(process.cwd());
+    const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
+    const cfg = JSON.parse(content);
+    if (cfg && typeof cfg.tempSweepProbability === 'number') {
+      prob = cfg.tempSweepProbability;
+    }
+  } catch {}
+  if (Math.random() >= prob) return;
   try {
     const tmp = os.tmpdir();
     const cutoff = Date.now() - STALE_MS;
@@ -162,8 +178,9 @@ function findGitRoot(startDir) {
 function projectOverride() {
   try {
     const root = findGitRoot(process.cwd());
-    const cfg = JSON.parse(fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8'));
-    if (cfg && Array.isArray(cfg.disable) && cfg.disable.includes('rot-canary')) return 'off';
+    const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
+    const cfg = JSON.parse(content);
+    if (cfg && Array.isArray(cfg.disable) && (cfg.disable.includes('rot-canary') || cfg.disable.includes('all'))) return 'off';
     if (cfg && (cfg.mode === 'off' || cfg.mode === 'manual')) return cfg.mode;
   } catch {}
   return null;
@@ -223,7 +240,8 @@ function main() {
   const root = findGitRoot(process.cwd());
   let fileCap = 10;
   try {
-    const cfg = JSON.parse(fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8'));
+    const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
+    const cfg = JSON.parse(content);
     if (cfg && typeof cfg.autoScanFileCap === 'number') {
       fileCap = cfg.autoScanFileCap;
     }
