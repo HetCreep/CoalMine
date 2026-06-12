@@ -6,10 +6,10 @@
 if [ -f scripts/verify.mjs ]; then
   # Fail loud if a gate test file is missing — node --test silently ignores
   # missing path arguments, which would drop tests from the gate unnoticed.
-  for t in scripts/lib/render.test.mjs scripts/lib/hooks.test.mjs; do
+  for t in scripts/lib/render.test.mjs scripts/lib/hooks.test.mjs scripts/lib/install.test.mjs; do
     [ -f "$t" ] || { echo "CoalMine gate: missing $t" >&2; exit 1; }
   done
-  node --test scripts/lib/render.test.mjs scripts/lib/hooks.test.mjs || exit 1
+  node --test scripts/lib/render.test.mjs scripts/lib/hooks.test.mjs scripts/lib/install.test.mjs || exit 1
   node scripts/verify.mjs
   exit $?
 fi

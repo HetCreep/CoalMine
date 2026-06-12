@@ -4,6 +4,11 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [2.6.0] — 2026-06-11
+
+### Added
+- **Install manifest** (`.coalmine-manifest.json`, written at every install target): the installer now works like a package manager — it records exactly what it installed, removes that set before installing the new version, and uninstall reads the same list. Skills renamed or removed in future versions can never leave orphan copies behind; skills from other vendors sharing the target directory are never touched. Covered by an integration test (fresh install → simulated rename → reinstall → uninstall) wired into the git gates (suite now 12 tests).
+
 ## [2.5.0] — 2026-06-11
 
 ### Added

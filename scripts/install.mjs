@@ -233,6 +233,50 @@ function uninstallSkills(destDir, skillsList) {
   }
 }
 
+// ─── Install Manifest (clean version transitions) ────────────────────────────
+// Records exactly what CoalMine installed at a target so the next install can
+// remove it first — like a package manager's file list. Renamed or removed
+// skills can never leave orphan copies behind. Only manifest-listed dirs are
+// ever touched; other skills sharing the target dir are never affected.
+const MANIFEST_NAME = '.coalmine-manifest.json';
+
+function readManifest(destDir) {
+  try {
+    const m = JSON.parse(fs.readFileSync(path.join(destDir, MANIFEST_NAME), 'utf8'));
+    return m && Array.isArray(m.skills) ? m : null;
+  } catch { return null; }
+}
+
+function cleanPreviousInstall(destDir, currentSkills) {
+  // Manifest list when present; pre-manifest installs fall back to current
+  // skill names (covers same-name upgrades only).
+  const previous = readManifest(destDir);
+  const names = previous ? previous.skills : currentSkills;
+  let cleaned = 0;
+  for (const s of names) {
+    const dir = path.join(destDir, s);
+    try {
+      if (fs.existsSync(dir)) { fs.rmSync(dir, { recursive: true, force: true }); cleaned++; }
+    } catch (e) {
+      console.warn(`  [warn] could not remove previous ${s}: ${e.message}`);
+      process.exitCode = 1;
+    }
+  }
+  if (previous) console.log(`  cleaned previous install v${previous.version ?? '?'} (${cleaned} skill dir(s))`);
+}
+
+function writeManifest(destDir, installedSkills) {
+  try {
+    let version = '0.0.0';
+    try { version = JSON.parse(fs.readFileSync(path.join(repo, '.claude-plugin', 'plugin.json'), 'utf8')).version ?? version; } catch {}
+    const manifest = { version, installedAt: new Date().toISOString(), skills: installedSkills };
+    fs.writeFileSync(path.join(destDir, MANIFEST_NAME), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+  } catch (e) {
+    console.warn(`  [warn] could not write install manifest: ${e.message}`);
+    process.exitCode = 1;
+  }
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 const args = process.argv.slice(2);
 const isUninstall = args.includes('--uninstall') || args.includes('-u');
@@ -261,7 +305,11 @@ try {
 
 if (isUninstall) {
   console.log(`\nUninstalling CoalMine from target: ${targetArg}`);
-  const removedCount = uninstallSkills(dest, skills);
+  // Manifest knows what was actually installed (incl. names from older
+  // versions); fall back to current skill names for pre-manifest installs.
+  const previous = readManifest(dest);
+  const removedCount = uninstallSkills(dest, previous ? previous.skills : skills);
+  try { fs.rmSync(path.join(dest, MANIFEST_NAME), { force: true }); } catch {}
   uninstallConfig(targetKey);
   uninstallGitHooks();
   console.log(`\nDone: Uninstalled ${removedCount} skill(s) and cleared configs.`);
@@ -271,18 +319,24 @@ if (isUninstall) {
 const shared = loadShared();
 
 console.log(`\nInstalling ${skills.length} skill(s) → ${dest}`);
+// Program-style version transition: remove everything the previous CoalMine
+// install put here (per its manifest), then install the new set fresh.
+cleanPreviousInstall(dest, skills);
 let n = 0;
+const installed = [];
 for (const s of skills) {
   try {
     const to = path.join(dest, s);
     installSkillDir(path.join(skillsSrc, s), to, shared);
     console.log(`  installed ${s} → ${to}`);
+    installed.push(s);
     n++;
   } catch (e) {
     console.warn(`  [warn] failed to install ${s}: ${e.message}`);
     process.exitCode = 1;
   }
 }
+writeManifest(dest, installed);
 
 // Generate platform config
 console.log(`\nConfiguring auto-trigger for: ${targetArg}`);

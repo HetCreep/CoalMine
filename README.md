@@ -131,6 +131,8 @@ node ../CoalMine/scripts/install.mjs antigravity
 ```
 The installer also writes a CoalMine pre-commit/pre-push gate into your project's `.git/hooks` (any existing non-CoalMine hook is backed up once as `<hook>.pre-coalmine`; `--uninstall` restores it).
 
+Upgrades are clean by design: each install writes a `.coalmine-manifest.json` at the target and the next install removes exactly that set first — renamed or retired skills never leave stale copies, and skills from other tools in the same folder are never touched.
+
 #### 3. Verify Installation
 From the same directory, verify that all 9 skills landed without unresolved template markers:
 ```bash
