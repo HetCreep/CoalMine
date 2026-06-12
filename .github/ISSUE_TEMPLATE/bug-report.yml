@@ -9,7 +9,7 @@ body:
       label: Component
       options:
         - a canary skill (which one — say below)
-        - hooks (rotcanary-touch / rotcanary-stop)
+        - hooks (rot-canary-touch / rot-canary-stop)
         - installer (install.mjs)
         - verify gate (verify.mjs)
         - plugin / marketplace packaging

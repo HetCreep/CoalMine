@@ -51,7 +51,7 @@ test('manifest-driven reinstall removes renamed leftovers, spares foreign skills
     // 4. Uninstall → manifest-listed skills + manifest gone, foreign survives.
     const un = runInstall(target, tmp, ['--uninstall']);
     assert.equal(un.status, 0, `uninstall must pass:\n${un.stdout}${un.stderr}`);
-    assert.ok(!fs.existsSync(path.join(target, 'rotcanary')), 'installed skill removed on uninstall');
+    assert.ok(!fs.existsSync(path.join(target, 'rot-canary')), 'installed skill removed on uninstall');
     assert.ok(!fs.existsSync(path.join(target, MANIFEST)), 'manifest removed on uninstall');
     assert.ok(fs.existsSync(path.join(target, 'foreign-skill', 'SKILL.md')), 'foreign skill survives uninstall');
   } finally {
@@ -72,13 +72,13 @@ test('corrupt manifest entries can never escape the target directory', () => {
     fs.writeFileSync(path.join(sentinel, 'keep.txt'), 'must survive', 'utf8');
 
     const manifest = JSON.parse(fs.readFileSync(path.join(target, MANIFEST), 'utf8'));
-    manifest.skills = ['..', '.', '../sentinel-dir', tmp, '.coalmine-manifest.json', 'rotcanary'];
+    manifest.skills = ['..', '.', '../sentinel-dir', tmp, '.coalmine-manifest.json', 'rot-canary'];
     fs.writeFileSync(path.join(target, MANIFEST), JSON.stringify(manifest), 'utf8');
 
     const second = runInstall(target, tmp);
     assert.equal(second.status, 0, `reinstall with corrupt manifest must still pass:\n${second.stdout}${second.stderr}`);
     assert.ok(fs.existsSync(path.join(sentinel, 'keep.txt')), 'escape via .. must be impossible');
-    assert.ok(fs.existsSync(path.join(target, 'rotcanary', 'SKILL.md')), 'valid entries still install');
+    assert.ok(fs.existsSync(path.join(target, 'rot-canary', 'SKILL.md')), 'valid entries still install');
     const after = JSON.parse(fs.readFileSync(path.join(target, MANIFEST), 'utf8'));
     assert.equal(after.skills.length, 9, 'manifest rebuilt with the clean current set');
   } finally {

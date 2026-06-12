@@ -37,7 +37,7 @@ body:
       options:
         - Skill discovery (agent sees the 9 skills)
         - Skill behavior (tier menu, fix menu, language mirroring)
-        - rotcanary auto-cadence hooks
+        - rot-canary auto-cadence hooks
         - Installer / uninstaller
         - Other
     validations:

@@ -8,8 +8,8 @@ These PowerShell versions are a **fallback** for Windows setups that don't have 
 
 | Hook | Event | Behavior |
 |---|---|---|
-| `rotcanary-touch.ps1` | `PostToolUse` (Write/Edit/MultiEdit) | Records the code files touched this session to a per-session temp marker; flags unambiguous tripwires (merge-conflict markers, >800-line files). Always exits 0 (non-blocking). |
-| `rotcanary-stop.ps1` | `Stop` | At a natural stop, if code was edited this session, asks the agent to run the code-health scan at `DEPTH=QUICK` on the touched files. **Loop-guarded** (`stop_hook_active`), **one-shot per edit-batch** (a `.scanned` marker), and **kill-switchable**. |
+| `rot-canary-touch.ps1` | `PostToolUse` (Write/Edit/MultiEdit) | Records the code files touched this session to a per-session temp marker; flags unambiguous tripwires (merge-conflict markers, >800-line files). Always exits 0 (non-blocking). |
+| `rot-canary-stop.ps1` | `Stop` | At a natural stop, if code was edited this session, asks the agent to run the code-health scan at `DEPTH=QUICK` on the touched files. **Loop-guarded** (`stop_hook_active`), **one-shot per edit-batch** (a `.scanned` marker), and **kill-switchable**. |
 
 ## Manual install (Windows, no Node)
 
@@ -21,13 +21,13 @@ These PowerShell versions are a **fallback** for Windows setups that don't have 
 
 ## Modes — auto / manual / off
 
-Set `~/.claude/.rotcanary-mode` to one word — these PowerShell hooks honor it just like the Node hooks:
+Set `~/.claude/.rot-canary-mode` to one word — these PowerShell hooks honor it just like the Node hooks:
 
 - **auto** (default, or absent) — tripwire records edits + the `Stop` hook runs the audit at session end.
 - **manual** — tripwire still records touched files, but the `Stop` hook does **not** auto-run; you run the audit yourself.
 - **off** — silent (tripwire records nothing, no auto-run).
 
-Back-compat: `~/.claude/.rotcanary-off` (any contents) forces **off**.
+Back-compat: `~/.claude/.rot-canary-off` (any contents) forces **off**.
 
 ## How the loop guard works
 
@@ -37,4 +37,4 @@ The `Stop` hook would re-fire after the agent finishes the scan it requested. It
 
 ## Cleanup (Phoenix #1 — zero garbage)
 
-Once a batch is acknowledged (next stop with no new edits), the hook deletes the session's `.touched`/`.smells`/`.scanned` files. On every stop it also sweeps `rotcanary-*` temp files older than 7 days, so sessions killed mid-way can't leak state forever.
+Once a batch is acknowledged (next stop with no new edits), the hook deletes the session's `.touched`/`.smells`/`.scanned` files. On every stop it also sweeps `rot-canary-*` temp files older than 7 days, so sessions killed mid-way can't leak state forever.

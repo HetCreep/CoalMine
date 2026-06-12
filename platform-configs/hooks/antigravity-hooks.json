@@ -4,12 +4,12 @@
     "PostToolUse": [
       {
         "matcher": "write_file|replace|edit",
-        "hooks": [{ "type": "command", "command": "node C:/path/to/CoalMine/hooks/rotcanary-touch.js" }]
+        "hooks": [{ "type": "command", "command": "node C:/path/to/CoalMine/hooks/rot-canary-touch.js" }]
       }
     ],
     "Stop": [
       {
-        "hooks": [{ "type": "command", "command": "node C:/path/to/CoalMine/hooks/rotcanary-stop.js" }]
+        "hooks": [{ "type": "command", "command": "node C:/path/to/CoalMine/hooks/rot-canary-stop.js" }]
       }
     ]
   }

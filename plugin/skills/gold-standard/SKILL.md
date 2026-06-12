@@ -25,10 +25,16 @@ Four acts: **AUDIT** → **FILL** → **ADOPT** → **CONFORM**. Stop at any.
 
 ADOPT and every CONFORM fix are gated through `ask_question` — never assume approval.
 
-1. **AUDIT** — pick 3–5 named exemplars, derive the 100% checklist per dimension, score (✅/🟡/❌/N-A), give overall %.
-2. **FILL** — write missing MUST-HAVE rules into project's rules home (`.claude/rules/` → `AGENTS.md` → `STANDARDS.md`). Match project style + voice. Cite the exemplar. Invoke source-grounding for version-sensitive claims. Extend existing; never duplicate. Never generate overkill or unnecessary rules — only write rules that are essential, practical, and highly saturated (หลีกเลี่ยงการสร้างกฎแบบ Overkill ที่ฟุ่มเฟือยเกินจำเป็น).
+1. **AUDIT** — pick 3–5 named exemplars **fresh at run time** (the bar moves with the era — never reuse a remembered bar), derive the 100% checklist per dimension, score (✅/🟡/❌/N-A), give overall %. Previously filled/adopted rules are audit subjects too: a rule past its `revalidate` due date or contradicted by today's exemplars is a gap.
+2. **FILL** — write missing MUST-HAVE rules into project's rules home (`.claude/rules/` → `AGENTS.md` → `STANDARDS.md`). Match project style + voice. Cite the exemplar. Invoke source-grounding for version-sensitive claims. Extend existing; never duplicate. Check the project's retired-rules record first — never resurrect a rule retired with a reason, unless the user explicitly overrides. Never generate overkill rules — only essential, practical, highly saturated ones (หลีกเลี่ยงการสร้างกฎแบบ Overkill ที่ฟุ่มเฟือยเกินจำเป็น). Stamp every rule you write: `<!-- coalmine: verified <YYYY-MM-DD> · exemplar <name> · revalidate <30|90>d -->` — 30d for fast-moving surfaces (agent platforms, model/API versions; grounded Jun 2026: these ship weekly-to-daily), 90d for general engineering rules (stricter than every authoritative anchor — OWASP editions ~4y, NIST/FISMA annual — so it serves as cheap early warning). CVE/advisory-based rules re-validate on the advisory EVENT first (Dependabot pattern); their 30d stamp is only the staleness backstop. Event override always beats the calendar.
 3. **ADOPT** — treat completed ruleset as binding for rest of session. Code changes still need user approval — adoption governs *how* to work, not license to auto-edit.
-4. **CONFORM** — scan existing code against adopted rules; report violations (`path:line` · rule · evidence). Fix on approval: checkpoint → one fix → build+tests → revert if newly red. When resolving style or pattern inconsistencies (Style Drift), if multiple styles are mixed, always conform the minority patterns to match the most dominant/frequent style (highest average usage) in the project to minimize churn.
+4. **CONFORM** — scan existing code against adopted rules; report violations (`path:line` · rule · evidence). Fix on approval: checkpoint → one fix → build+tests → revert if newly red. Style Drift: conform minority patterns to the dominant style (highest average usage); never start a standalone style refactor.
+5. **RE-VALIDATE** (runs inside every repeat AUDIT, or when offered on a past-due stamp) — verdict each CoalMine-stamped rule, all changes choice-gated:
+   - **still valid** → re-stamp the date, touch nothing else (no churn);
+   - **stale but needed** → rewrite against today's exemplar;
+   - **obsolete** (its subject was removed, its platform died, or its substance moved into another rule) → **delete the rule** and record a one-line tombstone in the project's memory/decision log (`retired <rule> <date>: <reason>`) — dead rules burn context every session, and the tombstone prevents the next FILL from resurrecting them.
+
+Exemplar-picking rules, scorecard mechanics, stamp/tombstone formats: read `references/method.md` before the first AUDIT.
 
 ## Method
 1. **Bar** — name 3–5 world-class exemplars + why them (cite real programs, not "best practices").
@@ -68,3 +74,5 @@ Correctness · Security · Performance · UX/DX · Docs/onboarding · Testing/CI
 **Hook Context (non-interactive):** auto-Light, report-only — no questions, no fixes, no sub-agents.
 
 **Heavy durability:** run in short phases, reading results between them; if a run dies, recover finished sub-agent results from your platform's run records and re-spawn only what is missing. On Claude Code, fan out with the bundled `coalmine-scanner` agent (read-only, one dimension per spawn, table output).
+
+**Entanglement:** after delivering the report, if confirmed findings fall in another canary's domain, offer that canary once via `ask_question` (one line, max one offer): perf/N+1 → scale-canary · contract/serialization/config → drift-canary · failure-path/retry → resilience-audit · logging/metrics → telemetry-canary · coupling/DI → testability-canary · dependency/CVE → supply-chain-audit · unverified version-sensitive claim → source-grounding · missing/stale rule → gold-standard.

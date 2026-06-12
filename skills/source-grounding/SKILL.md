@@ -21,6 +21,8 @@ Standing rule — active every response. No invocation needed for routine use.
 3. Fetch (WebSearch/WebFetch/docs MCP) — or flag `⚠️ unverified: check [source]`.
 4. Cite at CRITICAL/MEDIUM. Don't over-verify stable facts.
 
+Per-claim-type authoritative source map: read `references/sources.md` when choosing where to verify.
+
 ## Source hierarchy
 1. Source code / spec / RFC — primary ground truth
 2. Official/vendor docs — authoritative secondary

@@ -1,4 +1,4 @@
-# rotcanary auto-cadence — hook wiring per platform
+# rot-canary auto-cadence — hook wiring per platform
 
 Only Claude Code (plugin route) wires automatically. Every snippet below is **manual**: copy it into place, adjust the CoalMine path, and test in your setup — the cadence is post-edit → record touched file · session-stop → nudge a QUICK scan. Event names verified against vendor docs (Jun 2026); stdin payload field names may still differ per platform.
 
@@ -14,4 +14,4 @@ Claude Code without the plugin: use [`../../hooks/settings.snippet.json`](../../
 
 Notes:
 - All snippets call the scripts in `<repo>/hooks/` — adjust the absolute path to where you cloned CoalMine.
-- Cline has no stop event and Junie has no hooks — run `/rotcanary` manually there (e.g. before committing).
+- Cline has no stop event and Junie has no hooks — run `/rot-canary` manually there (e.g. before committing).

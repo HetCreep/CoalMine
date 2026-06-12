@@ -4,6 +4,25 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.0.0] — 2026-06-12
+
+**The Quantum Computer Spec is complete — all 11 design principles implemented.**
+
+### Changed (principle 3 — single brand; BREAKING, softened by aliases)
+- **`rotcanary` renamed to `rot-canary`** everywhere — skill dir, frontmatter, triggers, hook filenames (`rot-canary-touch.js`/`rot-canary-stop.js`), temp-file prefix, config files, docs, templates, snippets. Migration is automatic: the install manifest removes the old skill dir, the plugin cache swaps wholesale, legacy triggers (`/rotcanary`) stay as documented aliases, legacy config names (`~/.claude/.rotcanary-off`/`-mode`) are still honored, and the temp sweep cleans legacy-prefix files.
+- Canonical SKILL.md structure ("the mold") documented in `skills/_shared/README.md`; every skill now ships a `references/` dir (9/9 — gold-standard `method.md`, source-grounding `sources.md`, resilience-audit `checks.md` added).
+
+### Added (principle 9 — measurement & calibration)
+- **Rule lifecycle** in gold-standard: FILL stamps every rule (`verified · exemplar · revalidate 30|90d`); repeat AUDIT re-validates stamped rules (re-stamp / rewrite / RETIRE with a tombstone that blocks resurrection); trigger templates offer `/gold-standard` when a stamp is past due. Cadence grounded against live sources (Jun 2026): platform surfaces ship weekly-to-daily → 30d backstop; OWASP/NIST anchors are annual+ → 90d is strict early warning; CVE rules re-validate on advisory events first.
+- **`.coalmine.json`** per-project calibration — `disable` (canary list) and `mode` honored by both hook implementations; `defaultTier`/`language` honored by skills via the trigger templates.
+- **`/coalmine:stats`** bundled command — canary activity this session + rule-freshness dashboard with an overdue re-validation offer.
+
+### Added (principle 11 — entanglement)
+- Shared footer hand-off map: after any report, findings in another canary's domain trigger a one-line offer of that canary (perf→scale, contract→drift, failure-path→resilience, logging→telemetry, coupling→testability, deps→supply-chain, unverified claims→source-grounding, rule gaps→gold-standard).
+
+### Infrastructure
+- `build-plugin.mjs`/`verify.mjs` generalized to ship and byte-check bundled extras (`agents/`, `commands/`) both directions; suite now 14 tests (project-disable test added).
+
 ## [2.8.0] — 2026-06-11
 
 The Quantum Computer Spec release — part 1 of 3 (principles 4 & 5; naming uniformity and measurement/entanglement follow).

@@ -4,14 +4,14 @@
       {
         "matcher": "Write|Edit|MultiEdit",
         "hooks": [
-          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/rotcanary-touch.js\"" }
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/rot-canary-touch.js\"" }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/rotcanary-stop.js\"" }
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/rot-canary-stop.js\"" }
         ]
       }
     ]

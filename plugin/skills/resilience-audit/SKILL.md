@@ -20,6 +20,8 @@ For every operation: **"what happens when this FAILS?"** Report; do NOT fix unle
 7. **Dependency down** — fallback/cache/graceful degrade? Clear error vs silent hang?
 8. **Resource exhaustion** — bounded? Backpressure? Cleanup on error path?
 
+Per-stack timeout/atomicity/idempotency patterns to grep: read `references/checks.md` before scanning.
+
 ## For each failure point, check 4 things
 - **Detected?** code notices it (doesn't swallow)?
 - **Handled?** retry/fallback/fail-clean — not ignored, not silent-success?
@@ -60,3 +62,5 @@ NEVER auto-fix: retry/rollback/recovery/atomicity logic (semantic changes can in
 **Hook Context (non-interactive):** auto-Light, report-only — no questions, no fixes, no sub-agents.
 
 **Heavy durability:** run in short phases, reading results between them; if a run dies, recover finished sub-agent results from your platform's run records and re-spawn only what is missing. On Claude Code, fan out with the bundled `coalmine-scanner` agent (read-only, one dimension per spawn, table output).
+
+**Entanglement:** after delivering the report, if confirmed findings fall in another canary's domain, offer that canary once via `ask_question` (one line, max one offer): perf/N+1 → scale-canary · contract/serialization/config → drift-canary · failure-path/retry → resilience-audit · logging/metrics → telemetry-canary · coupling/DI → testability-canary · dependency/CVE → supply-chain-audit · unverified version-sensitive claim → source-grounding · missing/stale rule → gold-standard.

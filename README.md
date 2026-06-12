@@ -17,7 +17,7 @@
 
 | Skill Name | Catches | Run Mode |
 |---|---|---|
-| **`rotcanary`** | Dead code · hidden bugs · resource leaks · race conditions · silent failures · stale docs | **Auto + Manual** (runs on session end / manual trigger) |
+| **`rot-canary`** | Dead code · hidden bugs · resource leaks · race conditions · silent failures · stale docs | **Auto + Manual** (runs on session end / manual trigger) |
 | **`gold-standard`** | Audits project completeness against world-class exemplars · FILL · ADOPT · CONFORM | **One-time** (triggered once, governs the session) |
 | **`source-grounding`** | Prevents AI hallucinations by forcing cross-source verification | **Always-on** (background rule for all chat sessions) |
 | **`supply-chain-audit`** | Audits dependency vulnerabilities, licenses, phone-home code, and build/CI security | **On-demand** (manually run when relevant) |
@@ -29,7 +29,7 @@
 
 *Run Mode Explanations:*
 * 📌 **Always-on:** Operates implicitly in the chat background to verify facts and filter out AI hallucinations.
-* 🔄 **Auto + Manual:** Automatically scans affected files at session end via agent lifecycle hooks — auto-wired by the Claude Code plugin only. Manual wiring snippets for Copilot/Cursor/Gemini/Codex/Antigravity ship in [`platform-configs/hooks/`](platform-configs/hooks/). Elsewhere, trigger manually with `/rotcanary`.
+* 🔄 **Auto + Manual:** Automatically scans affected files at session end via agent lifecycle hooks — auto-wired by the Claude Code plugin only. Manual wiring snippets for Copilot/Cursor/Gemini/Codex/Antigravity ship in [`platform-configs/hooks/`](platform-configs/hooks/). Elsewhere, trigger manually with `/rot-canary`.
 * ⚡ **One-time:** Triggered once to scan, audit, and fill project-local rules that bind the agent's behavior for the rest of the session.
 * 🎯 **On-demand:** Run manually when performing specific relevant tasks (e.g., adding packages, modifying database schemas) to conserve tokens and maintain agility.
 
@@ -106,7 +106,7 @@ Canaries offer flexible execution tiers based on work complexity to optimize tok
 | The 9 skills (the audits) | ✅ all 12 targets natively via the Agent Skills spec |
 | Interactive choice menus (`ask_question`) | ✅ native question tools on 9 of 12 (see table); text fallback on Goose/Amp/Junie |
 | Sub-agent fan-out + tiers | ✅ on any host with a sub-agent system; inline otherwise |
-| rotcanary **auto-cadence** | ✅ auto-wired on Claude Code (plugin) · 🔧 manual snippets in [`platform-configs/hooks/`](platform-configs/hooks/) for Copilot, Cursor, Gemini CLI, Codex, Antigravity · ⛔ no stop event on Cline/Junie — run manually |
+| rot-canary **auto-cadence** | ✅ auto-wired on Claude Code (plugin) · 🔧 manual snippets in [`platform-configs/hooks/`](platform-configs/hooks/) for Copilot, Cursor, Gemini CLI, Codex, Antigravity · ⛔ no stop event on Cline/Junie — run manually |
 
 **Fallback for agents without skill discovery:** copy a **conformed** skill body — from [`plugin/skills/<name>/SKILL.md`](plugin/skills/) or an installed target, **never** from `skills/` (those are templates with unresolved `<!-- SHARED:* -->` markers) — into the agent's rules file / `AGENTS.md`, and strip the YAML frontmatter.
 
@@ -119,7 +119,7 @@ Canaries offer flexible execution tiers based on work complexity to optimize tok
 /plugin marketplace add HetCreep/CoalMine
 /plugin install coalmine@coalmine
 ```
-The marketplace serves the committed [`plugin/`](plugin/) dist — the **same conformed skills** `install.mjs` produces (shared sections fully injected), plus the rotcanary auto-cadence hooks wired automatically.
+The marketplace serves the committed [`plugin/`](plugin/) dist — the **same conformed skills** `install.mjs` produces (shared sections fully injected), plus the rot-canary auto-cadence hooks wired automatically.
 
 > 🔧 **Maintainers:** `plugin/` is generated output — never hand-edit it. After changing `skills/`, `skills/_shared/`, `hooks/`, or `.claude-plugin/plugin.json`, run `node scripts/build-plugin.mjs`. `verify.mjs` (and the pre-commit hook) FAILs while the dist is stale.
 

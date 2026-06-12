@@ -1,19 +1,20 @@
 #!/usr/bin/env node
 // Code-Health Tier 2 (Stop) — cross-platform (Node).
-// At a natural stop, if code was edited this session, ask the agent to run the rotcanary
+// At a natural stop, if code was edited this session, ask the agent to run the rot-canary
 // skill at DEPTH=QUICK on the touched files. Loop-guarded (stop_hook_active), one-shot per
-// edit-batch, kill-switchable via ~/.claude/.rotcanary-off.
+// edit-batch, kill-switchable via ~/.claude/.rot-canary-off.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-// Mode: ~/.claude/.rotcanary-mode = auto|manual|off (absent = auto). .rotcanary-off = off (back-compat).
+// Mode: ~/.claude/.rot-canary-mode = auto|manual|off (absent = auto). .rot-canary-off = off (back-compat).
 // Only AUTO emits the session-end nudge (manual/off do not).
 function rcMode() {
   try {
     const dir = path.join(os.homedir(), '.claude');
-    if (fs.existsSync(path.join(dir, '.rotcanary-off'))) return 'off';
-    const f = path.join(dir, '.rotcanary-mode');
+    if (fs.existsSync(path.join(dir, '.rot-canary-off')) || fs.existsSync(path.join(dir, '.rotcanary-off'))) return 'off'; // legacy name honored
+    let f = path.join(dir, '.rot-canary-mode');
+    if (!fs.existsSync(f)) f = path.join(dir, '.rotcanary-mode'); // legacy name honored
     if (fs.existsSync(f)) {
       const v = fs.readFileSync(f, 'utf8').trim().toLowerCase();
       if (v === 'off' || v === 'manual' || v === 'auto') return v;
@@ -65,7 +66,7 @@ function detectLang() {
 }
 
 // Phoenix #1 (zero garbage): delete this session's temp state once the batch is
-// acknowledged, and sweep rotcanary-* files older than 7 days left behind by
+// acknowledged, and sweep rot-canary-* files older than 7 days left behind by
 // sessions that never reached a second stop (crash/kill).
 const STALE_MS = 7 * 24 * 60 * 60 * 1000;
 function cleanupSession(base) {
@@ -78,7 +79,7 @@ function sweepStale() {
     const tmp = os.tmpdir();
     const cutoff = Date.now() - STALE_MS;
     for (const f of fs.readdirSync(tmp)) {
-      if (!f.startsWith('rotcanary-')) continue;
+      if (!f.startsWith('rot-canary-') && !f.startsWith('rotcanary-')) continue; // sweep legacy prefix too
       const p = path.join(tmp, f);
       try { if (fs.statSync(p).mtimeMs < cutoff) fs.unlinkSync(p); } catch {}
     }
@@ -90,52 +91,65 @@ const TRANSLATIONS = {
     smellPrefix: '\n\nTripwires flagged at edit time:\n',
     reason: (list, smellText) =>
       'Code-health auto-check (session end): code files were edited this session. Before stopping, ' +
-      'invoke the rotcanary skill at DEPTH=QUICK with SCOPE = these touched files + their direct callers:\n' +
+      'invoke the rot-canary skill at DEPTH=QUICK with SCOPE = these touched files + their direct callers:\n' +
       list + smellText +
       '\n\nThe skill has the full procedure. Report CONFIRMED findings only as a severity table; if nothing ' +
-      'material, say so in one line. Do not fix unless asked. (To disable this auto-check: create ~/.claude/.rotcanary-off)',
+      'material, say so in one line. Do not fix unless asked. (To disable this auto-check: create ~/.claude/.rot-canary-off)',
   },
   th: {
     smellPrefix: '\n\nสัญญาณเตือนความเสี่ยงที่พบขณะแก้ไข:\n',
     reason: (list, smellText) =>
       'ระบบตรวจสอบสุขภาพโค้ดอัตโนมัติ (สิ้นสุดเซสชัน): มีการแก้ไขไฟล์โค้ดในเซสชันนี้ ก่อนที่คุณจะหยุดทำงาน ' +
-      'โปรดเรียกใช้สกิล rotcanary ที่ DEPTH=QUICK โดยระบุ SCOPE = ไฟล์ที่แก้ไขเหล่านี้ + ไฟล์ที่เรียกใช้งานโดยตรง:\n' +
+      'โปรดเรียกใช้สกิล rot-canary ที่ DEPTH=QUICK โดยระบุ SCOPE = ไฟล์ที่แก้ไขเหล่านี้ + ไฟล์ที่เรียกใช้งานโดยตรง:\n' +
       list + smellText +
       '\n\nขั้นตอนการทำงานทั้งหมดระบุไว้ในสกิลแล้ว ให้รายงานเฉพาะข้อมูลที่ยืนยันพบปัญหาแล้วเท่านั้นในรูปแบบตารางความรุนแรง ' +
-      'และห้ามแก้ไขโค้ดใดๆ หากไม่ได้รับคำสั่งยืนยัน (หากต้องการปิดการตรวจเช็คอัตโนมัตินี้: ให้สร้างไฟล์ ~/.claude/.rotcanary-off)',
+      'และห้ามแก้ไขโค้ดใดๆ หากไม่ได้รับคำสั่งยืนยัน (หากต้องการปิดการตรวจเช็คอัตโนมัตินี้: ให้สร้างไฟล์ ~/.claude/.rot-canary-off)',
   },
   ja: {
     smellPrefix: '\n\n編集時に検出されたリスク警告:\n',
     reason: (list, smellText) =>
       'コードヘルス自動チェック（セッション終了）: このセッションでコードファイルが編集されました。終了する前に、' +
-      'DEPTH=QUICKでrotcanaryスキルを実行し、SCOPE = これらの編集されたファイル + 直接の呼び出し元を指定してください:\n' +
+      'DEPTH=QUICKでrot-canaryスキルを実行し、SCOPE = これらの編集されたファイル + 直接の呼び出し元を指定してください:\n' +
       list + smellText +
       '\n\nスキルの詳細な手順に従ってください。確認された問題のみを重要度テーブルとして報告し、重要な問題がない場合は1行でその旨を述べてください。' +
-      '指示がない限り、修正は行わないでください。（この自動チェックを無効にするには、~/.claude/.rotcanary-offを作成してください）',
+      '指示がない限り、修正は行わないでください。（この自動チェックを無効にするには、~/.claude/.rot-canary-offを作成してください）',
   },
   zh: {
     smellPrefix: '\n\n编辑时标记的风险警告：\n',
     reason: (list, smellText) =>
-      '代码健康自动检查（会话结束）：此会话中编辑了代码文件。在停止之前，请运行 DEPTH=QUICK 的 rotcanary 技能，' +
+      '代码健康自动检查（会话结束）：此会话中编辑了代码文件。在停止之前，请运行 DEPTH=QUICK 的 rot-canary 技能，' +
       '并将 SCOPE 设置为这些被编辑的文件及其直接调用者：\n' +
       list + smellText +
       '\n\n该技能有完整流程。仅以严重性表格形式报告已确认的问题；如果没有实质问题，请在一行中说明。' +
-      '除非收到要求，否则请勿修改代码。（要禁用此自动检查，请创建 ~/.claude/.rotcanary-off）',
+      '除非收到要求，否则请勿修改代码。（要禁用此自动检查，请创建 ~/.claude/.rot-canary-off）',
   },
   es: {
     smellPrefix: '\n\nAlertas de riesgo marcadas al editar:\n',
     reason: (list, smellText) =>
       'Autocomprobación de salud del código (fin de sesión): se editaron archivos de código en esta sesión. Antes de detenerse, ' +
-      'invoque la habilidad rotcanary con DEPTH=QUICK y SCOPE = estos archivos modificados + sus llamadores directos:\n' +
+      'invoque la habilidad rot-canary con DEPTH=QUICK y SCOPE = estos archivos modificados + sus llamadores directos:\n' +
       list + smellText +
       '\n\nLa habilidad tiene el procedimiento completo. Informe los hallazgos CONFIRMADOS solo como una tabla de gravedad; si no hay nada relevante, ' +
-      'indíquelo en una sola línea. No realice correcciones a menos que se le solicite. (Para desactivar esta comprobación: cree ~/.claude/.rotcanary-off)',
+      'indíquelo en una sola línea. No realice correcciones a menos que se le solicite. (Para desactivar esta comprobación: cree ~/.claude/.rot-canary-off)',
   },
 };
 
+
+// Per-project calibration: .coalmine.json at cwd may disable this canary or
+// override the mode for the project (principle 9 - calibrate, never assume).
+function projectOverride() {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), '.coalmine.json'), 'utf8'));
+    if (cfg && Array.isArray(cfg.disable) && cfg.disable.includes('rot-canary')) return 'off';
+    if (cfg && (cfg.mode === 'off' || cfg.mode === 'manual')) return cfg.mode;
+  } catch {}
+  return null;
+}
 function main() {
   sweepStale();
 
+  const ov = projectOverride();
+  if (ov === 'off' || ov === 'manual') return;
   if (rcMode() !== 'auto') return;
 
   let raw = '';
@@ -149,7 +163,7 @@ function main() {
   const sid = input.session_id;
   if (!sid) return;
 
-  const base = path.join(os.tmpdir(), `rotcanary-${sid}`);
+  const base = path.join(os.tmpdir(), `rot-canary-${sid}`);
   const touched = base + '.touched';
   if (!fs.existsSync(touched)) return;
 

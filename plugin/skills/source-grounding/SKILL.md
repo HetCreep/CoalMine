@@ -21,6 +21,8 @@ Standing rule — active every response. No invocation needed for routine use.
 3. Fetch (WebSearch/WebFetch/docs MCP) — or flag `⚠️ unverified: check [source]`.
 4. Cite at CRITICAL/MEDIUM. Don't over-verify stable facts.
 
+Per-claim-type authoritative source map: read `references/sources.md` when choosing where to verify.
+
 ## Source hierarchy
 1. Source code / spec / RFC — primary ground truth
 2. Official/vendor docs — authoritative secondary
@@ -54,3 +56,5 @@ Non-interactive runs: log unfetchable claims as `⚠️ UNVERIFIED` and continue
 **Hook Context (non-interactive):** auto-Light, report-only — no questions, no fixes, no sub-agents.
 
 **Heavy durability:** run in short phases, reading results between them; if a run dies, recover finished sub-agent results from your platform's run records and re-spawn only what is missing. On Claude Code, fan out with the bundled `coalmine-scanner` agent (read-only, one dimension per spawn, table output).
+
+**Entanglement:** after delivering the report, if confirmed findings fall in another canary's domain, offer that canary once via `ask_question` (one line, max one offer): perf/N+1 → scale-canary · contract/serialization/config → drift-canary · failure-path/retry → resilience-audit · logging/metrics → telemetry-canary · coupling/DI → testability-canary · dependency/CVE → supply-chain-audit · unverified version-sensitive claim → source-grounding · missing/stale rule → gold-standard.

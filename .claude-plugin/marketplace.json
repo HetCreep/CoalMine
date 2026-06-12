@@ -6,7 +6,7 @@
     {
       "name": "coalmine",
       "source": "./plugin",
-      "description": "9 quality-canary skills: rotcanary (code-health), gold-standard (world-class completeness), source-grounding (anti-hallucination), supply-chain-audit (deps/build/artifact), resilience-audit (failure-mode FMEA), telemetry-canary (observability), testability-canary (decoupling/DI), scale-canary (perf scaling), drift-canary (contract/schema drift). rotcanary adds cross-platform auto-cadence hooks. Served conformed from the committed plugin/ dist (built by scripts/build-plugin.mjs)."
+      "description": "9 quality-canary skills: rot-canary (code-health), gold-standard (world-class completeness), source-grounding (anti-hallucination), supply-chain-audit (deps/build/artifact), resilience-audit (failure-mode FMEA), telemetry-canary (observability), testability-canary (decoupling/DI), scale-canary (perf scaling), drift-canary (contract/schema drift). rot-canary adds cross-platform auto-cadence hooks. Served conformed from the committed plugin/ dist (built by scripts/build-plugin.mjs)."
     }
   ]
 }

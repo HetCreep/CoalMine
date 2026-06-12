@@ -2,14 +2,25 @@
 # Records touched code files for the session + flags unambiguous tripwires. Always non-blocking (exit 0).
 $ErrorActionPreference = 'SilentlyContinue'
 function Get-RcMode {
-  # ~/.claude/.rotcanary-mode = auto|manual|off (absent = auto). .rotcanary-off = off (back-compat).
+  # ~/.claude/.rot-canary-mode = auto|manual|off (absent = auto). .rot-canary-off = off (back-compat).
   $dir = Join-Path $env:USERPROFILE '.claude'
-  if (Test-Path (Join-Path $dir '.rotcanary-off')) { return 'off' }
-  $f = Join-Path $dir '.rotcanary-mode'
+  if (Test-Path (Join-Path $dir '.rot-canary-off')) { return 'off' }
+  $f = Join-Path $dir '.rot-canary-mode'
   if (Test-Path $f) { $v = ([System.IO.File]::ReadAllText($f)).Trim().ToLower(); if ('auto','manual','off' -contains $v) { return $v } }
   return 'auto'
 }
+function Get-ProjectOverride {
+  # Per-project calibration: .coalmine.json may disable this canary or override mode.
+  $p = Join-Path (Get-Location) '.coalmine.json'
+  if (Test-Path $p) {
+    $cfg = Get-Content $p -Raw | ConvertFrom-Json
+    if ($cfg.disable -contains 'rot-canary') { return 'off' }
+    if ('off','manual' -contains $cfg.mode) { return $cfg.mode }
+  }
+  return $null
+}
 try {
+  if ((Get-ProjectOverride) -eq 'off') { exit 0 }
   if ((Get-RcMode) -eq 'off') { exit 0 }
   $raw = [Console]::In.ReadToEnd()
   if (-not $raw) { exit 0 }
@@ -20,7 +31,7 @@ try {
   $codeExt = @('.cs','.ts','.tsx','.js','.jsx','.mjs','.cjs','.py','.rs','.go','.java','.kt','.kts','.cpp','.cc','.cxx','.c','.h','.hpp','.rb','.php','.swift','.dart','.fs','.vb','.scala','.m','.mm')
   if ($codeExt -notcontains $ext) { exit 0 }
   $sid = $in.session_id; if (-not $sid) { exit 0 }
-  $base = Join-Path $env:TEMP "rotcanary-$sid"
+  $base = Join-Path $env:TEMP "rot-canary-$sid"
   $touched = "$base.touched"
   $existing = @(); if ([System.IO.File]::Exists($touched)) { $existing = [System.IO.File]::ReadAllLines($touched) }
   if ($existing -notcontains $f) { [System.IO.File]::AppendAllText($touched, "$f`r`n") }

@@ -87,7 +87,7 @@ test('installSkillDir copies nested subdirectories recursively', () => {
 test('verify.mjs negative path: stale dist fails, clean copy passes', () => {
   const tmp = mkTmp('cm-verify-');
   try {
-    for (const d of ['skills', 'plugin', 'scripts', '.claude-plugin', 'hooks', 'agents']) {
+    for (const d of ['skills', 'plugin', 'scripts', '.claude-plugin', 'hooks', 'agents', 'commands']) {
       fs.cpSync(path.join(repo, d), path.join(tmp, d), { recursive: true });
     }
     const run = () => spawnSync(process.execPath, [path.join(tmp, 'scripts', 'verify.mjs')], { encoding: 'utf8' });

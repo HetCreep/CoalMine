@@ -58,7 +58,7 @@ for (const m of ['.claude-plugin/plugin.json', '.claude-plugin/marketplace.json'
 
 // 3. hooks present
 console.log('hooks:');
-for (const h of ['hooks/rotcanary-touch.js', 'hooks/rotcanary-stop.js']) {
+for (const h of ['hooks/rot-canary-touch.js', 'hooks/rot-canary-stop.js']) {
   fs.existsSync(path.join(repo, h)) ? pass(h) : fail(`${h} missing`);
 }
 
@@ -123,7 +123,7 @@ if (!fs.existsSync(pluginDir)) {
     const pluginEntries = fs.readdirSync(pluginDir, { withFileTypes: true });
     for (const e of pluginEntries) {
       if (e.isDirectory()) {
-        if (!['skills', 'hooks', '.claude-plugin', 'agents'].includes(e.name)) {
+        if (!['skills', 'hooks', '.claude-plugin', 'agents', 'commands'].includes(e.name)) {
           fail(`plugin/${e.name} is an orphan directory — run: node scripts/build-plugin.mjs`);
         }
       } else {
@@ -155,7 +155,7 @@ if (!fs.existsSync(pluginDir)) {
       for (const e of distEntries) {
         if (e.isDirectory()) {
           fail(`plugin/hooks/${e.name} is an orphan directory — run: node scripts/build-plugin.mjs`);
-        } else if (!['hooks.json', 'rotcanary-touch.js', 'rotcanary-stop.js'].includes(e.name)) {
+        } else if (!['hooks.json', 'rot-canary-touch.js', 'rot-canary-stop.js'].includes(e.name)) {
           fail(`plugin/hooks/${e.name} is an orphan file — run: node scripts/build-plugin.mjs`);
         }
       }
@@ -175,16 +175,18 @@ if (!fs.existsSync(pluginDir)) {
       }
     }
   } catch (e) { fail(`plugin/.claude-plugin check failed: ${e.message}`); }
-  // Bundled agent definitions ship verbatim — same both-direction guarantee.
-  const agentsSrc = path.join(repo, 'agents');
-  const agentsDist = path.join(pluginDir, 'agents');
-  if (fs.existsSync(agentsSrc)) {
-    if (!fs.existsSync(agentsDist)) fail('plugin/agents missing — run: node scripts/build-plugin.mjs');
-    else compareAux(agentsSrc, agentsDist, 'plugin/agents');
-  } else if (fs.existsSync(agentsDist)) {
-    fail('plugin/agents has no source — run: node scripts/build-plugin.mjs');
+  // Bundled extras (agents/, commands/) ship verbatim — both-direction guarantee.
+  for (const extra of ['agents', 'commands']) {
+    const src = path.join(repo, extra);
+    const dist = path.join(pluginDir, extra);
+    if (fs.existsSync(src)) {
+      if (!fs.existsSync(dist)) fail(`plugin/${extra} missing — run: node scripts/build-plugin.mjs`);
+      else compareAux(src, dist, `plugin/${extra}`);
+    } else if (fs.existsSync(dist)) {
+      fail(`plugin/${extra} has no source — run: node scripts/build-plugin.mjs`);
+    }
   }
-  for (const f of ['hooks/hooks.json', 'hooks/rotcanary-touch.js', 'hooks/rotcanary-stop.js', '.claude-plugin/plugin.json']) {
+  for (const f of ['hooks/hooks.json', 'hooks/rot-canary-touch.js', 'hooks/rot-canary-stop.js', '.claude-plugin/plugin.json']) {
     const distFile = path.join(pluginDir, f);
     if (!fs.existsSync(distFile)) { fail(`plugin/${f} missing — run: node scripts/build-plugin.mjs`); continue; }
     try {

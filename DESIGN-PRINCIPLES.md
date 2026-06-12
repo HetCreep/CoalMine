@@ -5,7 +5,7 @@ Eleven binding principles. Every skill, hook, script, and doc in this repo must 
 | # | Principle | Meaning here |
 |---|---|---|
 | 1 | **Maximum performance** | Detection depth and accuracy are uniform across all 9 canaries, all tiers, all platforms. Per-stack procedures live in `references/`; tier behavior is rubric-driven, never mood-driven. |
-| 2 | **Zero visible errors** | Bugs die before users see them: unit + integration tests and the two-direction verify gate run on every commit and push; the suite scans its own code (rotcanary on CoalMine itself). |
+| 2 | **Zero visible errors** | Bugs die before users see them: unit + integration tests and the two-direction verify gate run on every commit and push; the suite scans its own code (rot-canary on CoalMine itself). |
 | 3 | **Single brand, single color, single company** | Total internal consistency — one naming pattern, one section structure, one voice, and exactly one source of truth for every fact (render core, TARGETS, manifest, shared partials). No two definitions of the same thing. |
 | 4 | **Minimum necessary power** | Tokens are spent only when and where needed: lean always-loaded surfaces (descriptions, shared block), progressive disclosure (`references/` load only during a scan), tiers that scale cost to scope. |
 | 5 | **Only essential accessories** | Every auxiliary file must earn its place. Anything unused, duplicated, or decorative is removed — an accessory that ships is an accessory someone must maintain and trust. |

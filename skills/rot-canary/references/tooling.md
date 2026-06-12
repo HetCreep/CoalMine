@@ -1,4 +1,4 @@
-# Rotcanary — per-stack tooling
+# Rot-Canary — per-stack tooling
 
 | Stack | build/warnings | dead-code | lint |
 |---|---|---|---|

@@ -5,13 +5,14 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-// Mode: ~/.claude/.rotcanary-mode = auto|manual|off (absent = auto). .rotcanary-off = off (back-compat).
+// Mode: ~/.claude/.rot-canary-mode = auto|manual|off (absent = auto). .rot-canary-off = off (back-compat).
 // off → record nothing. auto & manual → record touched files (the tripwire).
 function rcMode() {
   try {
     const dir = path.join(os.homedir(), '.claude');
-    if (fs.existsSync(path.join(dir, '.rotcanary-off'))) return 'off';
-    const f = path.join(dir, '.rotcanary-mode');
+    if (fs.existsSync(path.join(dir, '.rot-canary-off')) || fs.existsSync(path.join(dir, '.rotcanary-off'))) return 'off'; // legacy name honored
+    let f = path.join(dir, '.rot-canary-mode');
+    if (!fs.existsSync(f)) f = path.join(dir, '.rotcanary-mode'); // legacy name honored
     if (fs.existsSync(f)) {
       const v = fs.readFileSync(f, 'utf8').trim().toLowerCase();
       if (v === 'off' || v === 'manual' || v === 'auto') return v;
@@ -26,7 +27,20 @@ const CODE_EXT = new Set([
   '.php', '.swift', '.dart', '.fs', '.vb', '.scala', '.m', '.mm',
 ]);
 
+
+// Per-project calibration: .coalmine.json at cwd may disable this canary or
+// override the mode for the project (principle 9 - calibrate, never assume).
+function projectOverride() {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(process.cwd(), '.coalmine.json'), 'utf8'));
+    if (cfg && Array.isArray(cfg.disable) && cfg.disable.includes('rot-canary')) return 'off';
+    if (cfg && (cfg.mode === 'off' || cfg.mode === 'manual')) return cfg.mode;
+  } catch {}
+  return null;
+}
 function main() {
+  const ov = projectOverride();
+  if (ov === 'off') return;
   if (rcMode() === 'off') return;
   let raw = '';
   try { raw = fs.readFileSync(0, 'utf8'); } catch { return; }
@@ -43,7 +57,7 @@ function main() {
   // No session id → no consumer (the stop hook bails without one). Record nothing.
   const sid = input.session_id;
   if (!sid) return;
-  const base = path.join(os.tmpdir(), `rotcanary-${sid}`);
+  const base = path.join(os.tmpdir(), `rot-canary-${sid}`);
   const touched = base + '.touched';
 
   let existing = [];

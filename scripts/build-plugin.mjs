@@ -50,17 +50,19 @@ for (const s of skills) {
 // Hooks — hooks.json references ${CLAUDE_PLUGIN_ROOT}/hooks/*.js, which
 // resolves inside the dist once it is the plugin root.
 fs.mkdirSync(path.join(pluginDir, 'hooks'), { recursive: true });
-for (const f of ['hooks.json', 'rotcanary-touch.js', 'rotcanary-stop.js']) {
+for (const f of ['hooks.json', 'rot-canary-touch.js', 'rot-canary-stop.js']) {
   fs.copyFileSync(path.join(repo, 'hooks', f), path.join(pluginDir, 'hooks', f));
 }
-console.log('  copied hooks/ (hooks.json + rotcanary-touch.js + rotcanary-stop.js)');
+console.log('  copied hooks/ (hooks.json + rot-canary-touch.js + rot-canary-stop.js)');
 
-// Agents — bundled subagent definitions (Claude Code auto-discovers agents/).
-// Recursive copy: same EISDIR class as installSkillDir — never assume flat.
-const agentsSrc = path.join(repo, 'agents');
-if (fs.existsSync(agentsSrc)) {
-  fs.cpSync(agentsSrc, path.join(pluginDir, 'agents'), { recursive: true });
-  console.log('  copied agents/');
+// Bundled extras Claude Code auto-discovers at plugin root. Recursive copy:
+// same EISDIR class as installSkillDir — never assume flat.
+for (const extra of ['agents', 'commands']) {
+  const src = path.join(repo, extra);
+  if (fs.existsSync(src)) {
+    fs.cpSync(src, path.join(pluginDir, extra), { recursive: true });
+    console.log(`  copied ${extra}/`);
+  }
 }
 
 // Plugin manifest — authored once at .claude-plugin/plugin.json, copied in.

@@ -20,6 +20,8 @@ For every operation: **"what happens when this FAILS?"** Report; do NOT fix unle
 7. **Dependency down** — fallback/cache/graceful degrade? Clear error vs silent hang?
 8. **Resource exhaustion** — bounded? Backpressure? Cleanup on error path?
 
+Per-stack timeout/atomicity/idempotency patterns to grep: read `references/checks.md` before scanning.
+
 ## For each failure point, check 4 things
 - **Detected?** code notices it (doesn't swallow)?
 - **Handled?** retry/fallback/fail-clean — not ignored, not silent-success?
