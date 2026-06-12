@@ -4,6 +4,12 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [2.7.1] — 2026-06-11
+
+### Fixed
+- `build-plugin.mjs` copies `agents/` recursively (`cpSync`) — the flat `copyFileSync` loop would EISDIR on any future subdirectory, the same defect class fixed in `installSkillDir` at v2.1.0.
+- `verify.mjs` checks the bundled agents both directions: a `plugin/agents/` left behind after the source `agents/` is removed now fails the gate instead of shipping silently.
+
 ## [2.7.0] — 2026-06-11
 
 User-driven improvement loop, modeled on what makes living rule-sets (e.g. ECC) improve from real usage.

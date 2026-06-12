@@ -177,10 +177,12 @@ if (!fs.existsSync(pluginDir)) {
   } catch (e) { fail(`plugin/.claude-plugin check failed: ${e.message}`); }
   // Bundled agent definitions ship verbatim — same both-direction guarantee.
   const agentsSrc = path.join(repo, 'agents');
+  const agentsDist = path.join(pluginDir, 'agents');
   if (fs.existsSync(agentsSrc)) {
-    const agentsDist = path.join(pluginDir, 'agents');
     if (!fs.existsSync(agentsDist)) fail('plugin/agents missing — run: node scripts/build-plugin.mjs');
     else compareAux(agentsSrc, agentsDist, 'plugin/agents');
+  } else if (fs.existsSync(agentsDist)) {
+    fail('plugin/agents has no source — run: node scripts/build-plugin.mjs');
   }
   for (const f of ['hooks/hooks.json', 'hooks/rotcanary-touch.js', 'hooks/rotcanary-stop.js', '.claude-plugin/plugin.json']) {
     const distFile = path.join(pluginDir, f);

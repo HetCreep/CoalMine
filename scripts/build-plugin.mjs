@@ -56,12 +56,10 @@ for (const f of ['hooks.json', 'rotcanary-touch.js', 'rotcanary-stop.js']) {
 console.log('  copied hooks/ (hooks.json + rotcanary-touch.js + rotcanary-stop.js)');
 
 // Agents — bundled subagent definitions (Claude Code auto-discovers agents/).
+// Recursive copy: same EISDIR class as installSkillDir — never assume flat.
 const agentsSrc = path.join(repo, 'agents');
 if (fs.existsSync(agentsSrc)) {
-  fs.mkdirSync(path.join(pluginDir, 'agents'), { recursive: true });
-  for (const f of fs.readdirSync(agentsSrc)) {
-    fs.copyFileSync(path.join(agentsSrc, f), path.join(pluginDir, 'agents', f));
-  }
+  fs.cpSync(agentsSrc, path.join(pluginDir, 'agents'), { recursive: true });
   console.log('  copied agents/');
 }
 
