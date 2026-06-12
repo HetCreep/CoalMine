@@ -66,8 +66,8 @@ if (fs.existsSync(configPath)) {
     const cfg = JSON.parse(cleanJson);
     const validKeys = [
       'language', 'autoScanFileCap', 'tempSweepProbability', 'tripwireMaxFileSizeKb',
-      'conductor', 'disable', 'mode', 'defaultTier', 'branchPrefix',
-      'pullRequestRemote', 'autoFixMode', 'skipOnboarding', 'antivirusStalenessDays'
+      'enableConductor', 'disabledCanaries', 'rotCanaryMode', 'defaultTier', 'branchPrefix',
+      'pullRequestRemote', 'autoFixMode', 'skipOnboarding', 'ruleRevalidateDays'
     ];
     const invalidKeys = Object.keys(cfg).filter((k) => !validKeys.includes(k));
     if (invalidKeys.length > 0) {
@@ -85,14 +85,14 @@ if (fs.existsSync(configPath)) {
       if (cfg.tripwireMaxFileSizeKb !== undefined && typeof cfg.tripwireMaxFileSizeKb !== 'number') {
         fail(`.coalmine.json tripwireMaxFileSizeKb must be a number`);
       }
-      if (cfg.conductor !== undefined && typeof cfg.conductor !== 'boolean') {
-        fail(`.coalmine.json conductor must be a boolean`);
+      if (cfg.enableConductor !== undefined && typeof cfg.enableConductor !== 'boolean') {
+        fail(`.coalmine.json enableConductor must be a boolean`);
       }
-      if (cfg.disable !== undefined && (!Array.isArray(cfg.disable) || cfg.disable.some((x) => typeof x !== 'string'))) {
-        fail(`.coalmine.json disable must be an array of strings`);
+      if (cfg.disabledCanaries !== undefined && (!Array.isArray(cfg.disabledCanaries) || cfg.disabledCanaries.some((x) => typeof x !== 'string'))) {
+        fail(`.coalmine.json disabledCanaries must be an array of strings`);
       }
-      if (cfg.mode !== undefined && !['auto', 'manual', 'off'].includes(cfg.mode.toLowerCase())) {
-        fail(`.coalmine.json mode must be one of: auto, manual, off`);
+      if (cfg.rotCanaryMode !== undefined && !['auto', 'manual', 'off'].includes(cfg.rotCanaryMode.toLowerCase())) {
+        fail(`.coalmine.json rotCanaryMode must be one of: auto, manual, off`);
       }
       if (cfg.defaultTier !== undefined && !['light', 'standard', 'heavy', 'auto'].includes(cfg.defaultTier.toLowerCase())) {
         fail(`.coalmine.json defaultTier must be one of: Light, Standard, Heavy, auto`);
@@ -109,8 +109,8 @@ if (fs.existsSync(configPath)) {
       if (cfg.skipOnboarding !== undefined && typeof cfg.skipOnboarding !== 'boolean') {
         fail(`.coalmine.json skipOnboarding must be a boolean`);
       }
-      if (cfg.antivirusStalenessDays !== undefined && typeof cfg.antivirusStalenessDays !== 'number') {
-        fail(`.coalmine.json antivirusStalenessDays must be a number`);
+      if (cfg.ruleRevalidateDays !== undefined && typeof cfg.ruleRevalidateDays !== 'number') {
+        fail(`.coalmine.json ruleRevalidateDays must be a number`);
       }
       if (ok) pass('.coalmine.json');
     }

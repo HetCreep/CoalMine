@@ -22,17 +22,17 @@
   // ## Enable or disable the always-on conductor rules injection at session start.
   // # Setting type: Boolean
   // # Default value: true
-  "conductor": true,
+  "enableConductor": true,
 
   // ## List of quality canaries or features to disable (e.g. ["rot-canary", "drift-canary"] or ["all"]).
   // # Setting type: Array of Strings
   // # Default value: []
-  "disable": [],
+  "disabledCanaries": [],
 
   // ## Execution mode for the rot-canary auto-scan (auto = run stop hook, manual = scan only when triggered, off = disabled).
   // # Setting type: String (auto, manual, off)
   // # Default value: auto
-  "mode": "auto",
+  "rotCanaryMode": "auto",
 
   // ## Default execution tier to override the recommendation rubric for all canary scans.
   // # Setting type: String (Light, Standard, Heavy, auto)
@@ -62,5 +62,5 @@
   // ## Number of days before rules and reference definitions are flagged as stale and requiring validation.
   // # Setting type: Int32
   // # Default value: 90
-  "antivirusStalenessDays": 90
+  "ruleRevalidateDays": 90
 }

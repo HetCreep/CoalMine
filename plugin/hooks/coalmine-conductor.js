@@ -12,7 +12,7 @@ const CONDUCTOR = [
   '- gold-standard (important): if this project has NO CoalMine-stamped rules yet (no "coalmine: verified" stamp in .claude/rules/, .agents/rules/, or AGENTS.md), offer /gold-standard ONCE this session (Run now / Queue / Skip) — it sets the project\'s golden rules. Also offer it when any stamp\'s revalidate date is past due. Respect a Skip for the rest of the session.',
   '- Specialists — offer (never auto-run) the moment the conversation enters their domain: deps/packages → supply-chain-audit · DB schema/API contract/serialization → drift-canary · async/retry/failure paths → resilience-audit · hot loops/queries/caches → scale-canary · tests/coupling/DI → testability-canary · logging/metrics/tracing → telemetry-canary · version-sensitive facts → source-grounding.',
   '- skill-update: if the installed skills (.coalmine-manifest.json) are older than 30 days, or if you discover a newer version tag in the origin remote, OFFER (via the question tool) to create a branch feature/update-coalmine-skills, fetch conformed skills from the official stable release, commit, and submit a PR. Never auto-update.',
-  '- Per-project config: honor .coalmine.json (disable list, defaultTier, language, autoScanFileCap, branchPrefix, pullRequestRemote, autoFixMode, skipOnboarding, antivirusStalenessDays) if present.',
+  '- Per-project config: honor .coalmine.json (disabledCanaries, defaultTier, language, autoScanFileCap, branchPrefix, pullRequestRemote, autoFixMode, skipOnboarding, ruleRevalidateDays) if present.',
   '- Self error-report: if a CoalMine component itself misbehaves (wrong finding, hook error, skill contradiction), OFFER to file it — open https://github.com/HetCreep/CoalMine/issues/new/choose with a short summary the user has reviewed. Never auto-submit; never include code or paths the user has not approved.',
 ].join('\n');
 
@@ -38,8 +38,8 @@ function main() {
     const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
     const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
     const cfg = JSON.parse(cleanJson);
-    if (cfg && cfg.conductor === false) return;
-    if (cfg && Array.isArray(cfg.disable) && (cfg.disable.includes('conductor') || cfg.disable.includes('all'))) return;
+    if (cfg && cfg.enableConductor === false) return;
+    if (cfg && Array.isArray(cfg.disabledCanaries) && (cfg.disabledCanaries.includes('conductor') || cfg.disabledCanaries.includes('all'))) return;
   } catch {}
   process.stdout.write(CONDUCTOR);
 }

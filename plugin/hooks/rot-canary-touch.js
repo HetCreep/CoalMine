@@ -52,8 +52,8 @@ function projectOverride() {
     const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
     const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
     const cfg = JSON.parse(cleanJson);
-    if (cfg && Array.isArray(cfg.disable) && (cfg.disable.includes('rot-canary') || cfg.disable.includes('all'))) return 'off';
-    if (cfg && (cfg.mode === 'off' || cfg.mode === 'manual')) return cfg.mode;
+    if (cfg && Array.isArray(cfg.disabledCanaries) && (cfg.disabledCanaries.includes('rot-canary') || cfg.disabledCanaries.includes('all'))) return 'off';
+    if (cfg && (cfg.rotCanaryMode === 'off' || cfg.rotCanaryMode === 'manual')) return cfg.rotCanaryMode;
   } catch {}
   return null;
 }

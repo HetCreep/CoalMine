@@ -26,20 +26,20 @@ Options:
   --autoScanFileCap, -c <num>         Set automatic file cap (default: 10)
   --tempSweepProbability, -p <num>    Set temp file sweep probability (0.0 to 1.0, default: 0.05)
   --tripwireMaxFileSizeKb, -s <num>   Set maximum file size in KB for tripwire scan (default: 100)
-  --conductor, -d <true|false>        Enable or disable conductor rules injection
-  --disable, -x <skills...>           Comma-separated list of skills to disable (or "all")
-  --mode, -m <mode>                   Set rot-canary mode (auto, manual, off)
+  --enableConductor, -d <true|false>  Enable or disable conductor rules injection
+  --disabledCanaries, -x <skills...>  Comma-separated list of skills to disable (or "all")
+  --rotCanaryMode, -m <mode>          Set rot-canary mode (auto, manual, off)
   --defaultTier, -t <tier>            Set default evaluation tier (Light, Standard, Heavy, auto)
   --branchPrefix, -b <prefix>         Set git branch prefix for PRs (default: feature/)
   --pullRequestRemote, -r <remote>    Set git remote name for PRs (default: origin)
   --autoFixMode, -f <mode>            Set default fix mode behavior (interactive, safe, off)
   --skipOnboarding, -o <true|false>   Skip onboarding rules offer at session start
-  --antivirusStalenessDays, -v <days> Days before reference files are flagged as stale
+  --ruleRevalidateDays, -v <days>     Days before reference files are flagged as stale
   --help, -h                          Show this help message
 
 Examples:
   node scripts/configure.mjs --language th --file-cap 15
-  node scripts/configure.mjs --disable rot-canary,drift-canary
+  node scripts/configure.mjs --disabledCanaries rot-canary,drift-canary
 `);
 }
 
@@ -59,6 +59,23 @@ function main() {
       const content = fs.readFileSync(configPath, 'utf8').replace(/^\uFEFF/, '');
       const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
       cfg = JSON.parse(cleanJson) || {};
+      // Migrate old keys to new keys if present
+      if (cfg.conductor !== undefined) {
+        cfg.enableConductor = cfg.enableConductor ?? cfg.conductor;
+        delete cfg.conductor;
+      }
+      if (cfg.disable !== undefined) {
+        cfg.disabledCanaries = cfg.disabledCanaries ?? cfg.disable;
+        delete cfg.disable;
+      }
+      if (cfg.mode !== undefined) {
+        cfg.rotCanaryMode = cfg.rotCanaryMode ?? cfg.mode;
+        delete cfg.mode;
+      }
+      if (cfg.antivirusStalenessDays !== undefined) {
+        cfg.ruleRevalidateDays = cfg.ruleRevalidateDays ?? cfg.antivirusStalenessDays;
+        delete cfg.antivirusStalenessDays;
+      }
     } catch (e) {
       console.warn('Warning: existing .coalmine.json is malformed. Overwriting.');
     }
@@ -94,23 +111,23 @@ function main() {
         process.exit(1);
       }
       cfg.tripwireMaxFileSizeKb = val;
-    } else if (arg === '--conductor' || arg === '-d') {
+    } else if (arg === '--enableConductor' || arg === '--conductor' || arg === '-d') {
       const val = args[++i];
-      cfg.conductor = val === 'true';
-    } else if (arg === '--disable' || arg === '-x') {
+      cfg.enableConductor = val === 'true';
+    } else if (arg === '--disabledCanaries' || arg === '--disable' || arg === '-x') {
       const val = args[++i];
       if (!val) {
-        console.error('Error: disable list cannot be empty');
+        console.error('Error: disabledCanaries list cannot be empty');
         process.exit(1);
       }
-      cfg.disable = val.split(',').map(s => s.trim().toLowerCase());
-    } else if (arg === '--mode' || arg === '-m') {
+      cfg.disabledCanaries = val.split(',').map(s => s.trim().toLowerCase());
+    } else if (arg === '--rotCanaryMode' || arg === '--mode' || arg === '-m') {
       const val = args[++i];
       if (!['auto', 'manual', 'off'].includes(val?.toLowerCase())) {
-        console.error('Error: mode must be one of: auto, manual, off');
+        console.error('Error: rotCanaryMode must be one of: auto, manual, off');
         process.exit(1);
       }
-      cfg.mode = val.toLowerCase();
+      cfg.rotCanaryMode = val.toLowerCase();
     } else if (arg === '--defaultTier' || arg === '-t') {
       const val = args[++i];
       if (!['light', 'standard', 'heavy', 'auto'].includes(val?.toLowerCase())) {
@@ -133,13 +150,13 @@ function main() {
       cfg.autoFixMode = val.toLowerCase();
     } else if (arg === '--skipOnboarding' || arg === '-o') {
       cfg.skipOnboarding = args[++i] === 'true';
-    } else if (arg === '--antivirusStalenessDays' || arg === '-v') {
+    } else if (arg === '--ruleRevalidateDays' || arg === '--antivirusStalenessDays' || arg === '-v') {
       const val = parseInt(args[++i], 10);
       if (isNaN(val)) {
-        console.error('Error: antivirusStalenessDays must be a number');
+        console.error('Error: ruleRevalidateDays must be a number');
         process.exit(1);
       }
-      cfg.antivirusStalenessDays = val;
+      cfg.ruleRevalidateDays = val;
     } else {
       console.error(`Error: Unrecognized option '${arg}'`);
       printHelp();

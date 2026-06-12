@@ -181,9 +181,10 @@ function projectOverride() {
   try {
     const root = findGitRoot(process.cwd());
     const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
-    const cfg = JSON.parse(content);
-    if (cfg && Array.isArray(cfg.disable) && (cfg.disable.includes('rot-canary') || cfg.disable.includes('all'))) return 'off';
-    if (cfg && (cfg.mode === 'off' || cfg.mode === 'manual')) return cfg.mode;
+    const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
+    const cfg = JSON.parse(cleanJson);
+    if (cfg && Array.isArray(cfg.disabledCanaries) && (cfg.disabledCanaries.includes('rot-canary') || cfg.disabledCanaries.includes('all'))) return 'off';
+    if (cfg && (cfg.rotCanaryMode === 'off' || cfg.rotCanaryMode === 'manual')) return cfg.rotCanaryMode;
   } catch {}
   return null;
 }
@@ -243,7 +244,8 @@ function main() {
   let fileCap = 10;
   try {
     const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
-    const cfg = JSON.parse(content);
+    const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
+    const cfg = JSON.parse(cleanJson);
     if (cfg && typeof cfg.autoScanFileCap === 'number') {
       fileCap = cfg.autoScanFileCap;
     }

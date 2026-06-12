@@ -15,8 +15,8 @@ function Get-ProjectOverride {
   $p = Join-Path (Get-Location) '.coalmine.json'
   if (Test-Path $p) {
     $cfg = Get-Content $p -Raw | ConvertFrom-Json
-    if ($cfg.disable -contains 'rot-canary') { return 'off' }
-    if ('off','manual' -contains $cfg.mode) { return $cfg.mode }
+    if ($cfg.disabledCanaries -contains 'rot-canary') { return 'off' }
+    if ('off','manual' -contains $cfg.rotCanaryMode) { return $cfg.rotCanaryMode }
   }
   return $null
 }
