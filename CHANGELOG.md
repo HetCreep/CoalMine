@@ -4,6 +4,11 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.2.1] — 2026-06-12
+
+### Fixed
+- Tier rubric freshness cap: when the scope was already audited >=Standard this session (criterion 5 = 0), the recommendation is now capped at Light regardless of total score — previously size criteria alone could recommend Heavy for freshly-audited ground, contradicting the rubric's own caveat. Caught live during first dogfood of the plugin-served skill.
+
 ## [3.2.0] — 2026-06-12
 
 ### Added
