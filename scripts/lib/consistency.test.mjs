@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { checkCanaryCount, checkAgentCount, checkDoctrineMirrors, checkRuleStamps } from './consistency.mjs';
+import { checkCanaryCount, checkAgentCount, checkVersionPins, checkDoctrineMirrors, checkRuleStamps } from './consistency.mjs';
 import { hashInstalledTree, verifyAgainstManifest, MANIFEST_NAME } from './manifest.mjs';
 
 function mkRepo() {
@@ -50,6 +50,33 @@ test('agent count: README table rows must match targets.mjs, fails on drift', ()
     const drift = checkAgentCount(dir);
     assert.equal(drift.length, 1);
     assert.match(drift[0].msg, /4 rows but targets\.mjs defines 3/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('version pins: a `version-pin:` line must match plugin.json; drift/missing fail, prose mention ignored', () => {
+  const dir = mkRepo();
+  try {
+    fs.mkdirSync(path.join(dir, '.github', 'ISSUE_TEMPLATE'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.claude-plugin', 'plugin.json'), JSON.stringify({ version: '3.7.0', description: 'x' }));
+    const tpl = path.join(dir, '.github', 'ISSUE_TEMPLATE', 'bug.yml');
+    const mkTpl = (line) => fs.writeFileSync(tpl, `name: bug\nbody:\n  - type: input\n    attributes:\n      ${line}\n`);
+
+    mkTpl('placeholder: "v3.7.0 on Windows"  # version-pin: tracks plugin.json');
+    assert.deepEqual(checkVersionPins(dir), [], 'matching pin is clean');
+
+    mkTpl('placeholder: "v3.6.0 on Windows"  # version-pin: tracks plugin.json');
+    const drift = checkVersionPins(dir);
+    assert.equal(drift.length, 1);
+    assert.match(drift[0].msg, /pins v3\.6\.0 but plugin\.json is v3\.7\.0/);
+
+    mkTpl('placeholder: "no version here"  # version-pin: tracks plugin.json');
+    const nover = checkVersionPins(dir);
+    assert.equal(nover.length, 1);
+    assert.match(nover[0].msg, /no vX\.Y\.Z/);
+
+    // a prose mention of the word `version-pin` (no colon) is NOT a pin
+    mkTpl('description: "see the version-pin docs, e.g. v9.9.9 examples"');
+    assert.deepEqual(checkVersionPins(dir), [], 'non-colon prose mention is ignored');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

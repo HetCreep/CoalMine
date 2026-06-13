@@ -4,6 +4,9 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+- **Version-pin drift gate** (`scripts/lib/consistency.mjs` → `checkVersionPins`, wired into the verify gate): any doc line carrying a `version-pin:` marker (the issue-template version placeholders today) must quote the current `plugin.json` version, or `verify.mjs` fails — a stale hardcoded version can no longer ship (the "`git tag -v v2.4.0` example went stale" class, mechanized). The colon-marker form means a prose mention of the word `version-pin` is never treated as a pin; CHANGELOG history and the machine-local governance files are out of scope. Where a version can be dropped entirely it still should (e.g. SECURITY.md's verify example uses `git describe`); the gate covers the spots where a concrete version genuinely aids the reader. Gate suite now 34.
+
 ## [3.7.0] — 2026-06-13
 
 ### Added

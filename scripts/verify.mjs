@@ -92,7 +92,7 @@ if (fs.existsSync(configPath)) {
 console.log('consistency:');
 try {
   const findings = checkTracked(repo);
-  if (findings.length === 0) pass('cross-document facts agree (canary count)');
+  if (findings.length === 0) pass('cross-document facts agree (counts + version pins)');
   else for (const f of findings) fail(f.msg);
 } catch (e) { fail(`consistency check crashed: ${e.message}`); }
 

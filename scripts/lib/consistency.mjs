@@ -102,6 +102,42 @@ export function checkAgentCount(repo) {
   return out;
 }
 
+// 1c. Any issue-template line carrying a `version-pin:` marker must quote the
+// current plugin.json version, or the gate fails — the "stale v2.4.0 shipped in
+// a docs example" class, mechanized — while a concrete version can still serve
+// as a form placeholder. Scope is the issue templates ONLY: that is where a
+// literal version legitimately lives. Narrative docs (README, CHANGELOG) and the
+// machine-local governance files describe this feature and cite old versions, so
+// scanning them would self-trip; a .md doc should drop the version entirely
+// instead (e.g. SECURITY.md verifies via `git describe`). The colon form means a
+// mention of the word without the colon is never treated as a pin.
+const VERSION_PIN_MARKER = 'version-pin:';
+export function checkVersionPins(repo) {
+  const out = [];
+  let version;
+  try {
+    version = JSON.parse(fs.readFileSync(path.join(repo, '.claude-plugin', 'plugin.json'), 'utf8').replace(/^\uFEFF/, '')).version;
+  } catch (e) {
+    return [{ level: 'FAIL', msg: `consistency: plugin.json unreadable for version-pin check: ${e.message}` }];
+  }
+  const tplDir = path.join(repo, '.github', 'ISSUE_TEMPLATE');
+  let names = [];
+  try { names = fs.readdirSync(tplDir).filter((f) => /\.ya?ml$/.test(f)); } catch { return out; }
+  for (const name of names) {
+    const file = path.join(tplDir, name);
+    let lines;
+    try { lines = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n').split('\n'); } catch { continue; }
+    lines.forEach((line, i) => {
+      if (!line.includes(VERSION_PIN_MARKER)) return;
+      const at = `${path.relative(repo, file)}:${i + 1}`;
+      const m = line.match(/v(\d+\.\d+\.\d+)/);
+      if (!m) out.push({ level: 'FAIL', msg: `consistency: ${at} is marked version-pin but has no vX.Y.Z to check` });
+      else if (m[1] !== version) out.push({ level: 'FAIL', msg: `consistency: ${at} pins v${m[1]} but plugin.json is v${version} — bump the pin` });
+    });
+  }
+  return out;
+}
+
 // 2. Doctrine mirrors must be byte-identical wherever they exist. A lone diverging
 // copy is the mechanical fingerprint of a stale sync or a tampered rule file.
 export function checkDoctrineMirrors(repo) {
@@ -163,10 +199,10 @@ export function checkRuleStamps(repo) {
 // Tracked-file checks safe to run in the commit gate (no machine-local rule home
 // required). Returns findings[]; empty = consistent.
 export function checkTracked(repo) {
-  return [...checkCanaryCount(repo), ...checkAgentCount(repo)];
+  return [...checkCanaryCount(repo), ...checkAgentCount(repo), ...checkVersionPins(repo)];
 }
 
 // Every check, for the on-demand consistency CLI (includes machine-local rule home).
 export function checkAll(repo) {
-  return [...checkCanaryCount(repo), ...checkAgentCount(repo), ...checkDoctrineMirrors(repo), ...checkRuleStamps(repo)];
+  return [...checkCanaryCount(repo), ...checkAgentCount(repo), ...checkVersionPins(repo), ...checkDoctrineMirrors(repo), ...checkRuleStamps(repo)];
 }
