@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { checkCanaryCount, checkDoctrineMirrors, checkRuleStamps } from './consistency.mjs';
+import { checkCanaryCount, checkAgentCount, checkDoctrineMirrors, checkRuleStamps } from './consistency.mjs';
 import { hashInstalledTree, verifyAgainstManifest, MANIFEST_NAME } from './manifest.mjs';
 
 function mkRepo() {
@@ -32,6 +32,24 @@ test('canary count: passes when plugin.json matches skills/, fails on drift', ()
     const drift = checkCanaryCount(dir);
     assert.equal(drift.length, 1);
     assert.match(drift[0].msg, /says 5 .* skills\/ has 2/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('agent count: README table rows must match targets.mjs, fails on drift', () => {
+  const dir = mkRepo();
+  try {
+    fs.mkdirSync(path.join(dir, 'scripts', 'lib'), { recursive: true });
+    const mkTargets = (names) => `import path from 'node:path';\nexport const TARGETS = {\n${names.map((n) => `  ${n}: path.join('x'),`).join('\n')}\n};\n`;
+    const mkReadme = (names) => `# x\n\n## Universal Agent Support\n\n| AI Agent | Target Skills Folder | Shortcut | Tool |\n|---|---|---|---|\n${names.map((n) => `| **${n}** | \`.${n}/skills\` | cmd | tool |`).join('\n')}\n\ndone\n`;
+    fs.writeFileSync(path.join(dir, 'scripts', 'lib', 'targets.mjs'), mkTargets(['alpha', 'beta', 'gamma']));
+
+    fs.writeFileSync(path.join(dir, 'README.md'), mkReadme(['alpha', 'beta', 'gamma']));
+    assert.deepEqual(checkAgentCount(dir), [], 'matching count is clean');
+
+    fs.writeFileSync(path.join(dir, 'README.md'), mkReadme(['alpha', 'beta', 'gamma', 'delta']));
+    const drift = checkAgentCount(dir);
+    assert.equal(drift.length, 1);
+    assert.match(drift[0].msg, /4 rows but targets\.mjs defines 3/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

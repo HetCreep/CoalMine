@@ -163,8 +163,8 @@ Corpus: 16 fixtures · 7 categories. Scored runs: [eval/RESULTS.md](eval/RESULTS
 
 | Part | Portable? |
 |---|---|
-| The 9 skills (the audits) | ✅ all 11 targets natively via the Agent Skills spec |
-| Interactive choice menus (`ask_question`) | ✅ native question tools on 8 of 11 (see table); text fallback on Goose/Amp/Junie |
+| The 9 skills (the audits) | ✅ all targets natively via the Agent Skills spec |
+| Interactive choice menus (`ask_question`) | ✅ native question tools on most agents (see table); text fallback on Goose/Amp/Junie |
 | Sub-agent fan-out + tiers | ✅ on any host with a sub-agent system; inline otherwise |
 | rot-canary **auto-cadence** | ✅ auto-wired on Claude Code (plugin) · 🔧 manual snippets in [`platform-configs/hooks/`](platform-configs/hooks/) for Copilot, Cursor, Gemini CLI, Codex, Antigravity · ⛔ no stop event on Cline/Junie — run manually |
 
@@ -188,7 +188,7 @@ The marketplace serves the committed [`plugin/`](plugin/) dist — the **same co
 npx skills add HetCreep/CoalMine
 ```
 
-### Option B — Universal Installer (all 11 agents)
+### Option B — Universal Installer (every supported agent)
 
 #### 1. Clone the Repository
 ```bash

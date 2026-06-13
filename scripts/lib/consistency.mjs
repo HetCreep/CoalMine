@@ -67,6 +67,41 @@ export function checkCanaryCount(repo) {
   return out;
 }
 
+// 1b. The supported-agent count must agree between targets.mjs (the source of
+// truth for install targets) and the README's agent table. This is the
+// "badge/table still said 12 agents after a target was dropped" class,
+// mechanized: the count lives in exactly one place (table rows == targets.mjs),
+// so a stale "N agents" can never ship. Prose elsewhere is kept number-free.
+export function checkAgentCount(repo) {
+  const out = [];
+  let defined;
+  try {
+    const tsrc = fs.readFileSync(path.join(repo, 'scripts', 'lib', 'targets.mjs'), 'utf8');
+    defined = (tsrc.match(/^\s+[a-zA-Z]+:\s+path\./gm) || []).length;
+    if (defined === 0) return [{ level: 'FAIL', msg: 'consistency: no agent targets found in scripts/lib/targets.mjs' }];
+  } catch (e) {
+    return [{ level: 'FAIL', msg: `consistency: targets.mjs unreadable: ${e.message}` }];
+  }
+  const readmePath = path.join(repo, 'README.md');
+  if (!fs.existsSync(readmePath)) return out; // partial copy without README (e.g. test fixture) — nothing to cross-check
+  try {
+    const lines = fs.readFileSync(readmePath, 'utf8').replace(/\r\n/g, '\n').split('\n');
+    const hdr = lines.findIndex((l) => l.includes('Target Skills Folder'));
+    if (hdr < 0) {
+      out.push({ level: 'FAIL', msg: 'consistency: README agent table ("Target Skills Folder" header) not found' });
+      return out;
+    }
+    let rows = 0; // hdr+1 is the |---| separator; data rows start at hdr+2
+    for (let i = hdr + 2; i < lines.length && lines[i].trimStart().startsWith('|'); i++) rows++;
+    if (rows !== defined) {
+      out.push({ level: 'FAIL', msg: `consistency: README agent table has ${rows} rows but targets.mjs defines ${defined} agents — update whichever is stale` });
+    }
+  } catch (e) {
+    out.push({ level: 'FAIL', msg: `consistency: README.md unreadable: ${e.message}` });
+  }
+  return out;
+}
+
 // 2. Doctrine mirrors must be byte-identical wherever they exist. A lone diverging
 // copy is the mechanical fingerprint of a stale sync or a tampered rule file.
 export function checkDoctrineMirrors(repo) {
@@ -128,10 +163,10 @@ export function checkRuleStamps(repo) {
 // Tracked-file checks safe to run in the commit gate (no machine-local rule home
 // required). Returns findings[]; empty = consistent.
 export function checkTracked(repo) {
-  return [...checkCanaryCount(repo)];
+  return [...checkCanaryCount(repo), ...checkAgentCount(repo)];
 }
 
 // Every check, for the on-demand consistency CLI (includes machine-local rule home).
 export function checkAll(repo) {
-  return [...checkCanaryCount(repo), ...checkDoctrineMirrors(repo), ...checkRuleStamps(repo)];
+  return [...checkCanaryCount(repo), ...checkAgentCount(repo), ...checkDoctrineMirrors(repo), ...checkRuleStamps(repo)];
 }

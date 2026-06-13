@@ -4,6 +4,9 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+- **Agent-count drift gate** (`scripts/lib/consistency.mjs` → `checkAgentCount`, wired into the verify gate): the README agent-table row count must equal the number of targets in `scripts/lib/targets.mjs`, or `verify.mjs` fails. The supported-agent count now lives in exactly one place — the table == `targets.mjs`; every other surface (badges, About, prose, org profile) is number-free "major agents", so a stale count can no longer ship. Skips gracefully when no README is present (partial copies).
+
 ## [3.6.0] — 2026-06-13
 
 ### Removed
