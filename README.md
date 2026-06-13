@@ -181,7 +181,7 @@ Corpus: 16 fixtures · 7 categories. Scored runs: [eval/RESULTS.md](eval/RESULTS
 ```
 The marketplace serves the committed [`plugin/`](plugin/) dist — the **same conformed skills** `install.mjs` produces (shared sections fully injected), plus the rot-canary auto-cadence hooks wired automatically.
 
-> 🔧 **Maintainers:** `plugin/` is generated output — never hand-edit it. After changing `skills/`, `skills/_shared/`, `hooks/`, or `.claude-plugin/plugin.json`, run `node scripts/build-plugin.mjs`. `verify.mjs` (and the pre-commit hook) FAILs while the dist is stale.
+> 🔧 **Maintainers:** `plugin/` is generated output — never hand-edit it. After changing `skills/`, `skills/_shared/`, `hooks/`, or `.claude-plugin/plugin.json`, run `node scripts/build-plugin.mjs`. The `verify.mjs` gate (run by the pre-commit/pre-push hooks) FAILs while the dist is stale or a cross-document fact drifts — canary count vs `skills/`, agent count vs `scripts/lib/targets.mjs`. For the full self-consistency pass (doctrine mirrors and stamp shapes in the machine-local rule home included), run `node scripts/consistency.mjs`.
 
 ### Option A2 — skills.sh (any agent, one line)
 ```bash
@@ -205,7 +205,7 @@ node /path/to/CoalMine/scripts/install.mjs <agent|PATH>
 ```bash
 node ../CoalMine/scripts/install.mjs antigravity
 ```
-The installer also writes a CoalMine pre-commit/pre-push gate into your project's `.git/hooks` (any existing non-CoalMine hook is backed up once as `<hook>.pre-coalmine`; `--uninstall` restores it).
+The installer also writes a CoalMine pre-commit/pre-push gate into your project's `.git/hooks` (any existing non-CoalMine hook is backed up once as `<hook>.pre-coalmine`; `--uninstall` restores it). It drops your platform's trigger rule (e.g. `.agents/rules/coalmine-trigger.md`, `.cursor/rules/coalmine-trigger.mdc`) and — if none exists yet — a factory-default `.coalmine.json` (fully commented; edit it to disable canaries, set a default tier, or change language).
 
 Upgrades are clean by design: each install writes a `.coalmine-manifest.json` at the target and the next install removes exactly that set first — renamed or retired skills never leave stale copies, and skills from other tools in the same folder are never touched.
 
