@@ -18,7 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadShared as loadSharedFrom, listSkills, installSkillDir } from './lib/render.mjs';
-import { TARGETS } from './lib/targets.mjs';
+import { TARGETS, detectPresentAgents } from './lib/targets.mjs';
 import { MANIFEST_NAME, hashInstalledTree } from './lib/manifest.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -309,22 +309,64 @@ function writeManifest(destDir, installedSkills) {
   }
 }
 
+// ─── Reusable install steps (shared by single-agent and `all`) ──────────────
+function installSkills(dest, skills, shared) {
+  console.log(`\nInstalling ${skills.length} skill(s) → ${dest}`);
+  // Program-style version transition: remove everything the previous CoalMine
+  // install put here (per its manifest), then install the new set fresh.
+  cleanPreviousInstall(dest, skills);
+  let n = 0;
+  const installed = [];
+  for (const s of skills) {
+    try {
+      const to = path.join(dest, s);
+      installSkillDir(path.join(skillsSrc, s), to, shared);
+      console.log(`  installed ${s} → ${to}`);
+      installed.push(s);
+      n++;
+    } catch (e) {
+      console.warn(`  [warn] failed to install ${s}: ${e.message}`);
+      process.exitCode = 1;
+    }
+  }
+  writeManifest(dest, installed);
+  return { installed: n, failed: skills.length - n };
+}
+
+function applyConfig(targetKey, label) {
+  console.log(`\nConfiguring auto-trigger for: ${label}`);
+  const cfg = PLATFORM_CONFIGS[targetKey];
+  if (cfg) upsertConfig(cfg.dest, cfg.tpl);
+  else console.log(`  (no platform config template for "${label}" — skills only)`);
+}
+
+function copyDefaultConfig() {
+  // Copy default .coalmine.json to project root if not already present.
+  console.log('\nConfiguring settings...');
+  try {
+    const configDest = path.join(process.cwd(), '.coalmine.json');
+    if (!fs.existsSync(configDest)) {
+      fs.copyFileSync(path.join(repo, 'platform-configs', '.coalmine.json'), configDest);
+      console.log(`  created default settings → ${configDest}`);
+    } else {
+      console.log(`  settings file already exists at ${configDest}`);
+    }
+  } catch (err) {
+    console.warn(`  [warn] failed to copy settings: ${err.message}`);
+  }
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 const args = process.argv.slice(2);
 const isUninstall = args.includes('--uninstall') || args.includes('-u');
 const targetArg = args.filter(x => x !== '--uninstall' && x !== '-u')[0];
 
 if (!targetArg) {
-  console.error(`Usage: node scripts/install.mjs [--uninstall | -u] <${Object.keys(TARGETS).join('|')}|PATH>`);
+  console.error(`Usage: node scripts/install.mjs [--uninstall | -u] <${Object.keys(TARGETS).join('|')}|all|PATH>`);
+  console.error(`  all  → auto-detect every agent already configured in this project and install to each`);
   process.exit(2);
 }
 const targetKey = targetArg.toLowerCase();
-const dest = TARGETS[targetKey] ?? path.resolve(targetArg);
-
-if (path.resolve(dest) === path.resolve(skillsSrc)) {
-  console.error('Target directory cannot be the source skills directory.');
-  process.exit(1);
-}
 
 if (!fs.existsSync(skillsSrc)) {
   console.error(`No skills/ dir at ${skillsSrc}`);
@@ -337,6 +379,57 @@ try {
   skills = listSkills(skillsSrc);
 } catch (e) {
   console.error(`Error listing skills at ${skillsSrc}: ${e.message}`);
+  process.exit(1);
+}
+
+// ─── `all`: auto-detect every present project agent and install to each ──────
+// "Works in every mine" — one command covers each agent already configured in
+// this repo (detected by its .agent-dir marker), with no clutter for absent
+// agents and a loud report of what was skipped. The long tail / unknown agents
+// route to platform-report (Issues), not a silently-stale path map.
+if (targetKey === 'all') {
+  if (isUninstall) {
+    console.error("Uninstall does not support 'all' — name the agent explicitly (destructive op, no guessing).");
+    process.exit(2);
+  }
+  const { present, absent } = detectPresentAgents(process.cwd());
+  if (present.length === 0) {
+    console.log(`\nCoalMine 'all': no auto-detectable agent config found under ${process.cwd()}.`);
+    console.log(`  Install explicitly instead: node scripts/install.mjs <${Object.keys(TARGETS).join('|')}|PATH>`);
+    process.exit(0);
+  }
+  const shared = loadShared();
+  console.log(`\nCoalMine 'all' — detected: ${present.join(', ')}${absent.length ? `  ·  skipped (not present): ${absent.join(', ')}` : ''}`);
+  const seenDest = new Set();
+  const seenCfg = new Set();
+  let installs = 0, fails = 0, dirs = 0;
+  for (const key of present) {
+    const d = TARGETS[key];
+    if (!seenDest.has(d)) {            // several agents can share one dir (.agents/skills)
+      seenDest.add(d); dirs++;
+      const r = installSkills(d, skills, shared);
+      installs += r.installed; fails += r.failed;
+    }
+    const pc = PLATFORM_CONFIGS[key];
+    if (pc && !seenCfg.has(pc.dest)) {
+      seenCfg.add(pc.dest);
+      console.log(`\nConfiguring auto-trigger: ${path.relative(process.cwd(), pc.dest)}`);
+      upsertConfig(pc.dest, pc.tpl);
+    }
+  }
+  console.log('\nConfiguring git hooks...');
+  installGitHooks();
+  copyDefaultConfig();
+  console.log(`\nDone: ${present.length} agent(s) → ${dirs} skills dir(s), ${installs} skill install(s)${fails ? `, ${fails} failed` : ''}.`);
+  console.log(`  Not auto-covered (run explicitly): claude (prefer the plugin), cline. Agent still missing? Open a platform-report so we can pin it.`);
+  console.log(`Verify: node scripts/verify.mjs`);
+  process.exit(process.exitCode || 0);
+}
+
+const dest = TARGETS[targetKey] ?? path.resolve(targetArg);
+
+if (path.resolve(dest) === path.resolve(skillsSrc)) {
+  console.error('Target directory cannot be the source skills directory.');
   process.exit(1);
 }
 
@@ -354,58 +447,11 @@ if (isUninstall) {
 }
 
 const shared = loadShared();
-
-console.log(`\nInstalling ${skills.length} skill(s) → ${dest}`);
-// Program-style version transition: remove everything the previous CoalMine
-// install put here (per its manifest), then install the new set fresh.
-cleanPreviousInstall(dest, skills);
-let n = 0;
-const installed = [];
-for (const s of skills) {
-  try {
-    const to = path.join(dest, s);
-    installSkillDir(path.join(skillsSrc, s), to, shared);
-    console.log(`  installed ${s} → ${to}`);
-    installed.push(s);
-    n++;
-  } catch (e) {
-    console.warn(`  [warn] failed to install ${s}: ${e.message}`);
-    process.exitCode = 1;
-  }
-}
-writeManifest(dest, installed);
-
-// Generate platform config
-console.log(`\nConfiguring auto-trigger for: ${targetArg}`);
-const cfg = PLATFORM_CONFIGS[targetKey];
-if (cfg) {
-  upsertConfig(cfg.dest, cfg.tpl);
-} else {
-  console.log(`  (no platform config template for "${targetArg}" — skills only)`);
-}
-
-// Install git hooks if git is initialized
+const { installed: n, failed } = installSkills(dest, skills, shared);
+applyConfig(targetKey, targetArg);
 console.log('\nConfiguring git hooks...');
 installGitHooks();
-
-// Copy config (.coalmine.json) to project root if not already present
-console.log('\nConfiguring settings...');
-try {
-  const configDest = path.join(process.cwd(), '.coalmine.json');
-  if (!fs.existsSync(configDest)) {
-    fs.copyFileSync(
-      path.join(repo, 'platform-configs', '.coalmine.json'),
-      configDest
-    );
-    console.log(`  created default settings → ${configDest}`);
-  } else {
-    console.log(`  settings file already exists at ${configDest}`);
-  }
-} catch (err) {
-  console.warn(`  [warn] failed to copy settings: ${err.message}`);
-}
-
-const failed = skills.length - n;
+copyDefaultConfig();
 console.log(`\nDone: ${n}/${skills.length} skill(s) → ${dest}${failed ? ` (${failed} failed)` : ''}`);
 console.log(`Verify: node scripts/verify.mjs`);
 

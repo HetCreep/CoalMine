@@ -4,7 +4,10 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.7.0] — 2026-06-13
+
 ### Added
+- **`install.mjs all` — auto-detect, install to every agent in the repo** (`scripts/install.mjs`, `scripts/lib/targets.mjs` → `detectPresentAgents`): one command installs CoalMine to each agent already configured in the current project — detected by its marker dir (`.cursor/`, `.agents/`, `.github/`, `.gemini/`, `.junie/`) — and skips the rest, printing what it detected vs skipped (fail-loud, never a silent no-op). Claude Code and Cline (both rooted at `.claude/`) are excluded from auto-detect so it can never double a plugin install; install those by name. This is the low-risk form of "install everywhere": it keeps every source-grounded vendor path (no silent coverage drop) while covering the convergent majority in one shot — unknown or brand-new agents route to platform-report, not a path map that quietly rots. Adds a `detectPresentAgents` unit test and an `all` integration test (gate suite now 33).
 - **Agent-count drift gate** (`scripts/lib/consistency.mjs` → `checkAgentCount`, wired into the verify gate): the README agent-table row count must equal the number of targets in `scripts/lib/targets.mjs`, or `verify.mjs` fails. The supported-agent count now lives in exactly one place — the table == `targets.mjs`; every other surface (badges, About, prose, org profile) is number-free "major agents", so a stale count can no longer ship. Skips gracefully when no README is present (partial copies).
 
 ## [3.6.0] — 2026-06-13

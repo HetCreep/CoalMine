@@ -10,6 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { detectPresentAgents } from './targets.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const INSTALL = path.join(repo, 'scripts', 'install.mjs');
@@ -81,6 +82,59 @@ test('corrupt manifest entries can never escape the target directory', () => {
     assert.ok(fs.existsSync(path.join(target, 'rot-canary', 'SKILL.md')), 'valid entries still install');
     const after = JSON.parse(fs.readFileSync(path.join(target, MANIFEST), 'utf8'));
     assert.equal(after.skills.length, 9, 'manifest rebuilt with the clean current set');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('detectPresentAgents: only agents whose marker dir exists; claude/cline never auto-detected', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-detect-'));
+  try {
+    fs.mkdirSync(path.join(tmp, '.cursor'));
+    fs.mkdirSync(path.join(tmp, '.github'));
+    fs.mkdirSync(path.join(tmp, '.claude')); // present, but excluded from `all`
+    const { present, absent } = detectPresentAgents(tmp);
+
+    assert.ok(present.includes('cursor'), 'cursor present (.cursor exists)');
+    assert.ok(present.includes('copilot'), 'copilot present (.github exists)');
+    assert.ok(absent.includes('windsurf'), 'windsurf absent (no .windsurf)');
+    assert.ok(absent.includes('gemini'), 'gemini absent (no .gemini)');
+    assert.ok(absent.includes('antigravity'), 'antigravity absent (no .agents)');
+
+    // The .claude-rooted agents are never auto-seeded — ambiguous with a global
+    // or Claude Code plugin install — even though .claude/ exists here.
+    for (const k of ['claude', 'cline']) {
+      assert.ok(!present.includes(k) && !absent.includes(k), `${k} excluded from 'all'`);
+    }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("`all` installs to every present agent dir, skips absent, never auto-seeds .claude", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-all-'));
+  try {
+    // Three present agent homes (cursor, copilot, the shared .agents group) and
+    // a present-but-excluded .claude.
+    fs.mkdirSync(path.join(tmp, '.cursor'));
+    fs.mkdirSync(path.join(tmp, '.github'));
+    fs.mkdirSync(path.join(tmp, '.agents'));
+    fs.mkdirSync(path.join(tmp, '.claude'));
+
+    const res = runInstall('all', tmp);
+    assert.equal(res.status, 0, `'all' must pass:\n${res.stdout}${res.stderr}`);
+
+    // Installed into each present agent's own dir.
+    assert.ok(fs.existsSync(path.join(tmp, '.cursor', 'skills', 'rot-canary', 'SKILL.md')), 'cursor skills installed');
+    assert.ok(fs.existsSync(path.join(tmp, '.github', 'skills', 'rot-canary', 'SKILL.md')), 'copilot skills installed');
+    assert.ok(fs.existsSync(path.join(tmp, '.agents', 'skills', 'rot-canary', 'SKILL.md')), '.agents group skills installed');
+
+    // Absent agents get nothing; excluded .claude is never auto-seeded.
+    assert.ok(!fs.existsSync(path.join(tmp, '.windsurf')), 'absent windsurf untouched');
+    assert.ok(!fs.existsSync(path.join(tmp, '.gemini')), 'absent gemini untouched');
+    assert.ok(!fs.existsSync(path.join(tmp, '.claude', 'skills')), '.claude never auto-seeded by all');
+
+    assert.match(res.stdout, /detected:/, "reports what it detected");
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

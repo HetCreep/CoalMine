@@ -205,6 +205,13 @@ node /path/to/CoalMine/scripts/install.mjs <agent|PATH>
 ```bash
 node ../CoalMine/scripts/install.mjs antigravity
 ```
+
+*Use more than one agent in this repo? Cover them all in one shot:*
+```bash
+node ../CoalMine/scripts/install.mjs all
+```
+`all` auto-detects each agent already configured in your project (by its `.cursor/`, `.agents/`, `.github/`, `.gemini/`, `.junie/` marker) and installs **only** to the ones present — no stray folders for agents you don't use — then prints what it detected and skipped. Claude Code and Cline (both rooted at `.claude/`) are left out of `all` to avoid doubling a plugin install; run them by name. An agent it doesn't know yet? [Open a platform report](https://github.com/HetCreep/CoalMine/issues/new?template=platform-report.yml) and we'll pin it.
+
 The installer also writes a CoalMine pre-commit/pre-push gate into your project's `.git/hooks` (any existing non-CoalMine hook is backed up once as `<hook>.pre-coalmine`; `--uninstall` restores it). It drops your platform's trigger rule (e.g. `.agents/rules/coalmine-trigger.md`, `.cursor/rules/coalmine-trigger.mdc`) and — if none exists yet — a factory-default `.coalmine.json` (fully commented; edit it to disable canaries, set a default tier, or change language).
 
 Upgrades are clean by design: each install writes a `.coalmine-manifest.json` at the target and the next install removes exactly that set first — renamed or retired skills never leave stale copies, and skills from other tools in the same folder are never touched.
