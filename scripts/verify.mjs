@@ -14,6 +14,8 @@ import { loadShared, renderSkillMd, listSkills } from './lib/render.mjs';
 import { TARGETS } from './lib/targets.mjs';
 import { CONFIG_SCHEMA, validateValue } from './lib/config-schema.mjs';
 import { REGION_TARGETS, extractRegion } from './lib/shared-regions.mjs';
+import { checkTracked } from './lib/consistency.mjs';
+import { verifyAgainstManifest } from './lib/manifest.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let ok = true;
@@ -85,6 +87,14 @@ if (fs.existsSync(configPath)) {
     fail(`.coalmine.json invalid JSON: ${e.message}`);
   }
 }
+
+// 2.7 self-consistency (tracked cross-document facts — must agree)
+console.log('consistency:');
+try {
+  const findings = checkTracked(repo);
+  if (findings.length === 0) pass('cross-document facts agree (canary count)');
+  else for (const f of findings) fail(f.msg);
+} catch (e) { fail(`consistency check crashed: ${e.message}`); }
 
 // 3. hooks present
 console.log('hooks:');
@@ -270,6 +280,15 @@ if (arg) {
       pass(`${s} installed and conformed`);
     }
   }
+  // SFC-lite: re-hash installed files vs the manifest baseline (post-install tamper).
+  try {
+    const { findings, checked } = verifyAgainstManifest(dest);
+    for (const f of findings) {
+      if (f.level === 'FAIL') fail(`integrity: ${f.msg}`);
+      else console.log(`  --   integrity: ${f.msg}`);
+    }
+    if (checked > 0 && findings.every((f) => f.level !== 'FAIL')) pass(`installed integrity: ${checked} file(s) match manifest hashes`);
+  } catch (e) { fail(`integrity check crashed: ${e.message}`); }
 }
 
 console.log(ok ? '\nVERIFY: PASS' : '\nVERIFY: FAIL');

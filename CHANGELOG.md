@@ -4,6 +4,15 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.5.0] — 2026-06-13
+
+### Added (principle 10 — distrust your own non-code artifacts; "Windows-grade" hardening)
+- **Self-consistency layer** (`scripts/consistency.mjs` + `lib/consistency.mjs`): mechanical cross-checks on the artifacts an agent trusts but never verifies — canary-count agreement (`skills/` vs `plugin.json`), **byte-identical doctrine mirrors** across `docs/` and every rule home (a diverged copy is the fingerprint of a stale sync or a tampered rule), and well-formed stamps. Tracked-file checks run in the verify gate; the full check (incl. machine-local rule home) is on-demand.
+- **SFC-lite installed-artifact integrity** (`lib/manifest.mjs`): the installer records a SHA-256 of every file it writes; `node scripts/verify.mjs <target>` re-hashes the installed tree and flags any file changed after install (tamper) or missing — a surface git never sees. Path-traversal-guarded.
+- **Memory/rule poison detection** in the gold-standard RE-VALIDATE pass: now flags a memory/decision-log or rule-register entry that contradicts a binding rule or another decision, or names a file/flag/command that no longer exists — the class proved live when a planted "fix" re-prescribed a Phoenix-#8-forbidden randomized sweep.
+- DESIGN-PRINCIPLES #10 extended: the machine verifies what it *trusts* (installed copies, doctrine mirrors, memory), not only what it *ships*.
+- Gate suite 25 → 30 tests.
+
 ### Added (cross-model convergence runs)
 - **Second eval engine**: Antigravity ran the rot-canary corpus blind — recall 13/13, 0 decoy false-positives, severity 12/13; the sole disagreement (one CRITICAL rated HIGH) sits exactly in the predicted severity-judgment band. README and eval/RESULTS.md now show the two-engine table.
 - hooks-safety doctrine gains **section 7 — Hermetic Hook Testing** (spawn the real hook, sandboxed env, assert exit/silence/state) — proposed by an independent Antigravity RE-VALIDATE whose verdicts and exemplars matched the existing stamps 2/2 (the lifecycle's anti-churn + exemplar-anchor mechanics held across models); published copy in docs/.

@@ -19,6 +19,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadShared as loadSharedFrom, listSkills, installSkillDir } from './lib/render.mjs';
 import { TARGETS } from './lib/targets.mjs';
+import { MANIFEST_NAME, hashInstalledTree } from './lib/manifest.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const skillsSrc = path.join(repo, 'skills');
@@ -257,7 +258,8 @@ function uninstallSkills(destDir, skillsList) {
 // remove it first — like a package manager's file list. Renamed or removed
 // skills can never leave orphan copies behind. Only manifest-listed dirs are
 // ever touched; other skills sharing the target dir are never affected.
-const MANIFEST_NAME = '.coalmine-manifest.json';
+// MANIFEST_NAME + the per-file integrity hashes live in lib/manifest.mjs so the
+// installer (writes) and verify.mjs (checks) share one source.
 
 function readManifest(destDir) {
   try {
@@ -297,7 +299,10 @@ function writeManifest(destDir, installedSkills) {
   try {
     let version = '0.0.0';
     try { version = JSON.parse(fs.readFileSync(path.join(repo, '.claude-plugin', 'plugin.json'), 'utf8')).version ?? version; } catch {}
-    const manifest = { version, installedAt: new Date().toISOString(), skills: installedSkills };
+    // Per-file SHA-256 of everything we just wrote — the SFC-lite baseline that
+    // `verify.mjs <target>` checks for post-install tampering.
+    const hashes = hashInstalledTree(destDir, installedSkills);
+    const manifest = { version, installedAt: new Date().toISOString(), skills: installedSkills, hashes };
     fs.writeFileSync(path.join(destDir, MANIFEST_NAME), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
   } catch (e) {
     console.warn(`  [warn] could not write install manifest: ${e.message}`);

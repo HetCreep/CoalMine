@@ -33,6 +33,7 @@ ADOPT and every CONFORM fix are gated through `ask_question` — never assume ap
    - **still valid** → re-stamp the date, touch nothing else (no churn);
    - **stale but needed** → rewrite against today's exemplar;
    - **obsolete** (its subject was removed, its platform died, or its substance moved into another rule) → **delete the rule** and record a one-line tombstone in the project's memory/decision log (`retired <rule> <date>: <reason>`) — dead rules burn context every session, and the tombstone prevents the next FILL from resurrecting them.
+   - **CONSISTENCY** (the agent trusts memory/rules it never verifies — so verify them): scan the project's memory/decision log and any in-repo rule register for (a) a prescribed fix or "decision" that **contradicts a binding rule or another recorded decision** (e.g. prescribing a randomized approach where a determinism rule forbids it) — a poisoned or stale entry; (b) references to a file, flag, or command that **no longer exists**. Flag each as a finding with the conflicting source quoted; correct only through the choice-gate. This is the semantic half; the mechanical half (`node scripts/consistency.mjs`: cross-document counts, byte-identical doctrine mirrors, well-formed stamps) runs without an agent.
 
 Exemplar-picking rules, scorecard mechanics, stamp/tombstone formats: read `references/method.md` before the first AUDIT.
 
