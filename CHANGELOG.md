@@ -4,6 +4,17 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.6.0] — 2026-06-13
+
+### Removed
+- **Dropped the Roo Code target** — Roo Code's upstream repo was archived 2026-05-15 (the team pivoted to Roomote, stating IDEs aren't the future of coding). Dead vendor → drop support. Removed from `scripts/lib/targets.mjs`, `scripts/install.mjs`, the README agent table, and the platform-report issue template. Existing Roo forks can still copy a conformed `SKILL.md` manually. Supported targets: 12 → 11.
+
+### Fixed
+- **Corrected the Cline skills path** (`scripts/lib/targets.mjs`, README): was `.agents/skills`, but Cline does **not** read `.agents/` — it reads `.cline/skills`, `.clinerules/skills`, and `.claude/skills`. Now targets `.claude/skills` (the cross-agent path Cline honors). Source: docs.cline.bot. Re-source-grounded all agent skill-paths against agentskills.io (Jun 2026).
+
+### Changed
+- **Platform-aware Escalation Tiers** (`skills/_shared/orchestration.md`): tiers are now explicit **capability targets** with a **degrade-gracefully rule** — platforms without concurrent-worker fan-out (Gemini CLI, Cline, Windsurf in-session) stay single-agent and escalate via model + reasoning only, never faking parallelism — plus a per-platform Heavy-lever map (Claude Code Dynamic Workflows/`ultracode`, Codex `xhigh`+Cloud, Cursor Max Mode+Cloud Agents, Antigravity Agent Manager, Amp Oracle, etc.). Map deliberately keys on stable mode names, not volatile model IDs.
+
 ## [3.5.1] — 2026-06-13
 
 ### Fixed (security — caught by rot-canary auto-scan on the v3.5.0 code, same day)

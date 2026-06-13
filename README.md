@@ -148,24 +148,23 @@ Corpus: 16 fixtures · 7 categories. Scored runs: [eval/RESULTS.md](eval/RESULTS
 | **Cursor** | `.cursor/skills/` | `node scripts/install.mjs cursor` | ✅ **Native:** built-in ask-question tool |
 | **Windsurf** | `.windsurf/skills/` | `node scripts/install.mjs windsurf` | ✅ **Native:** `suggested_responses` |
 | **GitHub Copilot** | `.github/skills/` | `node scripts/install.mjs copilot` | ✅ **Native:** `askQuestions` |
-| **Cline** | `.agents/skills/` | `node scripts/install.mjs cline` | ✅ **Native:** `ask_question` |
-| **Roo Code** † | `.agents/skills/` | `node scripts/install.mjs roocode` | ✅ **Native:** `ask_followup_question` |
+| **Cline** | `.claude/skills/` | `node scripts/install.mjs cline` | ✅ **Native:** `ask_question` |
 | **Gemini CLI** | `.gemini/skills/` | `node scripts/install.mjs gemini` | ✅ **Native:** `ask_user` |
 | **Goose** | `.agents/skills/` | `node scripts/install.mjs goose` | ⚠️ **Text Fallback:** no question tool |
 | **Amp** | `.agents/skills/` | `node scripts/install.mjs amp` | ⚠️ **Text Fallback:** tool not documented |
 | **Junie** | `.junie/skills/` | `node scripts/install.mjs junie` | ⚠️ **Text Fallback:** tool not documented |
 | **Codex** | `.agents/skills/` | `node scripts/install.mjs codex` | ✅ **Native:** `request_user_input` |
 
-† Roo Code upstream repo archived 2026-05; skills keep working in existing installs and forks.
+*Skill paths verified against vendor docs (Jun 2026). `SKILL.md` follows the cross-vendor [Agent Skills spec](https://agentskills.io/specification); most agents read the shared `.agents/skills/` convention; **Cline** reads `.claude/skills/` (not `.agents/`) and **Junie** only `.junie/skills/`; Copilot, Cursor, and Windsurf read both. Frontmatter quirks: Junie requires only `name`, Antigravity requires `description` — CoalMine ships both, satisfying every variant.*
 
-*Skill paths verified against vendor docs (Jun 2026). `SKILL.md` follows the cross-vendor [Agent Skills spec](https://agentskills.io/specification); most agents also read the shared `.agents/skills/` convention, and several additionally read `.claude/skills/` (Copilot, Cursor, Windsurf, Cline). Frontmatter quirks: Junie requires only `name`, Antigravity requires `description` — CoalMine ships both, satisfying every variant.*
+**Agent not in the table?** It very likely already works via the shared `.agents/skills/` or `.claude/skills/` convention — [open a platform report](https://github.com/HetCreep/CoalMine/issues/new?template=platform-report.yml) (choose "Other") so we can confirm and pin it. We support the majors directly and field-fix the long tail.
 
 ### What ports where
 
 | Part | Portable? |
 |---|---|
-| The 9 skills (the audits) | ✅ all 12 targets natively via the Agent Skills spec |
-| Interactive choice menus (`ask_question`) | ✅ native question tools on 9 of 12 (see table); text fallback on Goose/Amp/Junie |
+| The 9 skills (the audits) | ✅ all 11 targets natively via the Agent Skills spec |
+| Interactive choice menus (`ask_question`) | ✅ native question tools on 8 of 11 (see table); text fallback on Goose/Amp/Junie |
 | Sub-agent fan-out + tiers | ✅ on any host with a sub-agent system; inline otherwise |
 | rot-canary **auto-cadence** | ✅ auto-wired on Claude Code (plugin) · 🔧 manual snippets in [`platform-configs/hooks/`](platform-configs/hooks/) for Copilot, Cursor, Gemini CLI, Codex, Antigravity · ⛔ no stop event on Cline/Junie — run manually |
 
@@ -189,7 +188,7 @@ The marketplace serves the committed [`plugin/`](plugin/) dist — the **same co
 npx skills add HetCreep/CoalMine
 ```
 
-### Option B — Universal Installer (all 12+ agents)
+### Option B — Universal Installer (all 11 agents)
 
 #### 1. Clone the Repository
 ```bash

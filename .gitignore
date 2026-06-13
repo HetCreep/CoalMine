@@ -5,6 +5,7 @@ Thumbs.db
 # Local-only agent files
 MEMORY.md
 AGENTS.md
+CLAUDE.md
 .agents/
 .claude/
 
