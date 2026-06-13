@@ -15,9 +15,9 @@ To verify locally:
 echo "noreply@hetcreep ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEtqTWGKhX1Dk9nZP8ns13Wl5zsO1Cz3VlTS6m1p2fP9" > coalmine_signers
 git config gpg.ssh.allowedSignersFile ./coalmine_signers
 
-# verify
+# verify (latest release tag, resolved dynamically — no version number to go stale)
 git verify-commit HEAD
-git tag -v v3.6.0
+git tag -v "$(git describe --tags --abbrev=0)"
 ```
 
 On GitHub, signed commits show the **Verified** badge automatically.
