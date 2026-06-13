@@ -4,6 +4,11 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.5.1] — 2026-06-13
+
+### Fixed (security — caught by rot-canary auto-scan on the v3.5.0 code, same day)
+- **Manifest integrity path-traversal guard bypass on Windows** (`lib/manifest.mjs`): the guard split keys on `/` only, so a hand-crafted manifest key using Windows backslashes (`..\..\evil`) slipped past and `verify.mjs <target>` would resolve and hash a file outside the install target (read-only info-disclosure oracle). Replaced the segment scan with a resolve-and-contain check (`path.resolve` + `path.relative`), which handles `/`, `\`, absolute, and drive-relative keys uniformly. Escape-attempt test now covers both separators. Same path-traversal class as the v2.6.1 `safeSkillNames` fix — surfaced again the moment fresh security code shipped.
+
 ## [3.5.0] — 2026-06-13
 
 ### Added (principle 10 — distrust your own non-code artifacts; "Windows-grade" hardening)

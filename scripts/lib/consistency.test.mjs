@@ -94,10 +94,19 @@ test('manifest integrity: clean install verifies, post-install tamper is caught'
 test('manifest integrity: a manifest hash entry cannot escape the target dir', () => {
   const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-sfc-esc-'));
   try {
-    fs.writeFileSync(path.join(dest, MANIFEST_NAME), JSON.stringify({
-      version: '9.9.9', skills: ['x'], hashes: { '../../etc/passwd': 'deadbeef' },
-    }));
-    const r = verifyAgainstManifest(dest);
-    assert.ok(r.findings.some((x) => /path-traversal/.test(x.msg)), 'traversal entry is rejected, not hashed');
+    // POSIX `../` and absolute keys escape on every platform; the Windows-only
+    // `..\` key (which slipped past the old `/`-split segment guard) is a real
+    // traversal only where `\` is a separator — on POSIX it is a valid filename,
+    // so it is asserted on win32 only.
+    const evilKeys = ['../../etc/passwd', '/etc/passwd'];
+    if (process.platform === 'win32') evilKeys.push('..\\..\\evil');
+    for (const evil of evilKeys) {
+      fs.writeFileSync(path.join(dest, MANIFEST_NAME), JSON.stringify({
+        version: '9.9.9', skills: ['x'], hashes: { [evil]: 'deadbeef' },
+      }));
+      const r = verifyAgainstManifest(dest);
+      assert.ok(r.findings.some((x) => /traversal/.test(x.msg)), `traversal entry ${JSON.stringify(evil)} must be rejected`);
+      assert.equal(r.checked, 0, `escaping entry ${JSON.stringify(evil)} must never be hashed`);
+    }
   } finally { fs.rmSync(dest, { recursive: true, force: true }); }
 });

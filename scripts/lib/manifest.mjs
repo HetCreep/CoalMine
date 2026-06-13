@@ -59,14 +59,19 @@ export function verifyAgainstManifest(destDir) {
     return { ok: true, findings: [{ level: 'SKIP', msg: 'manifest predates integrity hashes (reinstall to enable) — check skipped' }], checked: 0 };
   }
   let checked = 0;
+  const destAbs = path.resolve(destDir);
   for (const [rel, want] of Object.entries(recorded)) {
     // rel is "<skill>/<posix relpath>" — never trust it to escape destDir.
-    const segs = rel.split('/').filter(Boolean);
-    if (segs.some((s) => s === '.' || s === '..')) {
-      findings.push({ level: 'FAIL', msg: `manifest entry '${rel}' has a path-traversal segment — ignored` });
+    // Resolve and confirm containment rather than scanning for '..' segments:
+    // a segment scan splits on '/' only, so a Windows-backslash key like
+    // `..\..\evil` slips through and escapes. path.resolve handles both
+    // separators, absolute, and drive-relative keys in one check.
+    const p = path.resolve(destAbs, rel);
+    const relCheck = path.relative(destAbs, p);
+    if (relCheck === '' || relCheck === '..' || relCheck.startsWith('..' + path.sep) || path.isAbsolute(relCheck)) {
+      findings.push({ level: 'FAIL', msg: `manifest entry '${rel}' resolves outside the target — ignored (path traversal)` });
       continue;
     }
-    const p = path.join(destDir, ...segs);
     checked++;
     let got;
     try { got = hashFile(p); } catch {
