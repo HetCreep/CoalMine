@@ -4,6 +4,15 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.7.2] — 2026-06-14
+
+### Changed
+- **The Design Principles (Quantum 11) moved up to the series level.** They are series doctrine — every tool in TheColliery obeys them — so the canonical copy now lives at the umbrella, [`TheColliery/.github/DESIGN-PRINCIPLES.md`](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md), generalized tool-agnostically. CoalMine's repo-local `DESIGN-PRINCIPLES.md` is removed and its README links the series doc.
+- **The README now cross-links the series** (CoalMine ↔ CoalTipple). The link was one-directional before — CoalTipple pointed here, but not the reverse.
+
+### Fixed
+- **`rot-canary` fix-mode no longer assumes git.** The safe-fix checkpoint is now `git stash/commit in a git repo; else copy the file aside`, and the auto-revert restores whichever was used — a non-git user gets the same safe auto-revert. This enforces the new series rule **no external assumption**: no shipped feature HARD-requires git, GitHub, a network, or a CLI the user may not have (they are optional enhancements with a graceful fallback).
+
 ## [3.7.1] — 2026-06-14
 
 ### Added

@@ -10,7 +10,9 @@
 ![skills](https://img.shields.io/badge/skills-9-success)
 ![agents](https://img.shields.io/badge/works_with-major_agents_·_Claude_·_Cursor_·_Windsurf_·_more-informational)
 
-[Design Principles](DESIGN-PRINCIPLES.md) · [Eval Results](eval/RESULTS.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Releases](https://github.com/HetCreep/CoalMine/releases)
+[Design Principles](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md) · [Eval Results](eval/RESULTS.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Releases](https://github.com/HetCreep/CoalMine/releases)
+
+**Part of [TheColliery](https://github.com/TheColliery)** — sibling: **[CoalTipple](https://github.com/TheColliery/CoalTipple)**, a model/effort router that delegates large/cheap work down to save tokens and escalates hard work up for quality.
 
 </div>
 
@@ -239,7 +241,7 @@ If your agent does not support auto-discovery of skills, copy the body of the co
 
 ## 🧭 Design Principles
 
-Every component is bound by the 11 principles of the [Quantum Computer Spec](DESIGN-PRINCIPLES.md) — maximum performance, zero visible errors, single-brand internals, minimum power, essential accessories only, error correction, determinism, isolation, measurement, trustworthiness, and entanglement.
+Every component is bound by the 11 principles of the [Quantum Computer Spec](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md) — maximum performance, zero visible errors, single-brand internals, minimum power, essential accessories only, error correction, determinism, isolation, measurement, trustworthiness, and entanglement.
 
 ## 📄 License
 
