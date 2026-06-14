@@ -4,8 +4,19 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.7.1] — 2026-06-14
+
 ### Added
 - **Version-pin drift gate** (`scripts/lib/consistency.mjs` → `checkVersionPins`, wired into the verify gate): any doc line carrying a `version-pin:` marker (the issue-template version placeholders today) must quote the current `plugin.json` version, or `verify.mjs` fails — a stale hardcoded version can no longer ship (the "`git tag -v v2.4.0` example went stale" class, mechanized). The colon-marker form means a prose mention of the word `version-pin` is never treated as a pin; CHANGELOG history and the machine-local governance files are out of scope. Where a version can be dropped entirely it still should (e.g. SECURITY.md's verify example uses `git describe`); the gate covers the spots where a concrete version genuinely aids the reader. Gate suite now 34.
+
+### Changed
+- **Config-honesty pass — every documented `.coalmine.json` key now has a real consumer.** Seven keys that were defined and documented but never read are now wired into the canaries and the conductor: `defaultTier` (the shared escalation footer pre-sets the route tier — Light/Standard/Heavy — unless the user requests one for that run), `autoFixMode` (rot-canary treats it as standing consent: `off` = report only · `safe` = auto-apply reversible fixes, still checkpoint→build/test→revert if red · `interactive` = show the menu), `schemaPaths` / `migrationDirs` (drift-canary scans those globs/dirs), `packageManifests` (supply-chain-audit scans exactly those manifests), `trustedDomains` (source-grounding treats them as additional authoritative sources), and `skipOnboarding` (the conductor drops only the gold-standard onboarding line). Mirrors CoalTipple's config-honesty discipline; adds a conductor `skipOnboarding` test (gate suite now 35).
+
+### Removed
+- **Tombstoned the `skillUpdateCheckDays` config key** (`scripts/lib/config-schema.mjs`, both `.coalmine.json` factory files): no consumer, and offline skill-staleness is not something a fail-silent hook can verify — the marketplace/host owns update checks. Do not re-add without a real consumer.
+
+### Security
+- **SkillSpector scan refreshed to v2.1.4** (`SECURITY.md`): the static pass scores 58/100 (HIGH) and raises 3 findings, each re-reviewed and confirmed a false positive (an HTML-comment freshness stamp, the consent-gate line itself, a session-scoped temp file). The LLM semantic pass that would contextualize them does not complete on the available API tier (v2.1.3 hit HTTP 429, the v2.1.4 run timed out), so the headline falls back to the pessimistic static number. The real assurance remains structural (Phoenix-13).
 
 ## [3.7.0] — 2026-06-13
 

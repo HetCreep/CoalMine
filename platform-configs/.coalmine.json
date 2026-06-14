@@ -86,11 +86,6 @@
   // # Default value: 30
   "platformDefinitionRevalidateDays": 30,
 
-  // ## Number of days before installed skills are flagged as stale, triggering update checks.
-  // # Setting type: Int32
-  // # Default value: 30
-  "skillUpdateCheckDays": 30,
-
   // =========================================================================
   // SECTION 4: CUSTOM CANARY PATHS & SCOPES (การกำหนดขอบเขตและโดเมนของโครงการ)
   // =========================================================================

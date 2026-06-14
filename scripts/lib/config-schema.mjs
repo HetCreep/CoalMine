@@ -27,7 +27,6 @@ export const CONFIG_SCHEMA = [
   { key: 'platformRuleRevalidateDays', type: 'int', flags: ['-g'], help: 'Days before platform/model rules need re-validation (default: 30)' },
   { key: 'definitionRevalidateDays', type: 'int', flags: ['-j'], help: 'Days before general reference definitions are stale (default: 90)' },
   { key: 'platformDefinitionRevalidateDays', type: 'int', flags: ['-k'], help: 'Days before platform definitions are stale (default: 30)' },
-  { key: 'skillUpdateCheckDays', type: 'int', flags: ['-u'], help: 'Days before installed skills are stale, triggering update offers (default: 30)' },
   { key: 'disabledCanaries', type: 'strArr', lower: true, flags: ['-x', '--disable'], help: 'Comma-separated canaries to disable (or "all")' },
   { key: 'rotCanaryMode', type: 'enum', values: ['auto', 'manual', 'off'], flags: ['-m', '--mode'], help: 'rot-canary auto-scan mode (auto, manual, off)' },
   { key: 'autoFixMode', type: 'enum', values: ['interactive', 'safe', 'off'], flags: ['-f'], help: 'Default fix-mode behavior (interactive, safe, off)' },

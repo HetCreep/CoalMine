@@ -11,6 +11,7 @@ description: >-
 Audit what the project trusts: deps, build pipeline, shipped artifact. Report; do NOT change deps unless asked.
 
 ## 1. Dependencies
+- **Scope** — honor `.coalmine.json` `packageManifests` if set: scan exactly those manifest/lockfile paths; else infer by inspecting the repo.
 - **CVEs** — run ecosystem auditor; cross-check every hit in GHSA/OSV/NVD. Cite advisory ID + affected range + fixed version. (Invoke source-grounding — never from memory.)
 - **Maintenance** — last release, commit recency, bus-factor, archived/deprecated flag.
 - **License** — flag copyleft inside permissive project, missing/unknown license.

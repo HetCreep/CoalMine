@@ -25,7 +25,7 @@ Per-claim-type authoritative source map: read `references/sources.md` when choos
 
 ## Source hierarchy
 1. Source code / spec / RFC — primary ground truth
-2. Official/vendor docs — authoritative secondary
+2. Official/vendor docs — authoritative secondary (honor `.coalmine.json` `trustedDomains` if set: treat those domains as additional authoritative / tier-2 sources)
 3. Multiple reputable third-party sources — triangulated
 4. Single blog — weak; corroborate first
 5. Training memory — weakest for volatile facts

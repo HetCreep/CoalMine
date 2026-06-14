@@ -49,6 +49,20 @@ test('conductor injects offer rules, and .coalmine.json can silence it', () => {
   }
 });
 
+test('conductor drops only the onboarding line when skipOnboarding is set', () => {
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ skipOnboarding: true }), 'utf8');
+    const r = runHook(CONDUCTOR, '', tmp);
+    assert.equal(r.status, 0);
+    assert.ok(r.stdout.includes('[CoalMine]'), 'rest of the conductor still injects');
+    assert.ok(r.stdout.includes('Specialists'), 'specialist offers still present');
+    assert.ok(!r.stdout.includes('offer /gold-standard ONCE'), 'gold-standard onboarding offer is dropped');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('project .coalmine.json can disable the canary', () => {
   const tmp = mkTmp();
   try {
