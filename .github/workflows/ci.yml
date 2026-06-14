@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: gate (${{ matrix.os }} · node ${{ matrix.node }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [18, 20, 22]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # Zero-dependency: no install. Same fail-loud gate as the local hooks, cross-platform.
+      - run: node scripts/verify.mjs
+      - run: node --test scripts/lib/regions.test.mjs scripts/lib/render.test.mjs scripts/lib/configure.test.mjs scripts/lib/install.test.mjs scripts/lib/consistency.test.mjs scripts/lib/hooks.test.mjs

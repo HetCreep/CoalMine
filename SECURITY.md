@@ -1,5 +1,7 @@
 # Verifying CoalMine
 
+CoalMine is one tool in the **TheColliery** mining series, and it is verified the same way as its sibling **[CoalTipple](https://github.com/TheColliery/CoalTipple/blob/main/SECURITY.md)**: every executable hook obeys the [Phoenix-13 commandments](docs/hooks-safety.md), the distribution is reproducible from source, and an independent scanner is run each release. Across the series the **structure** is the assurance — not a scanner's number.
+
 ## Commit & tag signatures
 
 All commits and release tags are SSH-signed (`gpg.format=ssh`). Maintainer signing key:
@@ -42,7 +44,7 @@ Its fast **static** pass scores the bundle **58/100 (HIGH)** and raises 3 findin
 | MED · EA2 Autonomous Decision (`skills/gold-standard/SKILL.md:26`) | The line *"ADOPT and every CONFORM fix are gated through `ask_question` — never assume approval"* — i.e. the consent gate itself, flagged as if it were the opposite. |
 | MED · RA2 Session Persistence (`hooks/rot-canary-stop.js:156`) | The Stop hook's session temp file — written under `os.tmpdir()`, scoped by `session_id`, deleted on stop (Phoenix #1 zero-garbage, #6 stateless); the auto-scan cadence is consent-gated with a documented kill-switch. |
 
-Why the headline number is pessimistic: SkillSpector's **LLM semantic** pass is what contextualizes these surface matches — on v2.1.3 it returned **0 findings** on the content it evaluated — but on the available API tier that pass does not complete (v2.1.3 hit HTTP 429 rate-limiting; the v2.1.4 run timed out), so the score falls back to the static, false-positive result. It is not a measure of real risk.
+Why the headline number is pessimistic: SkillSpector's **LLM semantic** pass is what contextualizes these surface matches — on v2.1.3 it returned **0 findings** on the content it evaluated — but it requires prepaid Anthropic API credits to run; on a free-tier key with a zero credit balance it returns `credit balance too low` (earlier runs surfaced this as HTTP 429 rate-limiting, then a timeout), so the score falls back to the static, false-positive result. It is not a measure of real risk.
 
 **The real assurance is structural, not a scanner score.** Every CoalMine hook obeys the [Phoenix-13 commandments](docs/hooks-safety.md): zero external dependencies (#2), no network ever (#7), no child processes (#5), fail-silent (#4), session state cleaned on stop (#1/#6); every skill fix is consent-gated through the platform's question tool. There is no data-exfiltration path, no covert persistence, and nothing auto-executes.
 
