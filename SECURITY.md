@@ -31,6 +31,7 @@ On GitHub, signed commits show the **Verified** badge automatically.
 
 ## Independent scanning — NVIDIA SkillSpector
 
+<!-- version-transition: re-run SkillSpector each release; update the version + score + finding line-refs in this section. This file is repo-root, outside the scanned plugin/ dir, so this HTML comment is not SkillSpector-flagged. -->
 CoalMine is scanned with [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector) v2.1.4 — a security scanner for AI agent skills (prompt injection, data exfiltration, excessive agency, session persistence, dangerous code, supply-chain risk).
 
 Its fast **static** pass scores the bundle **58/100 (HIGH)** and raises 3 findings. Each was reviewed and confirmed a **false positive** — the static heuristic flags any instruction-bearing or comment-bearing file as suspicious, which is exactly what a security-*audit* skill is made of:
