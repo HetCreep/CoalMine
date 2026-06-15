@@ -13,7 +13,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: DavidAnson/markdownlint-cli2-action@v19
         continue-on-error: true  # report-only: this is a doc-heavy repo; a focused markdownlint cleanup (bare URLs, malformed tables) is a separate pass
         with:
