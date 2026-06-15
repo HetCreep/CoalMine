@@ -60,6 +60,27 @@ test('manifest-driven reinstall removes renamed leftovers, spares foreign skills
   }
 });
 
+test('retired skill names are swept even without a manifest (rotcanary -> rot-canary)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-retired-'));
+  const target = path.join(tmp, 'skills');
+  try {
+    // A very old install: the pre-rename `rotcanary` dir is present but is in
+    // NEITHER a manifest (none here) NOR the current skill set, plus a foreign skill.
+    fs.mkdirSync(path.join(target, 'rotcanary'), { recursive: true });
+    fs.writeFileSync(path.join(target, 'rotcanary', 'SKILL.md'), 'name: rotcanary', 'utf8');
+    fs.mkdirSync(path.join(target, 'foreign-skill'));
+    fs.writeFileSync(path.join(target, 'foreign-skill', 'SKILL.md'), 'not ours', 'utf8');
+
+    const res = runInstall(target, tmp);
+    assert.equal(res.status, 0, `install must pass:\n${res.stdout}${res.stderr}`);
+    assert.ok(!fs.existsSync(path.join(target, 'rotcanary')), 'retired rotcanary removed without a manifest');
+    assert.ok(fs.existsSync(path.join(target, 'rot-canary', 'SKILL.md')), 'current rot-canary installed');
+    assert.ok(fs.existsSync(path.join(target, 'foreign-skill', 'SKILL.md')), 'foreign skill never touched');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('corrupt manifest entries can never escape the target directory', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-escape-'));
   const target = path.join(tmp, 'skills');

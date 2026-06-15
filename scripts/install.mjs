@@ -282,13 +282,20 @@ function safeSkillNames(names) {
   );
 }
 
+// Skill dirs an earlier CoalMine installed under a now-retired name. A very old
+// install (pre-rename / pre-manifest) leaves these behind: they are in neither the
+// manifest nor the current skill set, so the manifest sweep never reaches them and
+// an upgrade keeps showing the stale command. Swept on every install.
+// (rotcanary -> rot-canary, renamed in v3.0.0.)
+const RETIRED_SKILL_NAMES = ['rotcanary'];
+
 function cleanPreviousInstall(destDir, currentSkills) {
-  // Manifest list when present; pre-manifest installs fall back to current
-  // skill names (covers same-name upgrades only).
+  // Manifest list when present; pre-manifest installs fall back to current skill
+  // names (same-name upgrades). Retired names are swept regardless (see above).
   const previous = readManifest(destDir);
   const names = safeSkillNames(previous ? previous.skills : currentSkills);
   let cleaned = 0;
-  for (const s of names) {
+  for (const s of [...names, ...RETIRED_SKILL_NAMES]) {
     const dir = path.join(destDir, s);
     try {
       if (fs.existsSync(dir)) { fs.rmSync(dir, { recursive: true, force: true }); cleaned++; }
@@ -444,7 +451,7 @@ if (isUninstall) {
   // Manifest knows what was actually installed (incl. names from older
   // versions); fall back to current skill names for pre-manifest installs.
   const previous = readManifest(dest);
-  const removedCount = uninstallSkills(dest, safeSkillNames(previous ? previous.skills : skills));
+  const removedCount = uninstallSkills(dest, [...safeSkillNames(previous ? previous.skills : skills), ...RETIRED_SKILL_NAMES]);
   try { fs.rmSync(path.join(dest, MANIFEST_NAME), { force: true }); } catch {}
   uninstallConfig(targetKey);
   uninstallGitHooks();

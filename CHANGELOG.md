@@ -4,6 +4,9 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Fixed
+- **The installer sweeps a retired skill name even without a manifest.** A very old install (before the `rotcanary` -> `rot-canary` rename in v3.0.0, predating the install manifest) left the stale `rotcanary` skill dir behind on upgrade -- it was in neither the manifest nor the current set, so `cleanPreviousInstall` never reached it, and agents that read `.agents/skills` (e.g. Antigravity) kept listing a duplicate `/rotcanary` command. `cleanPreviousInstall` and uninstall now always sweep `RETIRED_SKILL_NAMES`.
+
 ## [3.7.3] — 2026-06-15
 
 A CodeQL/security hardening pass, the series-doctrine move to the org, and a CI cleanup.
