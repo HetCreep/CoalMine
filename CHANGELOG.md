@@ -4,6 +4,21 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.7.3] — 2026-06-15
+
+A CodeQL/security hardening pass, the series-doctrine move to the org, and a CI cleanup.
+
+### Changed
+- **The series doctrine moved to the org.** The Phoenix-13 (hooks-safety) and scripts-quality docs are now hosted canonically at [`TheColliery/.github`](https://github.com/TheColliery/.github) alongside DESIGN-PRINCIPLES, so the umbrella holds the whole constitution. CoalMine dropped its `docs/` copies; `SECURITY.md` links the Phoenix-13 doc at the org, and the doctrine-mirror gate now checks the two machine-local rule homes (a missing public copy was already tolerated).
+
+### Fixed
+- **CodeQL `security-and-quality` (`js/file-system-race`).** `install.mjs` (upsertConfig/uninstallConfig) and `configure.mjs` read-and-handle-ENOENT instead of existsSync-then-read/write; the `rot-canary-touch.js` tripwire does fstat+read on one file descriptor instead of statSync(path) then readFileSync(path) — still skipping large files before reading (Phoenix #3). All benign in context, but the read-and-handle idiom is cleaner. The remaining by-design findings are dismissed with documented reasons in the Security tab.
+- **markdownlint MD060.** markdownlint-cli2-action v23 ships markdownlint v0.40.0 with the new MD060 table-column-style rule; disabled it (compact tables are valid GFM).
+- **Detection benchmark dated.** The README states the eval run date (2026-06-13, skill v3.4.0) inline, not only behind a click-through to `eval/RESULTS.md`.
+
+### Security
+- **Workflow actions pinned to commit SHAs** (with a `# vX` comment), superseding the floating major tags; closes the OpenSSF Scorecard PinnedDependencies findings. Dependabot still tracks them.
+
 ## [3.7.2] — 2026-06-14
 
 ### Changed
