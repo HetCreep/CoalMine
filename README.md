@@ -8,11 +8,11 @@
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![SKILL.md](https://img.shields.io/badge/SKILL.md-open_standard_·_major_agents-success)
 ![skills](https://img.shields.io/badge/skills-9-success)
-![agents](https://img.shields.io/badge/works_with-major_agents_·_Claude_·_Cursor_·_Windsurf_·_more-informational)
+![agents](https://img.shields.io/badge/works_with-major_agents_·_Claude_·_Cursor_·_Windsurf-informational)
 
 [Design Principles](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md) · [Eval Results](https://github.com/TheColliery/.github/blob/main/benchmarks/CoalMine/RESULTS.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Releases](https://github.com/HetCreep/CoalMine/releases)
 
-**Part of [TheColliery](https://github.com/TheColliery)** — sibling: **[CoalTipple](https://github.com/TheColliery/CoalTipple)**, a model/effort router that delegates large/cheap work down to save tokens and escalates hard work up for quality.
+**Part of [TheColliery](https://github.com/TheColliery)** — Sibling of **[CoalTipple](https://github.com/TheColliery/CoalTipple)**.
 
 </div>
 
@@ -22,8 +22,8 @@
 
 | Skill Name | Catches | Run Mode |
 |---|---|---|
-| **`rot-canary`** | Dead code · hidden bugs · resource leaks · race conditions · silent failures · stale docs | **Auto + Manual** (runs on session end / manual trigger) |
-| **`gold-standard`** | Audits project completeness against world-class exemplars · FILL · ADOPT · CONFORM | **One-time** (triggered once, governs the session) |
+| **`rot-canary`** | Dead code, bugs, resource leaks, race conditions, silent failures, stale docs | **Auto + Manual** (runs on session end / manual trigger) |
+| **`gold-standard`** | Audits project completeness against world-class exemplars | **One-time** (triggered once, governs the session) |
 | **`source-grounding`** | Prevents AI hallucinations by forcing cross-source verification | **Always-on** (background rule for all chat sessions) |
 | **`supply-chain-audit`** | Audits dependency vulnerabilities, licenses, phone-home code, and build/CI security | **On-demand** (manually run when relevant) |
 | **`resilience-audit`** | Audits failure path handling (FMEA), rollbacks, retry limits, and idempotency | **On-demand** (manually run when relevant) |
@@ -32,13 +32,13 @@
 | **`scale-canary`** | Audits performance scaling issues, $O(N^2)$ loops, and duplicate (N+1) database queries | **On-demand** (manually run when relevant) |
 | **`drift-canary`** | Prevents contract and schema drift (API/database contract inconsistencies) | **On-demand** (manually run when relevant) |
 
-*Run Mode Explanations:*
-* 📌 **Always-on:** Operates implicitly in the chat background to verify facts and filter out AI hallucinations.
-* 🔄 **Auto + Manual:** Automatically scans affected files at session end via agent lifecycle hooks — auto-wired by the Claude Code plugin only. Manual wiring snippets for Copilot/Cursor/Gemini/Codex/Antigravity ship in [`platform-configs/hooks/`](platform-configs/hooks/). Elsewhere, trigger manually with `/rot-canary`.
-* ⚡ **One-time:** Triggered once to scan, audit, and fill project-local rules that bind the agent's behavior for the rest of the session.
-* 🎯 **On-demand:** Run manually when performing specific relevant tasks (e.g., adding packages, modifying database schemas) to conserve tokens and maintain agility.
+*Run Mode Details:*
+* 📌 **Always-on:** Runs implicitly in the background to verify facts.
+* 🔄 **Auto + Manual:** Scans affected files at session end via lifecycle hooks (auto-wired in Claude Code; manual snippets in [`platform-configs/hooks/`](platform-configs/hooks/) for other agents). Manual trigger via `/rot-canary`.
+* ⚡ **One-time:** Governs the session by scanning and filling project-local rules.
+* 🎯 **On-demand:** Manually run for specific tasks to conserve tokens.
 
-*All canaries are designed around the principles of **grounding in evidence · zero grade inflation · report before fixing**. Code changes are made only upon explicit approval via the choices menu using a safe loop: `Create checkpoint (stash/commit) → Apply safe fix → Run build + tests → Auto-revert if tests fail`.*
+*Canaries follow **grounding in evidence, zero grade inflation, and report before fixing**. Fixes apply through a safe loop: `Stash/Commit -> Apply fix -> Run build+tests -> Auto-revert if tests fail`.*
 
 ---
 
@@ -48,7 +48,7 @@
 
 | AI Agent | Target Skills Folder | Installation Shortcut | Choice Tool Support |
 |---|---|---|---|
-| **Claude Code** | plugin cache (recommended) or `~/.claude/skills/` via installer | `/plugin install coalmine@coalmine` | ✅ **Native:** `AskUserQuestion` |
+| **Claude Code** | plugin cache (recommended) or `~/.claude/skills/` | `/plugin install coalmine@coalmine` | ✅ **Native:** `AskUserQuestion` |
 | **Antigravity** | `.agents/skills/` | `node scripts/install.mjs antigravity` | ✅ **Native:** built-in question prompt |
 | **Cursor** | `.cursor/skills/` | `node scripts/install.mjs cursor` | ✅ **Native:** built-in ask-question tool |
 | **Windsurf** | `.windsurf/skills/` | `node scripts/install.mjs windsurf` | ✅ **Native:** `suggested_responses` |
@@ -60,142 +60,105 @@
 | **Junie** | `.junie/skills/` | `node scripts/install.mjs junie` | ⚠️ **Text Fallback:** tool not documented |
 | **Codex** | `.agents/skills/` | `node scripts/install.mjs codex` | ✅ **Native:** `request_user_input` |
 
-*Skill paths verified against vendor docs (Jun 2026). `SKILL.md` follows the cross-vendor [Agent Skills spec](https://agentskills.io/specification); most agents read the shared `.agents/skills/` convention; **Cline** reads `.claude/skills/` (not `.agents/`) and **Junie** only `.junie/skills/`; Copilot, Cursor, and Windsurf read both. Frontmatter quirks: Junie requires only `name`, Antigravity requires `description` — CoalMine ships both, satisfying every variant.*
-
-**Agent not in the table?** It very likely already works via the shared `.agents/skills/` or `.claude/skills/` convention — [open a platform report](https://github.com/HetCreep/CoalMine/issues/new?template=platform-report.yml) (choose "Other") so we can confirm and pin it. We support the majors directly and field-fix the long tail.
+*Skill paths follow the cross-vendor [Agent Skills spec](https://agentskills.io/specification). Cline reads `.claude/skills/`, Junie reads `.junie/skills/`, others use `.agents/skills/`.*
 
 ### What ports where
 
 | Part | Portable? |
 |---|---|
-| The 9 skills (the audits) | ✅ all targets natively via the Agent Skills spec |
-| Interactive choice menus (`ask_question`) | ✅ native question tools on most agents (see table); text fallback on Goose/Amp/Junie |
-| Sub-agent fan-out + tiers | ✅ on any host with a sub-agent system; inline otherwise |
-| rot-canary **auto-cadence** | ✅ auto-wired on Claude Code (plugin) · 🔧 manual snippets in [`platform-configs/hooks/`](platform-configs/hooks/) for Copilot, Cursor, Gemini CLI, Codex, Antigravity · ⛔ no stop event on Cline/Junie — run manually |
+| The 9 skills (the audits) | ✅ All targets natively via Agent Skills spec |
+| Interactive choice menus (`ask_question`) | ✅ Native question tools on most agents; text fallback on Goose/Amp/Junie |
+| Sub-agent fan-out + tiers | ✅ Supported if host has sub-agent system; inline fallback |
+| rot-canary **auto-cadence** | ✅ Auto-wired on Claude Code; 🔧 manual snippets in [`platform-configs/hooks/`](platform-configs/hooks/) for other major agents; ⛔ unsupported on Cline/Junie |
 
-**Fallback for agents without skill discovery:** copy a **conformed** skill body — from [`plugin/skills/<name>/SKILL.md`](plugin/skills/) or an installed target, **never** from `skills/` (those are templates with unresolved `<!-- SHARED:* -->` markers) — into the agent's rules file / `AGENTS.md`, and strip the YAML frontmatter.
+**Manual Fallback:** Copy conformed skill body from [`plugin/skills/<name>/SKILL.md`](plugin/skills/) (strip YAML frontmatter) into `AGENTS.md` / rules file.
 
 ---
 
 ## 🚀 Installation & Verification
 
-### Option A — Claude Code Plugin Marketplace (no clone needed)
+### Option A — Claude Code Plugin (No clone needed)
 ```text
 /plugin marketplace add HetCreep/CoalMine
 /plugin install coalmine@coalmine
 ```
-The marketplace serves the committed [`plugin/`](plugin/) dist — the **same conformed skills** `install.mjs` produces (shared sections fully injected), plus the rot-canary auto-cadence hooks wired automatically.
 
-> 🔧 **Maintainers:** `plugin/` is generated output — never hand-edit it. After changing `skills/`, `skills/_shared/`, `hooks/`, or `.claude-plugin/plugin.json`, run `node scripts/build-plugin.mjs`. The `verify.mjs` gate (run by the pre-commit/pre-push hooks) FAILs while the dist is stale or a cross-document fact drifts — canary count vs `skills/`, agent count vs `scripts/lib/targets.mjs`. For the full self-consistency pass (doctrine mirrors and stamp shapes in the machine-local rule home included), run `node scripts/consistency.mjs`.
+> 🔧 **Maintainers:** `plugin/` is generated output. After edits in `skills/`, `skills/_shared/`, `hooks/`, or `.claude-plugin/plugin.json`, run `node scripts/build-plugin.mjs`.
 
-### Option A2 — skills.sh (any agent, one line)
+### Option A2 — skills.sh (One line)
 ```bash
 npx skills add HetCreep/CoalMine
 ```
 
-### Option B — Universal Installer (every supported agent)
+### Option B — Universal Installer
 
 #### 1. Clone the Repository
 ```bash
 git clone https://github.com/HetCreep/CoalMine.git
 ```
 
-#### 2. Land the Skills in Your Agent's Workspace
-Run the installer **from YOUR project's root directory** (project-scoped targets resolve against the current directory — running it inside the CoalMine clone would install into the clone itself). Provide your target agent name (from the table above) or a custom folder path:
+#### 2. Run the Installer
+Run from **your project's root folder** (not inside the CoalMine clone):
 ```bash
 cd /path/to/your-project
-node /path/to/CoalMine/scripts/install.mjs <agent|PATH>
+node /path/to/CoalMine/scripts/install.mjs <agent|all|PATH>
 ```
-*Example (Google Antigravity):*
-```bash
-node ../CoalMine/scripts/install.mjs antigravity
-```
+* `all` auto-detects and installs to all configured agents in the directory.
+* The installer sets up pre-commit/pre-push gates in `.git/hooks`, writes trigger rules, and generates `.coalmine.json` config.
 
-*Use more than one agent in this repo? Cover them all in one shot:*
-```bash
-node ../CoalMine/scripts/install.mjs all
-```
-`all` auto-detects each agent already configured in your project (by its `.cursor/`, `.agents/`, `.github/`, `.gemini/`, `.junie/` marker) and installs **only** to the ones present — no stray folders for agents you don't use — then prints what it detected and skipped. Claude Code and Cline (both rooted at `.claude/`) are left out of `all` to avoid doubling a plugin install; run them by name. An agent it doesn't know yet? [Open a platform report](https://github.com/HetCreep/CoalMine/issues/new?template=platform-report.yml) and we'll pin it.
-
-The installer also writes a CoalMine pre-commit/pre-push gate into your project's `.git/hooks` (any existing non-CoalMine hook is backed up once as `<hook>.pre-coalmine`; `--uninstall` restores it). It drops your platform's trigger rule (e.g. `.agents/rules/coalmine-trigger.md`, `.cursor/rules/coalmine-trigger.mdc`) and — if none exists yet — a factory-default `.coalmine.json` (fully commented; edit it to disable canaries, set a default tier, or change language).
-
-Upgrades are clean by design: each install writes a `.coalmine-manifest.json` at the target and the next install removes exactly that set first — renamed or retired skills never leave stale copies, and skills from other tools in the same folder are never touched.
-
-#### 3. Verify Installation
-From the same directory, verify that all 9 skills landed without unresolved template markers:
-```bash
-node /path/to/CoalMine/scripts/verify.mjs <agent|PATH>
-```
-
-#### 4. Uninstallation / Cleanup
-To cleanly remove installed skills, clear platform trigger configurations, and restore backed-up git hooks:
-```bash
-node scripts/install.mjs --uninstall <agent|PATH>
-```
-*Example (Google Antigravity):*
-```bash
-node scripts/install.mjs --uninstall antigravity
-```
-
-#### 5. Manual Fallback (If Skill Discovery is Unsupported)
-If your agent does not support auto-discovery of skills, copy the body of the conformed `SKILL.md` (excluding the YAML frontmatter) directly into your workspace rules file (e.g., `.cursorrules`, `.windsurfrules`, `.clinerules`, or `AGENTS.md`).
+#### 3. Verify & Uninstall
+* **Verify:** `node /path/to/CoalMine/scripts/verify.mjs <agent|PATH>`
+* **Uninstall:** `node scripts/install.mjs --uninstall <agent|PATH>`
 
 ---
 
 ## 🔋 One button: install — the suite drives itself
 
-You memorize nothing. Installing is the power button; from there the agent conducts the canaries and asks before anything costs you tokens:
+Installing is the power button. The agent conducts the canaries and asks for consent before running expensive tasks:
 
 | What | When it fires | Your part |
 |---|---|---|
-| **gold-standard** | Offered once when a project has no golden rules yet, and again whenever a rule's `revalidate` date passes | Pick Run now / Queue / Skip |
-| **rot-canary** | Auto-scans every session's touched files at session end (QUICK, capped); findings end with a fix menu | Pick a fix option — nothing is changed without one |
-| **The 6 specialists** | Offered the moment your conversation enters their domain (deps → supply-chain, schema → drift, async → resilience, loops → scale, tests → testability, logging → telemetry) | Accept or skip |
-| **source-grounding** | Standing rule — version-sensitive facts get verified against live sources during any canary run | — |
+| **gold-standard** | Offered once on new projects, and again when a rule's `revalidate` date passes | Run now / Queue / Skip |
+| **rot-canary** | Auto-scans touched files at session end (QUICK); findings end with a fix menu | Choose a fix option |
+| **Specialists** | Offered when conversation enters their domain (deps, schemas, async, loops, etc.) | Accept / Skip |
+| **source-grounding** | Always-on background fact verification | — |
 
-Consent rule (Design Principle 4): nothing expensive ever runs silently — it is offered via your agent's question tool, or covered by the standing auto-scan consent you gave by installing (revocable: `.coalmine.json`, `~/.claude/.rot-canary-off`, or `--uninstall`).
+*Consent Rule:* Nothing expensive runs silently. Revocable via `.coalmine.json`, `~/.claude/.rot-canary-off`, or `--uninstall`.
 
 ---
 
 ## 🛡️ Work Execution Gate & Haldane Safety
 
-1. **Work Execution Gate (Agent Context only):**
-   Before initiating significant tasks, the agent will present an interactive choices menu (or a text-based list if not supported) for confirmation:
-   * **ทำทันที / Do now** — Assess scope, recommend tier, and execute immediately (spawning sub-agents if supported and warranted).
-   * **เก็บเข้าแผนงาน / Add to plan** — Queue the task in `task.md` (no tier selected yet) and continue the conversation.
-   * **ดูแผนงานทั้งหมด / View full plan** — Display all queued tasks as a table, recommend tiers, adjust selections, and run them.
+1. **Work Execution Gate:** Before starting a task, the agent presents a confirm menu:
+   * **ทำทันที / Do now** — Assess scope, recommend tier, and execute.
+   * **เก็บเข้าแผนงาน / Add to plan** — Queue in `task.md`.
+   * **ดูแผนงานทั้งหมด / View full plan** — View queued tasks, adjust tiers, and run.
 2. **Haldane Safety Protocol (for sub-agents):**
-   * Files actively being edited by sub-agents are marked `[/] in-flight` in `task.md` to prevent write collisions.
-   * **Switching Topics:** If the conversation drifts toward topics affecting in-flight files, the agent will warn the user first. To discuss a new topic safely, queue the work (`task.md` -> Add to plan) and continue discussing in the main thread.
-3. **Proactive Suggestions:**
-   * The agent monitors chat context. If a change matches one of the 6 On-demand canaries (e.g., adding a package, updating a database schema), the agent will proactively trigger the `ask_question` tool to offer a canary run, rather than typing plain-text questions.
+   * Active files edited by sub-agents are marked `[/] in-flight` in `task.md` to prevent collisions.
+   * If conversation shifts to topics affecting in-flight files, the agent warns you first.
+3. **Proactive Suggestions:** The agent automatically offers canary runs via `ask_question` when relevant changes (e.g., adding a package) are detected.
 
 ---
 
 ## ⚙️ Configuration (.coalmine.json)
 
-CoalMine adapts dynamically to the developer's skill level and preferences:
-* **For General Users (Zero-Config / "ชาวบ้าน"):** The installer automatically generates a ready-made `.coalmine.json` file at the root of the project pre-configured with safe, token-optimal, and secure gold-standard defaults, meaning they can run it out of the box with zero effort.
-* **For Programmers (Advanced Overrides):** The automatically generated `.coalmine.json` file contains inline descriptive comments explaining every key, type, and default value. Programmers can directly modify this file (manually or via the Agent) or run the configurator tool to adjust settings as they like.
+* **General Users (Zero-Config):** Automatically generated `.coalmine.json` pre-configured with safe, token-optimal defaults.
+* **Programmers (Overrides):** Inline comments document every key. Run the configurator tool or edit manually.
 
 ### Configuration Schema
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `language` | String | `auto` | Override heuristic language detection (`en` \| `th` \| `ja` \| `zh` \| `es`) |
-| `defaultTier` | String | `auto` | Force an execution tier for every canary run (`Light` \| `Standard` \| `Heavy`) |
-| `autoScanFileCap` | Number | `10` | Maximum touched files allowed to scan automatically at session end before capping |
-| `tripwireMaxFileSizeKb` | Number | `100` | Size limit in KB for files analyzed by editor tripwire checks (e.g. merge conflict smells) |
-| `enableConductor` | Boolean | `true` | Set to `false` to disable rules injection on Session Start (legacy alias: `conductor`) |
-| `disabledCanaries` | Array of Strings | `[]` | Canaries to disable (e.g. `["rot-canary", "drift-canary"]` or `["all"]`; legacy alias: `disable`) |
-
-The generated `.coalmine.json` documents the **full schema** — every key, grouped and commented (see `platform-configs/.coalmine.json`); `scripts/verify.mjs` validates keys and types.
+| `language` | String | `auto` | Override language detection (`en` \| `th` \| `ja` \| `zh` \| `es`) |
+| `defaultTier` | String | `auto` | Force execution tier (`Light` \| `Standard` \| `Heavy`) |
+| `autoScanFileCap` | Number | `10` | Maximum touched files to scan at session end |
+| `tripwireMaxFileSizeKb` | Number | `100` | Size limit in KB for editor conflict checks |
+| `enableConductor` | Boolean | `true` | Set false to disable rules injection on Session Start |
+| `disabledCanaries` | Array | `[]` | Canaries to disable (e.g. `["rot-canary"]` or `["all"]`) |
 
 ### Configurator Utility
-
-Programmers can easily view, write, and update `.coalmine.json` configurations using the built-in utility script:
 ```bash
-# Set language override to Thai and file cap limit to 15
+# Set language and cap limit
 node scripts/configure.mjs --language th --file-cap 15
 
 # Disable specific canaries
@@ -206,44 +169,40 @@ node scripts/configure.mjs --disable rot-canary,drift-canary
 
 ## 📝 Ultra-Short Summary Format
 
-To prevent alert fatigue and conserve token budget, every canary reports in the same lean shape (defined in each skill's Output section): a one-line verdict, then a severity table of CONFIRMED findings only — no conversational filler.
-
+Canaries report in a lean shape (one-line verdict + severity table of confirmed findings) to save tokens:
 ```text
 | # | path:line | category | severity | finding | evidence |
 ```
-
-Clean scan = one line ("nothing material found"). Severity scale everywhere: CRITICAL · HIGH · MEDIUM · LOW.
+*Severity levels:* CRITICAL · HIGH · MEDIUM · LOW. Clean scan outputs a single line.
 
 ---
 
 ## ⚡ Escalation Tiers
 
-Canaries offer flexible execution tiers based on work complexity to optimize token usage:
-
-| Tier | Trigger Condition | Orchestration | Token Cost |
+| Tier | Trigger | Orchestration | Token Cost |
 |---|---|---|---|
-| **Light** | Small scope / targeted review | Run by the primary agent, quick and lightweight | Very Low 🟢 |
-| **Standard** | Moderate scope / module review | Multi-threaded task routing and detailed verification | Moderate 🟡 |
-| **Heavy** | Large scope / whole-repo / release prep | Full sub-agent fan-out and deep code-path verification | High 🔴 |
+| **Light** | Small scope / targeted review | Primary agent, quick | Very Low 🟢 |
+| **Standard** | Moderate scope / module review | Multi-threaded routing, detailed | Moderate 🟡 |
+| **Heavy** | Large scope / release prep | Sub-agent fan-out, deep paths | High 🔴 |
 
 ---
 
 ## 📊 Measured detection quality
 
-"Antivirus-grade" needs a number, not an adjective — so CoalMine ships an AV-Comparatives-style [eval harness](https://github.com/TheColliery/.github/blob/main/benchmarks/CoalMine/README.md): fixtures with **planted, line-labeled defects** plus **clean decoys**, scored mechanically (no judgment calls at scoring time).
+AV-Comparatives-style [eval harness](https://github.com/TheColliery/.github/blob/main/benchmarks/CoalMine/README.md) results scored mechanically over 16 fixtures:
 
-| Canary | Engine | Recall | Precision | Decoy false-positives | Severity accuracy |
+| Canary | Engine | Recall | Precision | Decoy FPs | Severity accuracy |
 |---|---|---|---|---|---|
-| `rot-canary` | claude-fable-5 (author baseline) | **100%** (13/13) | **100%** | **0**/4 | 13/13 |
-| `rot-canary` | Antigravity (independent, blind) | **100%** (13/13) | **100%** | **0**/4 | 12/13 |
+| `rot-canary` | `claude-fable-5` (Baseline) | **100%** (13/13) | **100%** | **0**/4 | 13/13 |
+| `rot-canary` | `Antigravity` (Blind) | **100%** (13/13) | **100%** | **0**/4 | 12/13 |
 
-Corpus: 16 fixtures · 7 categories. **Measured 2026-06-13** (skill v3.4.0; re-run due on the current skill). Scored runs: [RESULTS.md](https://github.com/TheColliery/.github/blob/main/benchmarks/CoalMine/RESULTS.md) (model- and skill-version-stamped — re-run on any model or skill change to catch regressions). The two engines' sole disagreement was one severity grade — detection was identical.
+*Measured 2026-06-13 (v3.4.0). Detailed log: [RESULTS.md](https://github.com/TheColliery/.github/blob/main/benchmarks/CoalMine/RESULTS.md).*
 
 ---
 
 ## 🧭 Design Principles
 
-Every component is bound by the 11 principles of the [Quantum Computer Spec](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md) — maximum performance, zero visible errors, single-brand internals, minimum power, essential accessories only, error correction, determinism, isolation, trustworthiness, and entanglement.
+Bound by the 11 principles of the [Quantum Computer Spec](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md): maximum performance, zero visible errors, single-brand, minimum power, essential accessories, error correction, determinism, isolation, trustworthiness, and entanglement.
 
 ---
 
