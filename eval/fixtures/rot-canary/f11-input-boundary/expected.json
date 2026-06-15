@@ -1,3 +1,0 @@
-{ "findings": [
-  { "file": "src/files.js", "line": 6, "category": "input-boundary", "severity": "CRITICAL", "note": "user-controlled name joined into the path unsanitized - ../ escapes the uploads root" }
-] }

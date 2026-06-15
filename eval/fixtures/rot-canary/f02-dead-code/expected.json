@@ -1,3 +1,0 @@
-{ "findings": [
-  { "file": "src/util.js", "line": 5, "category": "dead-code", "severity": "MEDIUM", "note": "titleCase exported but no consumer in the codebase" }
-] }

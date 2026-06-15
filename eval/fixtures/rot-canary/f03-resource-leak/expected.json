@@ -1,3 +1,0 @@
-{ "findings": [
-  { "file": "src/poller.js", "line": 10, "category": "resource-leak", "severity": "HIGH", "note": "stop() never clears the interval - timer keeps firing forever" }
-] }

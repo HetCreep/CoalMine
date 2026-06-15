@@ -1,3 +1,0 @@
-{ "findings": [
-  { "file": "src/totals.js", "line": 7, "category": "concurrency", "severity": "HIGH", "note": "forEach(async) is not awaited - addAll returns before any callback updates total" }
-] }

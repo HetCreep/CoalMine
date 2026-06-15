@@ -1,4 +1,0 @@
-{ "findings": [
-  { "file": "src/report.js", "line": 5, "category": "dead-code", "severity": "MEDIUM", "note": "legacyCsvExport defined but never called or exported" },
-  { "file": "src/report.js", "line": 11, "category": "dead-code", "severity": "MEDIUM", "note": "unreachable statement after return" }
-] }

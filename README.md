@@ -10,7 +10,7 @@
 ![skills](https://img.shields.io/badge/skills-9-success)
 ![agents](https://img.shields.io/badge/works_with-major_agents_·_Claude_·_Cursor_·_Windsurf_·_more-informational)
 
-[Design Principles](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md) · [Eval Results](eval/RESULTS.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Releases](https://github.com/HetCreep/CoalMine/releases)
+[Design Principles](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md) · [Eval Results](https://github.com/TheColliery/.github/blob/main/benchmarks/CoalMine/RESULTS.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Releases](https://github.com/HetCreep/CoalMine/releases)
 
 **Part of [TheColliery](https://github.com/TheColliery)** — sibling: **[CoalTipple](https://github.com/TheColliery/CoalTipple)**, a model/effort router that delegates large/cheap work down to save tokens and escalates hard work up for quality.
 
@@ -128,14 +128,14 @@ node scripts/configure.mjs --disable rot-canary,drift-canary
 
 ## 📊 Measured detection quality
 
-"Antivirus-grade" needs a number, not an adjective — so CoalMine ships an AV-Comparatives-style [eval harness](eval/README.md): fixtures with **planted, line-labeled defects** plus **clean decoys**, scored mechanically (no judgment calls at scoring time).
+"Antivirus-grade" needs a number, not an adjective — so CoalMine ships an AV-Comparatives-style [eval harness](https://github.com/TheColliery/.github/blob/main/benchmarks/CoalMine/README.md): fixtures with **planted, line-labeled defects** plus **clean decoys**, scored mechanically (no judgment calls at scoring time).
 
 | Canary | Engine | Recall | Precision | Decoy false-positives | Severity accuracy |
 |---|---|---|---|---|---|
 | `rot-canary` | claude-fable-5 (author baseline) | **100%** (13/13) | **100%** | **0**/4 | 13/13 |
 | `rot-canary` | Antigravity (independent, blind) | **100%** (13/13) | **100%** | **0**/4 | 12/13 |
 
-Corpus: 16 fixtures · 7 categories. **Measured 2026-06-13** (skill v3.4.0; re-run due on the current skill). Scored runs: [eval/RESULTS.md](eval/RESULTS.md) (model- and skill-version-stamped — re-run on any model or skill change to catch regressions). The two engines' sole disagreement was one severity grade — detection was identical.
+Corpus: 16 fixtures · 7 categories. **Measured 2026-06-13** (skill v3.4.0; re-run due on the current skill). Scored runs: [RESULTS.md](https://github.com/TheColliery/.github/blob/main/benchmarks/CoalMine/RESULTS.md) (model- and skill-version-stamped — re-run on any model or skill change to catch regressions). The two engines' sole disagreement was one severity grade — detection was identical.
 
 ---
 

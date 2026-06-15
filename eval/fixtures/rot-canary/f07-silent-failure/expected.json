@@ -1,3 +1,0 @@
-{ "findings": [
-  { "file": "src/settings.js", "line": 7, "category": "silent-failure", "severity": "HIGH", "note": "write error swallowed and the function still reports success" }
-] }
