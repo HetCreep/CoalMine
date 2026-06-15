@@ -15,7 +15,7 @@ To report a security issue in a canary, hook, or installer:
 ## 🔑 Commit & Tag Signatures
 
 All commits and release tags are SSH-signed (`gpg.format=ssh`). Maintainer signing key:
-```
+```text
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEtqTWGKhX1Dk9nZP8ns13Wl5zsO1Cz3VlTS6m1p2fP9 HetCreep git signing key
 ```
 
