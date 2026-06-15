@@ -6,6 +6,11 @@ on:
     - cron: '0 6 * * 2'
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'LICENSE'
+      - 'profile/**'
+      - '.github/profile/**'
 
 permissions:
   contents: read
