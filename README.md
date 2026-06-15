@@ -42,103 +42,6 @@
 
 ---
 
-## 🔋 One button: install — the suite drives itself
-
-You memorize nothing. Installing is the power button; from there the agent conducts the canaries and asks before anything costs you tokens:
-
-| What | When it fires | Your part |
-|---|---|---|
-| **gold-standard** | Offered once when a project has no golden rules yet, and again whenever a rule's `revalidate` date passes | Pick Run now / Queue / Skip |
-| **rot-canary** | Auto-scans every session's touched files at session end (QUICK, capped); findings end with a fix menu | Pick a fix option — nothing is changed without one |
-| **The 6 specialists** | Offered the moment your conversation enters their domain (deps → supply-chain, schema → drift, async → resilience, loops → scale, tests → testability, logging → telemetry) | Accept or skip |
-| **source-grounding** | Standing rule — version-sensitive facts get verified against live sources during any canary run | — |
-
-Consent rule (Design Principle 4): nothing expensive ever runs silently — it is offered via your agent's question tool, or covered by the standing auto-scan consent you gave by installing (revocable: `.coalmine.json`, `~/.claude/.rot-canary-off`, or `--uninstall`).
-
----
-
-## 📝 Ultra-Short Summary Format
-
-To prevent alert fatigue and conserve token budget, every canary reports in the same lean shape (defined in each skill's Output section): a one-line verdict, then a severity table of CONFIRMED findings only — no conversational filler.
-
-```text
-| # | path:line | category | severity | finding | evidence |
-```
-
-Clean scan = one line ("nothing material found"). Severity scale everywhere: CRITICAL · HIGH · MEDIUM · LOW.
-
----
-
-## ⚡ Escalation Tiers
-
-Canaries offer flexible execution tiers based on work complexity to optimize token usage:
-
-| Tier | Trigger Condition | Orchestration | Token Cost |
-|---|---|---|---|
-| **Light** | Small scope / targeted review | Run by the primary agent, quick and lightweight | Very Low 🟢 |
-| **Standard** | Moderate scope / module review | Multi-threaded task routing and detailed verification | Moderate 🟡 |
-| **Heavy** | Large scope / whole-repo / release prep | Full sub-agent fan-out and deep code-path verification | High 🔴 |
-
----
-
-## 🛡️ Work Execution Gate & Haldane Safety
-
-1. **Work Execution Gate (Agent Context only):**
-   Before initiating significant tasks, the agent will present an interactive choices menu (or a text-based list if not supported) for confirmation:
-   * **ทำทันที / Do now** — Assess scope, recommend tier, and execute immediately (spawning sub-agents if supported and warranted).
-   * **เก็บเข้าแผนงาน / Add to plan** — Queue the task in `task.md` (no tier selected yet) and continue the conversation.
-   * **ดูแผนงานทั้งหมด / View full plan** — Display all queued tasks as a table, recommend tiers, adjust selections, and run them.
-2. **Haldane Safety Protocol (for sub-agents):**
-   * Files actively being edited by sub-agents are marked `[/] in-flight` in `task.md` to prevent write collisions.
-   * **Switching Topics:** If the conversation drifts toward topics affecting in-flight files, the agent will warn the user first. To discuss a new topic safely, queue the work (`task.md` -> Add to plan) and continue discussing in the main thread.
-3. **Proactive Suggestions:**
-   * The agent monitors chat context. If a change matches one of the 6 On-demand canaries (e.g., adding a package, updating a database schema), the agent will proactively trigger the `ask_question` tool to offer a canary run, rather than typing plain-text questions.
-
-## ⚙️ Configuration (.coalmine.json)
-
-CoalMine adapts dynamically to the developer's skill level and preferences:
-* **For General Users (Zero-Config / "ชาวบ้าน"):** The installer automatically generates a ready-made `.coalmine.json` file at the root of the project pre-configured with safe, token-optimal, and secure gold-standard defaults, meaning they can run it out of the box with zero effort.
-* **For Programmers (Advanced Overrides):** The automatically generated `.coalmine.json` file contains inline descriptive comments explaining every key, type, and default value. Programmers can directly modify this file (manually or via the Agent) or run the configurator tool to adjust settings as they like.
-
-### Configuration Schema
-
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `language` | String | `auto` | Override heuristic language detection (`en` \| `th` \| `ja` \| `zh` \| `es`) |
-| `defaultTier` | String | `auto` | Force an execution tier for every canary run (`Light` \| `Standard` \| `Heavy`) |
-| `autoScanFileCap` | Number | `10` | Maximum touched files allowed to scan automatically at session end before capping |
-| `tripwireMaxFileSizeKb` | Number | `100` | Size limit in KB for files analyzed by editor tripwire checks (e.g. merge conflict smells) |
-| `enableConductor` | Boolean | `true` | Set to `false` to disable rules injection on Session Start (legacy alias: `conductor`) |
-| `disabledCanaries` | Array of Strings | `[]` | Canaries to disable (e.g. `["rot-canary", "drift-canary"]` or `["all"]`; legacy alias: `disable`) |
-
-The generated `.coalmine.json` documents the **full schema** — every key, grouped and commented (see `platform-configs/.coalmine.json`); `scripts/verify.mjs` validates keys and types.
-
-### Configurator Utility
-
-Programmers can easily view, write, and update `.coalmine.json` configurations using the built-in utility script:
-```bash
-# Set language override to Thai and file cap limit to 15
-node scripts/configure.mjs --language th --file-cap 15
-
-# Disable specific canaries
-node scripts/configure.mjs --disable rot-canary,drift-canary
-```
-
----
-
-## 📊 Measured detection quality
-
-"Antivirus-grade" needs a number, not an adjective — so CoalMine ships an AV-Comparatives-style [eval harness](https://github.com/TheColliery/.github/blob/main/benchmarks/CoalMine/README.md): fixtures with **planted, line-labeled defects** plus **clean decoys**, scored mechanically (no judgment calls at scoring time).
-
-| Canary | Engine | Recall | Precision | Decoy false-positives | Severity accuracy |
-|---|---|---|---|---|---|
-| `rot-canary` | claude-fable-5 (author baseline) | **100%** (13/13) | **100%** | **0**/4 | 13/13 |
-| `rot-canary` | Antigravity (independent, blind) | **100%** (13/13) | **100%** | **0**/4 | 12/13 |
-
-Corpus: 16 fixtures · 7 categories. **Measured 2026-06-13** (skill v3.4.0; re-run due on the current skill). Scored runs: [RESULTS.md](https://github.com/TheColliery/.github/blob/main/benchmarks/CoalMine/RESULTS.md) (model- and skill-version-stamped — re-run on any model or skill change to catch regressions). The two engines' sole disagreement was one severity grade — detection was identical.
-
----
-
 ## 🔌 Universal Agent Support
 
 `SKILL.md` is an **open standard** compatible with all major AI coding agents:
@@ -239,9 +142,110 @@ If your agent does not support auto-discovery of skills, copy the body of the co
 
 ---
 
+## 🔋 One button: install — the suite drives itself
+
+You memorize nothing. Installing is the power button; from there the agent conducts the canaries and asks before anything costs you tokens:
+
+| What | When it fires | Your part |
+|---|---|---|
+| **gold-standard** | Offered once when a project has no golden rules yet, and again whenever a rule's `revalidate` date passes | Pick Run now / Queue / Skip |
+| **rot-canary** | Auto-scans every session's touched files at session end (QUICK, capped); findings end with a fix menu | Pick a fix option — nothing is changed without one |
+| **The 6 specialists** | Offered the moment your conversation enters their domain (deps → supply-chain, schema → drift, async → resilience, loops → scale, tests → testability, logging → telemetry) | Accept or skip |
+| **source-grounding** | Standing rule — version-sensitive facts get verified against live sources during any canary run | — |
+
+Consent rule (Design Principle 4): nothing expensive ever runs silently — it is offered via your agent's question tool, or covered by the standing auto-scan consent you gave by installing (revocable: `.coalmine.json`, `~/.claude/.rot-canary-off`, or `--uninstall`).
+
+---
+
+## 🛡️ Work Execution Gate & Haldane Safety
+
+1. **Work Execution Gate (Agent Context only):**
+   Before initiating significant tasks, the agent will present an interactive choices menu (or a text-based list if not supported) for confirmation:
+   * **ทำทันที / Do now** — Assess scope, recommend tier, and execute immediately (spawning sub-agents if supported and warranted).
+   * **เก็บเข้าแผนงาน / Add to plan** — Queue the task in `task.md` (no tier selected yet) and continue the conversation.
+   * **ดูแผนงานทั้งหมด / View full plan** — Display all queued tasks as a table, recommend tiers, adjust selections, and run them.
+2. **Haldane Safety Protocol (for sub-agents):**
+   * Files actively being edited by sub-agents are marked `[/] in-flight` in `task.md` to prevent write collisions.
+   * **Switching Topics:** If the conversation drifts toward topics affecting in-flight files, the agent will warn the user first. To discuss a new topic safely, queue the work (`task.md` -> Add to plan) and continue discussing in the main thread.
+3. **Proactive Suggestions:**
+   * The agent monitors chat context. If a change matches one of the 6 On-demand canaries (e.g., adding a package, updating a database schema), the agent will proactively trigger the `ask_question` tool to offer a canary run, rather than typing plain-text questions.
+
+---
+
+## ⚙️ Configuration (.coalmine.json)
+
+CoalMine adapts dynamically to the developer's skill level and preferences:
+* **For General Users (Zero-Config / "ชาวบ้าน"):** The installer automatically generates a ready-made `.coalmine.json` file at the root of the project pre-configured with safe, token-optimal, and secure gold-standard defaults, meaning they can run it out of the box with zero effort.
+* **For Programmers (Advanced Overrides):** The automatically generated `.coalmine.json` file contains inline descriptive comments explaining every key, type, and default value. Programmers can directly modify this file (manually or via the Agent) or run the configurator tool to adjust settings as they like.
+
+### Configuration Schema
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `language` | String | `auto` | Override heuristic language detection (`en` \| `th` \| `ja` \| `zh` \| `es`) |
+| `defaultTier` | String | `auto` | Force an execution tier for every canary run (`Light` \| `Standard` \| `Heavy`) |
+| `autoScanFileCap` | Number | `10` | Maximum touched files allowed to scan automatically at session end before capping |
+| `tripwireMaxFileSizeKb` | Number | `100` | Size limit in KB for files analyzed by editor tripwire checks (e.g. merge conflict smells) |
+| `enableConductor` | Boolean | `true` | Set to `false` to disable rules injection on Session Start (legacy alias: `conductor`) |
+| `disabledCanaries` | Array of Strings | `[]` | Canaries to disable (e.g. `["rot-canary", "drift-canary"]` or `["all"]`; legacy alias: `disable`) |
+
+The generated `.coalmine.json` documents the **full schema** — every key, grouped and commented (see `platform-configs/.coalmine.json`); `scripts/verify.mjs` validates keys and types.
+
+### Configurator Utility
+
+Programmers can easily view, write, and update `.coalmine.json` configurations using the built-in utility script:
+```bash
+# Set language override to Thai and file cap limit to 15
+node scripts/configure.mjs --language th --file-cap 15
+
+# Disable specific canaries
+node scripts/configure.mjs --disable rot-canary,drift-canary
+```
+
+---
+
+## 📝 Ultra-Short Summary Format
+
+To prevent alert fatigue and conserve token budget, every canary reports in the same lean shape (defined in each skill's Output section): a one-line verdict, then a severity table of CONFIRMED findings only — no conversational filler.
+
+```text
+| # | path:line | category | severity | finding | evidence |
+```
+
+Clean scan = one line ("nothing material found"). Severity scale everywhere: CRITICAL · HIGH · MEDIUM · LOW.
+
+---
+
+## ⚡ Escalation Tiers
+
+Canaries offer flexible execution tiers based on work complexity to optimize token usage:
+
+| Tier | Trigger Condition | Orchestration | Token Cost |
+|---|---|---|---|
+| **Light** | Small scope / targeted review | Run by the primary agent, quick and lightweight | Very Low 🟢 |
+| **Standard** | Moderate scope / module review | Multi-threaded task routing and detailed verification | Moderate 🟡 |
+| **Heavy** | Large scope / whole-repo / release prep | Full sub-agent fan-out and deep code-path verification | High 🔴 |
+
+---
+
+## 📊 Measured detection quality
+
+"Antivirus-grade" needs a number, not an adjective — so CoalMine ships an AV-Comparatives-style [eval harness](https://github.com/TheColliery/.github/blob/main/benchmarks/CoalMine/README.md): fixtures with **planted, line-labeled defects** plus **clean decoys**, scored mechanically (no judgment calls at scoring time).
+
+| Canary | Engine | Recall | Precision | Decoy false-positives | Severity accuracy |
+|---|---|---|---|---|---|
+| `rot-canary` | claude-fable-5 (author baseline) | **100%** (13/13) | **100%** | **0**/4 | 13/13 |
+| `rot-canary` | Antigravity (independent, blind) | **100%** (13/13) | **100%** | **0**/4 | 12/13 |
+
+Corpus: 16 fixtures · 7 categories. **Measured 2026-06-13** (skill v3.4.0; re-run due on the current skill). Scored runs: [RESULTS.md](https://github.com/TheColliery/.github/blob/main/benchmarks/CoalMine/RESULTS.md) (model- and skill-version-stamped — re-run on any model or skill change to catch regressions). The two engines' sole disagreement was one severity grade — detection was identical.
+
+---
+
 ## 🧭 Design Principles
 
-Every component is bound by the 11 principles of the [Quantum Computer Spec](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md) — maximum performance, zero visible errors, single-brand internals, minimum power, essential accessories only, error correction, determinism, isolation, measurement, trustworthiness, and entanglement.
+Every component is bound by the 11 principles of the [Quantum Computer Spec](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md) — maximum performance, zero visible errors, single-brand internals, minimum power, essential accessories only, error correction, determinism, isolation, trustworthiness, and entanglement.
+
+---
 
 ## 📄 License
 

@@ -2,7 +2,17 @@
 
 CoalMine is one tool in the **TheColliery** mining series, and it is verified the same way as its sibling **[CoalTipple](https://github.com/TheColliery/CoalTipple/blob/main/SECURITY.md)**: every executable hook obeys the [Phoenix-13 commandments](https://github.com/TheColliery/.github/blob/main/hooks-safety.md), the distribution is reproducible from source, and an independent scanner is run each release. Across the series the **structure** is the assurance — not a scanner's number.
 
-## Commit & tag signatures
+---
+
+## 🔒 Reporting a Vulnerability
+
+If you discover a security issue in a canary skill, hook, or installer:
+* Please open a GitHub issue or contact us privately (do not post sensitive Proof-of-Concept logs in public issues; request a private channel first).
+* We will investigate and address reported vulnerabilities promptly.
+
+---
+
+## 🔑 Commit & tag signatures
 
 All commits and release tags are SSH-signed (`gpg.format=ssh`). Maintainer signing key:
 
@@ -24,14 +34,18 @@ git tag -v "$(git describe --tags --abbrev=0)"
 
 On GitHub, signed commits show the **Verified** badge automatically.
 
-## Dist integrity
+---
+
+## 📦 Dist integrity
 
 `plugin/` (what the Claude Code marketplace serves) is generated output, gated two ways:
 
 - `node scripts/verify.mjs` re-renders every skill from source and byte-compares the committed dist — both directions (stale AND orphan), including `references/` and `skill-meta.json`. Pre-commit/pre-push hooks run it on every commit.
 - Any consumer can reproduce: clone, run `node scripts/build-plugin.mjs`, diff against the committed `plugin/` — byte-identical by construction.
 
-## Independent scanning — NVIDIA SkillSpector
+---
+
+## 🔬 Independent scanning — NVIDIA SkillSpector
 
 <!-- version-transition: re-run SkillSpector each release; update the version + score + finding line-refs in this section. This file is repo-root, outside the scanned plugin/ dir, so this HTML comment is not SkillSpector-flagged. -->
 CoalMine is scanned with [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector) v2.1.4 — a security scanner for AI agent skills (prompt injection, data exfiltration, excessive agency, session persistence, dangerous code, supply-chain risk).
@@ -47,7 +61,3 @@ Its fast **static** pass scores the bundle **58/100 (HIGH)** and raises 3 findin
 Why the headline number is pessimistic: SkillSpector's **LLM semantic** pass is what contextualizes these surface matches — on v2.1.3 it returned **0 findings** on the content it evaluated — but it requires prepaid Anthropic API credits to run; on a free-tier key with a zero credit balance it returns `credit balance too low` (earlier runs surfaced this as HTTP 429 rate-limiting, then a timeout), so the score falls back to the static, false-positive result. It is not a measure of real risk.
 
 **The real assurance is structural, not a scanner score.** Every CoalMine hook obeys the [Phoenix-13 commandments](https://github.com/TheColliery/.github/blob/main/hooks-safety.md): zero external dependencies (#2), no network ever (#7), no child processes (#5), fail-silent (#4), session state cleaned on stop (#1/#6); every skill fix is consent-gated through the platform's question tool. There is no data-exfiltration path, no covert persistence, and nothing auto-executes.
-
-## Reporting
-
-Security issue in a canary skill, hook, or installer: open a GitHub issue (no sensitive PoC in public issues — request a private channel first).
