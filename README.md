@@ -135,7 +135,7 @@ node scripts/configure.mjs --disable rot-canary,drift-canary
 | `rot-canary` | claude-fable-5 (author baseline) | **100%** (13/13) | **100%** | **0**/4 | 13/13 |
 | `rot-canary` | Antigravity (independent, blind) | **100%** (13/13) | **100%** | **0**/4 | 12/13 |
 
-Corpus: 16 fixtures · 7 categories. Scored runs: [eval/RESULTS.md](eval/RESULTS.md) (model- and skill-version-stamped — re-run on any model or skill change to catch regressions). The two engines' sole disagreement was one severity grade — detection was identical.
+Corpus: 16 fixtures · 7 categories. **Measured 2026-06-13** (skill v3.4.0; re-run due on the current skill). Scored runs: [eval/RESULTS.md](eval/RESULTS.md) (model- and skill-version-stamped — re-run on any model or skill change to catch regressions). The two engines' sole disagreement was one severity grade — detection was identical.
 
 ---
 
