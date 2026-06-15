@@ -68,14 +68,17 @@ function upsertConfig(destFile, tplFile) {
 
     fs.mkdirSync(path.dirname(destFile), { recursive: true });
 
-    if (!fs.existsSync(destFile)) {
+    // Read-then-handle-ENOENT (no existsSync precheck) so there is no check-to-use gap.
+    let existing;
+    try {
+      existing = fs.readFileSync(destFile, 'utf8');
+    } catch (e) {
+      if (e.code !== 'ENOENT') throw e; // a real read error surfaces to the outer catch
       // New file
       fs.writeFileSync(destFile, tplContent + '\n', 'utf8');
       console.log(`  created ${path.relative(process.cwd(), destFile)}`);
       return;
     }
-
-    let existing = fs.readFileSync(destFile, 'utf8');
     const si = existing.indexOf(start);
     const ei = existing.indexOf(end);
 
@@ -204,13 +207,16 @@ function uninstallConfig(arg) {
     if (!cfg) return;
 
     const destFile = cfg.dest;
-    if (!fs.existsSync(destFile)) return;
+
+    // Read-then-handle-ENOENT (no existsSync precheck): absent/unreadable = nothing to uninstall.
+    let content;
+    try {
+      content = fs.readFileSync(destFile, 'utf8');
+    } catch { return; }
 
     const isHash = cfg.tpl.includes('clinerules');
     const start  = isHash ? CM_START_HASH : CM_START;
     const end    = isHash ? CM_END_HASH   : CM_END;
-
-    let content = fs.readFileSync(destFile, 'utf8');
     const si = content.indexOf(start);
     const ei = content.indexOf(end);
 

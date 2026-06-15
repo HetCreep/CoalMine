@@ -90,9 +90,12 @@ function main() {
 
   let cfg = {};
   let hadComments = false;
-  if (fs.existsSync(configPath)) {
+  // Read once via try/catch (no existsSync precheck) so there is no check-to-use gap.
+  let rawConfig = null;
+  try { rawConfig = fs.readFileSync(configPath, 'utf8').replace(/^\uFEFF/, ''); } catch {}
+  if (rawConfig !== null) {
     try {
-      const content = fs.readFileSync(configPath, 'utf8').replace(/^\uFEFF/, '');
+      const content = rawConfig;
       hadComments = content.includes('//');
       const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
       cfg = JSON.parse(cleanJson) || {};

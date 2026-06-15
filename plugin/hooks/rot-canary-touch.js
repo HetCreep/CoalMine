@@ -135,9 +135,21 @@ function main() {
   // Tripwire scan — skip very large files to stay inside the latency budget
   // (Phoenix #3: ≤100ms with scan). Default cap 100KB (tripwireMaxFileSizeKb) to
   // prevent CPU lock and token bloat.
-  try { if (fs.statSync(normF).size > getTripwireMaxFileSizeKb() * 1024) return; } catch { return; }
   let lines;
-  try { lines = fs.readFileSync(normF, 'utf8').split(/\r?\n/); } catch { return; }
+  try {
+    const fd = fs.openSync(normF, 'r');
+    try {
+      // statSync->readFileSync on a path is a TOCTOU; fstat + read on one fd is not,
+      // and still skips large files before reading (Phoenix #3 latency budget).
+      const size = fs.fstatSync(fd).size;
+      if (size > getTripwireMaxFileSizeKb() * 1024) return;
+      const buf = Buffer.alloc(size);
+      fs.readSync(fd, buf, 0, size, 0);
+      lines = buf.toString('utf8').split(/\r?\n/);
+    } finally {
+      fs.closeSync(fd);
+    }
+  } catch { return; }
 
   const smells = [];
   if (lines.some((l) => /^(<<<<<<< |>>>>>>> |=======$)/.test(l))) smells.push('merge-conflict markers');
