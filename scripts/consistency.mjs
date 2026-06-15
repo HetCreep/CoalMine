@@ -5,7 +5,7 @@
 //   node scripts/consistency.mjs
 //
 // Verifies cross-document facts agree, doctrine mirrors are byte-identical, and
-// every rule stamp is well-formed. Fail-loud (exit 1) per docs/scripts-quality.md.
+// every rule stamp is well-formed. Fail-loud (exit 1) per scripts-quality.md.
 // The semantic half — a memory/rule prescription that contradicts a Commandment
 // or a recorded decision — is caught by the gold-standard RE-VALIDATE pass, not
 // here, because it has no canonical baseline to diff against.

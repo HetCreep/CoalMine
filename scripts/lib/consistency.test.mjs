@@ -1,5 +1,5 @@
 // Unit tests for the self-consistency + manifest-integrity layers.
-// Zero-dep (node:test + built-ins), per docs/scripts-quality.md section 2.
+// Zero-dep (node:test + built-ins), per scripts-quality.md section 2.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -84,7 +84,6 @@ test('doctrine mirrors: identical copies pass, a diverged copy fails', () => {
   const dir = mkRepo();
   try {
     const mk = (rel, body) => { fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
-    mk('docs/hooks-safety.md', 'DOCTRINE\n');
     mk('.claude/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\n');
     mk('.agents/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\n');
     assert.deepEqual(checkDoctrineMirrors(dir), [], 'identical mirrors are clean');

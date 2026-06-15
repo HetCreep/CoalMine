@@ -11,7 +11,7 @@
 //
 // Usage:
 //   node eval/score.mjs [eval/results/<run>.json]   (default: newest in eval/results/)
-// Fail-loud CLI per docs/scripts-quality.md: bad inputs exit 1.
+// Fail-loud CLI per scripts-quality.md: bad inputs exit 1.
 
 import fs from 'node:fs';
 import path from 'node:path';

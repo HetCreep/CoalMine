@@ -18,14 +18,13 @@ import path from 'node:path';
 import { listSkills } from './render.mjs';
 
 // The doctrine documents that are deliberately duplicated. Each logical doc has
-// a canonical published copy under docs/ plus per-machine rule-home mirrors.
+// its canonical copy at the org (TheColliery/.github) plus these per-machine rule-home mirrors.
 // Whatever copies EXIST on a machine must be byte-identical; a missing mirror is
 // fine (not every clone installs the rule home), a differing one is not.
 const DOCTRINE_MIRRORS = [
   {
     name: 'hooks-safety',
     copies: [
-      'docs/hooks-safety.md',
       '.claude/rules/ecc/domain/hooks-safety.md',
       '.agents/rules/ecc/domain/hooks-safety.md',
     ],
@@ -33,7 +32,6 @@ const DOCTRINE_MIRRORS = [
   {
     name: 'scripts-quality',
     copies: [
-      'docs/scripts-quality.md',
       '.claude/rules/ecc/domain/scripts-quality.md',
       '.agents/rules/ecc/domain/scripts-quality.md',
     ],
