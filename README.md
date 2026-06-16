@@ -202,7 +202,7 @@ AV-Comparatives-style [eval harness](https://github.com/TheColliery/.github/blob
 
 ## 🧭 Design Principles
 
-Bound by the 11 principles of the [Quantum Computer Spec](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md): maximum performance, zero visible errors, single-brand, minimum power, essential accessories, error correction, determinism, isolation, trustworthiness, and entanglement.
+Bound by the 11 principles of the [Quantum Computer Spec](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md): maximum performance, zero visible errors, single-brand, minimum power, essential accessories, error correction, determinism, isolation, measurement, trustworthiness, and entanglement.
 
 ---
 

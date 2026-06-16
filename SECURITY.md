@@ -49,6 +49,6 @@ CoalMine is scanned using [NVIDIA SkillSpector](https://github.com/NVIDIA/skills
   * `HIGH · P2 Hidden Instructions` (`skills/gold-standard/references/method.md:1`) - The metadata rule freshness stamp.
   * `MED · EA2 Autonomous Decision` (`skills/gold-standard/SKILL.md:26`) - The interactive consent gate description.
   * `MED · RA2 Session Persistence` (`hooks/rot-canary-stop.js:156`) - The stop hook session temp file (deleted on stop, zero garbage).
-* **LLM Semantic Scan (0 findings):** Confirming zero actual risks when context is analyzed.
+* **LLM Semantic Scan:** requires prepaid Anthropic API credits, so it did not run on this setup -- it falls back to the static scan above. (A v2.1.3 semantic pass returned 0 findings on the content it evaluated.)
 
 **Structural Assurance:** Security is built structurally. Every hook obeys the [Phoenix-13 rules](https://github.com/TheColliery/.github/blob/main/hooks-safety.md) (zero-dependency, no network, no child processes, fail-silent, session cleanup). No data-exfiltration path exists.
