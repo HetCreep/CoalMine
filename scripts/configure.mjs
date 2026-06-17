@@ -5,6 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import { CONFIG_SCHEMA } from './lib/config-schema.mjs';
+import { stripJsonc } from './lib/jsonc.mjs';
 
 function findGitRoot(startDir) {
   let dir = path.resolve(startDir);
@@ -97,7 +98,7 @@ function main() {
     try {
       const content = rawConfig;
       hadComments = content.includes('//');
-      const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
+      const cleanJson = stripJsonc(content);
       cfg = JSON.parse(cleanJson) || {};
       // Migrate legacy/retired keys to their current forms.
       if (cfg.conductor !== undefined) {

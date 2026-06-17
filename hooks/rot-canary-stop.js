@@ -66,7 +66,11 @@ function loadCfg() {
   try {
     const root = findGitRoot(process.cwd());
     const content = fs.readFileSync(path.join(root, '.coalmine.json'), 'utf8').replace(/^\uFEFF/, '');
-    const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
+    // Strip // and /* */ comments outside strings. The string alternative consumes
+    // an escaped char (\\.) or any non-quote/non-backslash char, so a value ending
+    // in \\ terminates the string correctly instead of leaking escape state into the
+    // next token (which would mis-strip a later //-containing string \u2192 silent revert).
+    const cleanJson = content.replace(/"(?:\\.|[^"\\])*"|\/\/.*|\/\*[\s\S]*?\*\//g, (m) => (m[0] === '"' ? m : ''));
     _cfg = JSON.parse(cleanJson);
   } catch {}
   return _cfg;

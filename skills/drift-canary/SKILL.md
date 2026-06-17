@@ -22,7 +22,7 @@ Expand/contract migration rules, per-format serialization fallbacks, and the bre
 **Scope:** honor `.coalmine.json` `schemaPaths` / `migrationDirs` if set — scan those globs/dirs as the schemas and migration locations; else infer by inspecting the repo.
 
 ## Discipline
-- **Style Drift Resolution (applies in Fix mode):** when an approved compatibility fix touches an area where multiple code styles are mixed, conform the minority patterns to the most dominant/frequent style (highest average usage) in the project to minimize churn — never start a standalone style refactor. (เรื่อง Style Drift ถ้ามีการปนเปกันมาก ๆ ให้เลือกใช้อันที่เฉลี่ยเยอะสุด ๆ เสมอ)
+- **Style Drift Resolution (applies in Fix mode):** when an approved compatibility fix touches an area where multiple code styles are mixed, conform the minority patterns to the most dominant/frequent style (highest average usage) in the project to minimize churn — never start a standalone style refactor.
 
 ## Fix mode (choice-gated)
 

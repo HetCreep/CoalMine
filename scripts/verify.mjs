@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { loadShared, renderSkillMd, listSkills } from './lib/render.mjs';
 import { TARGETS } from './lib/targets.mjs';
 import { CONFIG_SCHEMA, validateValue } from './lib/config-schema.mjs';
+import { stripJsonc } from './lib/jsonc.mjs';
 import { REGION_TARGETS, extractRegion } from './lib/shared-regions.mjs';
 import { checkTracked } from './lib/consistency.mjs';
 import { verifyAgainstManifest } from './lib/manifest.mjs';
@@ -66,7 +67,7 @@ if (fs.existsSync(configPath)) {
   console.log('config (.coalmine.json):');
   try {
     const content = fs.readFileSync(configPath, 'utf8').replace(/^\uFEFF/, '');
-    const cleanJson = content.replace(/\\"|"(?:\\"|[^"])*"|(\/\/.*|\/\*[\s\S]*?\*\/)/g, (m, g) => g ? "" : m);
+    const cleanJson = stripJsonc(content);
     const cfg = JSON.parse(cleanJson);
     // Keys and types come from one table — scripts/lib/config-schema.mjs —
     // shared with configure.mjs so the two can never drift apart.

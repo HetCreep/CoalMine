@@ -243,6 +243,41 @@ test('touch hook honors tripwireMaxLines override in .coalmine.json', () => {
   }
 });
 
+test('loadCfg parses JSONC with a backslash-terminated string before a later // string (no silent revert to defaults)', () => {
+  const tmp = mkTmp();
+  try {
+    // The comment-stripper used to desync here: a string value ending in a literal
+    // backslash ("C:\\") leaked escape state, so a LATER string containing // was
+    // mis-stripped → JSON.parse threw → catch{} reverted the WHOLE config to defaults.
+    // This fixture must still parse so the tripwireMaxLines override is honored.
+    const jsonc = [
+      '{',
+      '  // a comment line',
+      '  "watchedExtensions": ["js"],',
+      '  "schemaPaths": ["C:\\\\"],',           // value ends in one literal backslash
+      '  "trustedDomains": ["http://example.com"], /* later // inside a string */',
+      '  "tripwireMaxLines": 5',
+      '}',
+    ].join('\n');
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), jsonc, 'utf8');
+
+    const fileLines = path.join(tmp, 'lines.js');
+    fs.writeFileSync(fileLines, 'x\n'.repeat(10)); // 11 lines > the override of 5
+
+    const r = runHook(TOUCH, JSON.stringify({ session_id: 'T6', tool_input: { file_path: fileLines } }), tmp);
+    assert.equal(r.status, 0);
+
+    const smellsFile = path.join(tmp, 'rot-canary-T6.smells');
+    assert.ok(fs.existsSync(smellsFile), 'config parsed: smell file created from the JSONC override');
+    assert.ok(
+      fs.readFileSync(smellsFile, 'utf8').includes('file >5 lines'),
+      'tripwireMaxLines:5 honored — config did NOT silently revert to the default 800',
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('stop hook honors autoScanFileCapSlice override in .coalmine.json', () => {
   const tmp = mkTmp();
   try {
