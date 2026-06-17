@@ -4,8 +4,17 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.7.4] — 2026-06-18
+
+Ships the #12 config-loss fix to users: earlier post-3.7.3 commits kept the version at 3.7.3, so `claude plugin update` (which keys on the version) never delivered them.
+
 ### Fixed
+- **`.coalmine.json` no longer silently reverts to defaults (#12).** The JSONC comment-stripper desynced on a string value ending in a backslash right before a later `//`: it leaked escape state, mis-stripped a later `//`-bearing string, `JSON.parse` threw, the `catch` swallowed it, and the whole config fell back to defaults — and a WRITE path in `configure.mjs` wiped user config the same way. The stripper is now one shared, string-aware `scripts/lib/jsonc.mjs` (consumes `\\.` or a non-quote/non-backslash char), used by the hook, `configure.mjs`, and `verify.mjs`, with `scripts/lib/jsonc.test.mjs`.
+- **Thai text no longer leaks into two skills (#13).** `drift-canary` and `gold-standard` `SKILL.md` carried Thai parentheticals; removed. Skills stay English; runtime output still mirrors the user's language.
 - **The installer sweeps a retired skill name even without a manifest.** A very old install (before the `rotcanary` -> `rot-canary` rename in v3.0.0, predating the install manifest) left the stale `rotcanary` skill dir behind on upgrade -- it was in neither the manifest nor the current set, so `cleanPreviousInstall` never reached it, and agents that read `.agents/skills` (e.g. Antigravity) kept listing a duplicate `/rotcanary` command. `cleanPreviousInstall` and uninstall now always sweep `RETIRED_SKILL_NAMES`.
+
+### Changed
+- **Docs.** Added `CONTRIBUTING.md`; trimmed README/SECURITY for word count and heading order; moved the `eval/` benchmark to the series umbrella; restored the "measurement" design principle. SECURITY.md's NVIDIA SkillSpector section now records an ACTUAL run (v2.2.3 via `uvx`, 2026-06-17, 58/100, 3 false positives) with full scan provenance, replacing the earlier "binary not executed" note.
 
 ## [3.7.3] — 2026-06-15
 

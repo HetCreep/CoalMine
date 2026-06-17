@@ -12,5 +12,5 @@ CLAUDE.md
 # Next-project design drafts stay local
 COALTIPPLE_DESIGN.md
 
-# Generated SkillSpector scan reports — folded into SECURITY.md, not shipped
-skillspector-*.md
+# Generated SkillSpector scan reports (.md / .json) — folded into SECURITY.md, not shipped
+skillspector-*

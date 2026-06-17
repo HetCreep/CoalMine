@@ -41,15 +41,18 @@ The `plugin/` distribution directory is generated output gated by checks:
 
 ---
 
+<!-- version-transition: on every release AND any plugin/ skill edit, re-run SkillSpector (skillspector/scan.ps1 CoalMine) and re-sync the version, date, score, and the 3 finding refs below. Last run: SkillSpector v2.2.3 · CoalMine v3.7.3 (commit 8d6804e) · 2026-06-17 19:53 UTC · 58/100 · 3 false positives. Line refs drift on skill edits — verify against the fresh scan output. (This file is at the repo root, OUTSIDE the scanned plugin/ dir, so this comment is not scanned.) -->
 ## 🔬 Independent Scanning — NVIDIA SkillSpector
 
-CoalMine is evaluated against [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector) v2.1.5's static analyzer ruleset, whose static rules are unchanged from v2.1.4, so the v2.1.4 result stands.
+CoalMine is evaluated against [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector), run locally via `uvx` (no install). Score **58/100 (HIGH)** — identical to the prior v2.1.4 result: the same 3 findings, all false positives.
+
+**Scan provenance:** SkillSpector **v2.2.3** · CoalMine **v3.7.3** (commit `8d6804e`) · **2026-06-17 19:53:58 UTC** (2026-06-18 local). The v3.7.4 release bump changes only version metadata + docs, so this scan covers v3.7.4's skills/hooks unchanged.
 
 * **Static Scan (58/100 - HIGH):** Raises 3 false positives due to instruction-bearing patterns typical in audit tools:
-  * `HIGH · P2 Hidden Instructions` (`skills/gold-standard/references/method.md:1`) - The metadata rule freshness stamp (an instruction-shaped comment carrying no command or exfil directive).
-  * `MED · EA2 Autonomous Decision` (`skills/gold-standard/SKILL.md:26`) - The interactive consent gate description (the `ask_question` gate is the opposite of acting without confirmation).
-  * `MED · RA2 Session Persistence` (`hooks/rot-canary-stop.js:156`) - The stop hook session temp file (written to `tmpdir`, deleted on stop; not an OS-persistence mechanism).
-* **Method:** SkillSpector's static analyzer rules and 0-100 scoring were reviewed from source -- they are byte-identical between v2.1.4 and v2.1.5 (each static analyzer carries a single 2026-05-11 initial-release commit; only the MCP rules changed in 2.1.5), so the v2.1.4 static result carries forward. The binary itself was not executed (it needs a Python 3.12 environment not on this setup).
-* **LLM Semantic Scan:** requires prepaid Anthropic API credits, so it did not run on this setup -- it falls back to the static scan above. (A v2.1.3 semantic pass returned 0 findings on the content it evaluated.)
+  * `HIGH · P2 Hidden Instructions` (`skills/gold-standard/references/method.md:1`) - The metadata rule-freshness stamp (an instruction-shaped HTML comment carrying no command or exfil directive).
+  * `MED · EA2 Autonomous Decision` (`skills/gold-standard/SKILL.md:26`) - The line reads "...**never** assume approval"; the scanner matched the substring "assume approval" and missed the "never". The `ask_question` gate is the opposite of acting without confirmation.
+  * `MED · RA2 Session Persistence` (`hooks/rot-canary-stop.js:160`) - The stop-hook session temp file (written to `tmpdir`, deleted on stop; not an OS-persistence mechanism).
+* **Method:** SkillSpector's static analyzer was **run locally (2026-06-18) via `uvx --from git+https://github.com/NVIDIA/skillspector.git skillspector scan`** against the conformed `plugin/` dist — no install required. (An earlier note that the binary "needs a Python 3.12 environment not on this setup" was incorrect: `uvx` runs it without a local Python install.)
+* **LLM Semantic Scan:** attempted via NVIDIA (`NVIDIA_INFERENCE_KEY`, provider `nv_build`) but the API rate-limited the request (HTTP 429), so SkillSpector fell back to the static result above — by design.
 
 **Structural Assurance:** Security is built structurally. Every hook obeys the [Phoenix-13 rules](https://github.com/TheColliery/.github/blob/main/hooks-safety.md) (zero-dependency, no network, no child processes, fail-silent, session cleanup). No data-exfiltration path exists.
