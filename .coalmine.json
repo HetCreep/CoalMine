@@ -66,6 +66,20 @@
   // SECTION 3: UPDATE & REVALIDATION CADENCES (ความถี่การอัปเดตกฎและคำนิยาม)
   // =========================================================================
 
+  // ## How CoalMine keeps itself current, surfaced by the conductor at session start (consent-gated, silent until due).
+  // # ask    = ask once how you want updates handled, then save your pick (auto / remind / off).
+  // # auto   = the agent web-checks for a newer CoalMine on the cadence below and offers the update (~1-2K tokens/check).
+  // # remind = a free periodic reminder to run `claude plugin update coalmine@coalmine` yourself (no agent check, no tokens).
+  // # off    = no update nudges at all.
+  // # Setting type: String (ask, auto, remind, off)
+  // # Default value: ask
+  "updateMode": "ask",
+
+  // ## Days between self-update checks (auto) or reminders (remind). Also throttles the nudge so it never re-nags within the window.
+  // # Setting type: Int32 (minimum 1)
+  // # Default value: 14
+  "updateCheckDays": 14,
+
   // ## Number of days before stable engineering/general rules are flagged as stale and require re-validation.
   // # Setting type: Int32
   // # Default value: 90

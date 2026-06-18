@@ -53,7 +53,9 @@ function parseValue(spec, raw) {
     }
     case 'int': {
       const n = parseInt(raw, 10);
-      return isNaN(n) ? { error: `${spec.key} must be a number` } : { value: n };
+      if (isNaN(n)) return { error: `${spec.key} must be a number` };
+      if (spec.min !== undefined && n < spec.min) return { error: `${spec.key} must be ≥ ${spec.min}` };
+      return { value: n };
     }
     case 'enum': {
       const v = (raw || '').toLowerCase();

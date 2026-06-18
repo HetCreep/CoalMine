@@ -41,6 +41,33 @@ test('help documents every schema key — drift between table and help is imposs
   }
 });
 
+test('configure writes a valid updateMode and rejects an out-of-enum value', () => {
+  const dir = freshProject();
+  try {
+    const ok = spawnSync(process.execPath, [CONFIGURE, '--updateMode', 'auto'], { cwd: dir, encoding: 'utf8', timeout: 60000 });
+    assert.strictEqual(ok.status, 0, ok.stderr);
+    assert.strictEqual(JSON.parse(fs.readFileSync(path.join(dir, '.coalmine.json'), 'utf8')).updateMode, 'auto');
+
+    const bad = spawnSync(process.execPath, [CONFIGURE, '--updateMode', 'sometimes'], { cwd: dir, encoding: 'utf8', timeout: 60000 });
+    assert.notStrictEqual(bad.status, 0, 'an out-of-enum updateMode must fail loud');
+    assert.match(bad.stderr, /updateMode/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('configure enforces the updateCheckDays minimum (≥ 1)', () => {
+  const dir = freshProject();
+  try {
+    const bad = spawnSync(process.execPath, [CONFIGURE, '--updateCheckDays', '0'], { cwd: dir, encoding: 'utf8', timeout: 60000 });
+    assert.notStrictEqual(bad.status, 0, 'updateCheckDays below the minimum must fail loud');
+    assert.match(bad.stderr, /updateCheckDays/);
+    assert.ok(!fs.existsSync(path.join(dir, '.coalmine.json')), 'no config may be written on a min violation');
+
+    const ok = spawnSync(process.execPath, [CONFIGURE, '--updateCheckDays', '7'], { cwd: dir, encoding: 'utf8', timeout: 60000 });
+    assert.strictEqual(ok.status, 0, ok.stderr);
+    assert.strictEqual(JSON.parse(fs.readFileSync(path.join(dir, '.coalmine.json'), 'utf8')).updateCheckDays, 7);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('configure fails loud on an invalid value and writes nothing', () => {
   const dir = freshProject();
   try {

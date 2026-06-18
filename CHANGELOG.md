@@ -4,6 +4,19 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.7.5] — 2026-06-18
+
+Self-Updating — an opt-in, consent-gated update system, silent by default.
+
+### Added
+- **Self-Updating (two kinds), silent until due.** New config `updateMode` (`ask`|`auto`|`remind`|`off`, factory `ask`) + `updateCheckDays` (factory `14`). The conductor (SessionStart) stays silent until `updateCheckDays` elapse since the last check — a crash-safe stamp at `~/.claude/.coalmine-update-check`, throttled to once per window — then:
+  - **kind 1 (plugin version):** `ask` prompts once how to handle updates (auto / remind / off, saved via `configure --update-mode`); `auto` has the agent compare the latest tag to the installed version and offer `claude plugin update` (standing consent — the only token-spending path, ~1–2K/check); `remind` is a free periodic reminder; `off` is silent. **The hook itself never networks or spends** — the version-check lives only in the new `/coalmine:update` agent procedure, gated on `auto`/explicit consent, with a graceful offline fallback.
+  - **kind 2 (rule freshness):** a free, local SessionStart nudge when any gold-standard `coalmine: verified … revalidate Nd` stamp is past due — lifting `/coalmine:stats` past-due detection from pull-only to automatic. Consent-gated (the user runs `/gold-standard`).
+- `/coalmine:update` command (the agent-side procedure) + hermetic conductor tests (13) + configure tests (2). 56 tests.
+
+### Note
+- `claude plugin update` does not auto-detect plugin staleness for community marketplaces (auto-update is opt-in per marketplace, off by default) — this fills that gap for users who keep auto-update off, without a fake offline version-check: the **agent** verifies, the **hook** only schedules.
+
 ## [3.7.4] — 2026-06-18
 
 Ships the #12 config-loss fix to users: earlier post-3.7.3 commits kept the version at 3.7.3, so `claude plugin update` (which keys on the version) never delivered them.
