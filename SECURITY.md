@@ -41,12 +41,12 @@ The `plugin/` distribution directory is generated output gated by checks:
 
 ---
 
-<!-- version-transition: on every release AND any plugin/ skill edit, re-run SkillSpector (skillspector/scan.ps1 CoalMine) and re-sync the version, date, score, and the 3 finding refs below. Last run: SkillSpector v2.2.3 · CoalMine v3.7.3 (commit 8d6804e) · 2026-06-17 19:53 UTC · 58/100 · 3 false positives. Line refs drift on skill edits — verify against the fresh scan output. (This file is at the repo root, OUTSIDE the scanned plugin/ dir, so this comment is not scanned.) -->
+<!-- version-transition: the pin below reflects the LAST ACTUAL scan -- do NOT bump the SkillSpector/CoalMine version, date, or score without a real re-scan (an unscanned version's security is UNVERIFIED; never claim coverage). Re-scan periodically or on a significant plugin/ skill change (skillspector/scan.ps1 CoalMine), then re-sync the 3 finding refs. Last run: SkillSpector v2.2.3 · CoalMine v3.7.3 (commit 8d6804e) · 2026-06-17 19:53 UTC · 58/100 · 3 false positives. Line refs drift on skill edits — verify against the fresh scan output. (This file is at the repo root, OUTSIDE the scanned plugin/ dir, so this comment is not scanned.) -->
 ## 🔬 Independent Scanning — NVIDIA SkillSpector
 
 CoalMine is evaluated against [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector), run locally via `uvx` (no install). Score **58/100 (HIGH)** — identical to the prior v2.1.4 result: the same 3 findings, all false positives.
 
-**Scan provenance:** SkillSpector **v2.2.3** · CoalMine **v3.7.3** (commit `8d6804e`) · **2026-06-17 19:53:58 UTC** (2026-06-18 local). The v3.7.4 release bump changes only version metadata + docs, so this scan covers v3.7.4's skills/hooks unchanged.
+**Scan provenance:** SkillSpector **v2.2.3** · CoalMine **v3.7.3** (commit `8d6804e`) · **2026-06-17 19:53:58 UTC** (2026-06-18 local). Scanning is periodic, not per-release — this pins the last version actually verified, not the current ship; later releases are not claimed scanned.
 
 * **Static Scan (58/100 - HIGH):** Raises 3 false positives due to instruction-bearing patterns typical in audit tools:
   * `HIGH · P2 Hidden Instructions` (`skills/gold-standard/references/method.md:1`) - The metadata rule-freshness stamp (an instruction-shaped HTML comment carrying no command or exfil directive).

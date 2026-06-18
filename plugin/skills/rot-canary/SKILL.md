@@ -29,7 +29,7 @@ Scan code for rot. Report CONFIRMED findings. Fix on request.
 ## Discipline
 - Report only CONFIRMED. Unverifiable → separate "SUSPECTED" list.
 - Cite evidence (file:line, call-site count, the absent catch).
-- "Dead" = zero reachability via ALL routes (reflection, DI, events, public API, tests).
+- "Dead" = **zero-reference reachability** (the static heuristic): zero references across ALL entry routes — reflection, DI, events, public API, tests — not a single-file grep.
 
 ## Fix mode (choice-gated)
 
@@ -66,7 +66,7 @@ Tiers are **capability targets**, not platform commands — resolve each to your
 | **Standard** | Balanced scan, module-level coverage | Balanced model · default/raised reasoning · focused sub-agents per category **only if your platform runs concurrent workers** (else stay single-agent). | Balanced |
 | **Heavy** | Full scan, maximum coverage | Most capable model + largest context · deepest reasoning (max/xhigh) · maximum sub-agent fan-out **if supported** · adversarial cross-check where available. | High |
 
-**Per-platform Heavy lever** (use your host's): Claude Code → Dynamic Workflows / `ultracode` (≤16 concurrent agents); OpenAI Codex → `xhigh` effort + subagents + Cloud `--attempts`; Cursor → Max Mode + Cloud Agents; Antigravity → Agent Manager + Planning Mode; Amp → deep mode + Oracle + subagents; GitHub Copilot → Cloud agent + high Thinking Effort; Goose → subagents + Goosetown; JetBrains → Junie Brave + Junie CLI. **No concurrent-worker fan-out** — single-agent at every tier, escalate by model + reasoning only: **Gemini CLI · Cline · Windsurf** (in-session).
+**Per-platform Heavy lever** (use your host's, if it has concurrent fan-out): Claude Code → Dynamic Workflows / `ultracode` (≤16 concurrent agents); OpenAI Codex → `xhigh` + subagents + Cloud `--attempts`; Cursor → Max Mode + parallel Cloud Agents; Antigravity → Agent Manager; Amp → Oracle + subagents; GitHub Copilot → `/fleet` (Copilot CLI) + Cloud agent; Goose → subagents; JetBrains → Junie CLI; Gemini CLI / Cline (read-only) / Windsurf (now Devin) → subagents. **If your platform has no concurrent fan-out, escalate by model + reasoning only.** ⚠️ Subagent support CHURNS fast — most major agents added it through 2026 — so verify your platform's current capability rather than trusting any fixed list here.
 
 **Agent Context (interactive):** score the tier rubric, then call `ask_question` once with the 3 tiers — the rubric's pick marked `✓`, score shown, labels localized — and wait for the user's choice before starting. `ask_question` = your platform's question tool: Claude Code `AskUserQuestion` · Cline `ask_question` · Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in prompts; none → numbered text menu.
 

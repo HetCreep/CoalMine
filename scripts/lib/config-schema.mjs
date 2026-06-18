@@ -19,7 +19,7 @@ export const CONFIG_SCHEMA = [
   { key: 'skipOnboarding', type: 'bool', flags: ['-o'], help: 'Skip the gold-standard onboarding offer at session start' },
   { key: 'defaultTier', type: 'enum', values: ['light', 'standard', 'heavy', 'auto'], titleCase: true, flags: ['-t'], help: 'Force an execution tier (Light, Standard, Heavy, auto)' },
   { key: 'autoScanFileCap', type: 'int', flags: ['-c', '--file-cap'], help: 'Max touched files scanned automatically at session end (default: 10)' },
-  { key: 'autoScanFileCapSlice', type: 'int', flags: ['-y'], help: 'Files kept when autoScanFileCap is exceeded (default: 5)' },
+  { key: 'autoScanFileCapSlice', type: 'int', flags: ['-y'], help: 'Number of most-recently-modified files kept (a file count, not a fraction) when autoScanFileCap is exceeded (default: 5)' },
   { key: 'tripwireMaxFileSizeKb', type: 'int', flags: ['-s', '--tripwire-cap'], help: 'Max file size in KB for the tripwire scan (default: 100)' },
   { key: 'tripwireMaxLines', type: 'int', flags: ['-n'], help: 'Line count that flags a file as a smell (default: 800)' },
   { key: 'tempSweepStaleDays', type: 'int', flags: ['-w'], help: 'Age in days before session temp files are swept (default: 7)' },

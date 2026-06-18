@@ -4,6 +4,16 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.7.6] — 2026-06-19
+
+Doc-accuracy pass: honest security-scan provenance, clearer config help, a named dead-code heuristic, and a churn-resilient per-platform escalation footer.
+
+### Changed
+- **SECURITY.md — honest scan provenance.** The NVIDIA SkillSpector section now PINS the last actual scan (v3.7.3, 2026-06-17) and states scanning is periodic, not per-release — instead of implying the bump "covers" later versions (an unscanned version's security is unverified). The maintainer comment carries the same rule: never bump the pin without a real re-scan.
+- **`autoScanFileCapSlice` help clarified** — it is a file COUNT (the most-recently-modified files kept when `autoScanFileCap` is exceeded), not a fraction.
+- **rot-canary "dead code" heuristic named** — *"Dead = zero-reference reachability across ALL entry routes (reflection, DI, events, public API, tests) — not a single-file grep."*
+- **Escalation footer refreshed + churn-resilient.** Dropped the now-stale *"no concurrent fan-out: Gemini CLI · Cline · Windsurf"* claim — all three shipped parallel subagents through 2026 (Cline read-only · Gemini CLI · Windsurf→Devin) — and replaced the fixed list with a "verify your platform's current capability; these churn" note.
+
 ## [3.7.5] — 2026-06-18
 
 Self-Updating — an opt-in, consent-gated update system, silent by default.

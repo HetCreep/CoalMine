@@ -29,7 +29,7 @@ Scan code for rot. Report CONFIRMED findings. Fix on request.
 ## Discipline
 - Report only CONFIRMED. Unverifiable → separate "SUSPECTED" list.
 - Cite evidence (file:line, call-site count, the absent catch).
-- "Dead" = zero reachability via ALL routes (reflection, DI, events, public API, tests).
+- "Dead" = **zero-reference reachability** (the static heuristic): zero references across ALL entry routes — reflection, DI, events, public API, tests — not a single-file grep.
 
 ## Fix mode (choice-gated)
 
