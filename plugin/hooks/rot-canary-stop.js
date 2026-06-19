@@ -228,7 +228,9 @@ function main() {
   if (!input || input.stop_hook_active) return;
 
   const sid = input.session_id;
-  if (!sid) return;
+  // Phoenix #10 (sandbox): allowlist the session_id so a traversal-shaped sid cannot
+  // escape os.tmpdir() via path.join. Non-conforming -> bail (fail-silent, Phoenix #4).
+  if (!sid || typeof sid !== 'string' || !/^[A-Za-z0-9_-]+$/.test(sid)) return;
 
   const base = path.join(os.tmpdir(), `rot-canary-${sid}`);
   const touched = base + '.touched';

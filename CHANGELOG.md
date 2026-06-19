@@ -4,6 +4,14 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.7.7] — 2026-06-19
+
+Path-safety hardening — defense-in-depth on the hook + installer file paths.
+
+### Fixed
+- **rot-canary hooks (`rot-canary-touch.js`, `rot-canary-stop.js`)** — the `session_id` used to build the temp-state path is validated (`/^[A-Za-z0-9_-]+$/`) before use, so a malformed/crafted session_id cannot traverse outside `os.tmpdir()` (Phoenix #10 sandbox containment).
+- **`install.mjs safeSkillNames`** — a skill name about to be `rmSync`'d must be a plain basename (`/^[A-Za-z0-9_-]+$/` AND `s === path.basename(s)`); anything else is dropped, never deleted. + a hermetic traversal test in `hooks.test.mjs`.
+
 ## [3.7.6] — 2026-06-19
 
 Doc-accuracy pass: honest security-scan provenance, clearer config help, a named dead-code heuristic, and a churn-resilient per-platform escalation footer.

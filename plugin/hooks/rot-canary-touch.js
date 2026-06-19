@@ -125,7 +125,9 @@ function main() {
 
   // No session id → no consumer (the stop hook bails without one). Record nothing.
   const sid = input.session_id;
-  if (!sid) return;
+  // Phoenix #10 (sandbox): allowlist the session_id so a traversal-shaped sid (e.g.
+  // ../../etc/x) cannot escape os.tmpdir() via path.join. Non-conforming -> bail (fail-silent).
+  if (!sid || typeof sid !== 'string' || !/^[A-Za-z0-9_-]+$/.test(sid)) return;
   const base = path.join(os.tmpdir(), `rot-canary-${sid}`);
   const touched = base + '.touched';
 

@@ -88,6 +88,23 @@ test('touch hook records edited code file and exits 0', () => {
   }
 });
 
+test('touch + stop reject a traversal-shaped session_id (Phoenix #10 sandbox guard)', () => {
+  const tmp = mkTmp();
+  const evil = '../../../etc/cmhooktest-target';
+  const escaped = path.join(tmp, 'rot-canary-' + evil) + '.touched'; // resolves OUTSIDE the sandbox tmpdir
+  try {
+    const r = runHook(TOUCH, JSON.stringify({ session_id: evil, tool_input: { file_path: 'C:\\proj\\a.js' } }), tmp);
+    assert.equal(r.status, 0, 'touch is fail-silent on a bad sid (Phoenix #4)');
+    assert.ok(!fs.existsSync(escaped), 'touch wrote NO file outside the sandbox tmpdir');
+    assert.ok(!fs.existsSync(path.join(tmp, 'rot-canary-' + evil + '.touched')), 'nothing written for a rejected sid');
+    const s = runHook(STOP, JSON.stringify({ session_id: evil, stop_hook_active: false }), tmp);
+    assert.equal(s.status, 0, 'stop is fail-silent on a bad sid');
+  } finally {
+    try { fs.rmSync(escaped, { force: true }); } catch {} // clean if a regression let it escape
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('touch hook dedups case-insensitively on win32 and never crashes', () => {
   const tmp = mkTmp();
   try {

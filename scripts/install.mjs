@@ -278,7 +278,10 @@ function readManifest(destDir) {
 // dotfiles, no absolute/drive paths. Anything else is dropped, never deleted.
 function safeSkillNames(names) {
   return names.filter((s) =>
-    typeof s === 'string' && s.length > 0 && s === path.basename(s) && !s.startsWith('.')
+    // Allowlist: a non-empty alphanumeric/hyphen/underscore basename. Subsumes the old
+    // length/basename/dotfile checks AND rejects whitespace-only names (' ', '\t') that
+    // path.basename() let through before — those reached fs.rmSync.
+    typeof s === 'string' && /^[A-Za-z0-9_-]+$/.test(s) && s === path.basename(s)
   );
 }
 
