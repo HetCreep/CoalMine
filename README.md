@@ -12,7 +12,7 @@
 
 [Design Principles](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md) · [Eval Results](https://github.com/TheColliery/.github/blob/main/benchmarks/CoalMine/RESULTS.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Releases](https://github.com/HetCreep/CoalMine/releases)
 
-**Part of [TheColliery](https://github.com/TheColliery)** — Sibling of **[CoalTipple](https://github.com/TheColliery/CoalTipple)**.
+**Part of [TheColliery](https://github.com/TheColliery)** — siblings: **[CoalTipple](https://github.com/TheColliery/CoalTipple)** (model/effort routing) · **[CoalBoard](https://github.com/TheColliery/CoalBoard)** (consensus & debate board).
 
 </div>
 
