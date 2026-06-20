@@ -4,7 +4,7 @@
 // is automatically settable, validated, and documented here.
 import fs from 'fs';
 import path from 'path';
-import { CONFIG_SCHEMA } from './lib/config-schema.mjs';
+import { CONFIG_SCHEMA, validateValue } from './lib/config-schema.mjs';
 import { stripJsonc } from './lib/jsonc.mjs';
 
 function findGitRoot(startDir) {
@@ -52,9 +52,14 @@ function parseValue(spec, raw) {
       return { value: raw === 'true' };
     }
     case 'int': {
-      const n = parseInt(raw, 10);
-      if (isNaN(n)) return { error: `${spec.key} must be a number` };
-      if (spec.min !== undefined && n < spec.min) return { error: `${spec.key} must be ≥ ${spec.min}` };
+      // Number() (not parseInt) so a float like "5.9" or a garbage tail like "50abc"
+      // is rejected outright rather than silently truncated to 5/50. validateValue
+      // then enforces the integer + min/max contract — the SAME check verify.mjs runs
+      // on the JSON value, so the CLI parser and the JSON validator cannot drift apart
+      // (parseValue used to honor spec.min but not spec.max — a write of 1001 vs max 1000).
+      const n = Number(raw);
+      const err = validateValue(spec, n);
+      if (err) return { error: `${spec.key} ${err}` };
       return { value: n };
     }
     case 'enum': {

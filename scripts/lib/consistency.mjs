@@ -17,10 +17,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { listSkills } from './render.mjs';
 
-// The doctrine documents that are deliberately duplicated. Each logical doc has
-// its canonical copy at the org (TheColliery/.github) plus these per-machine rule-home mirrors.
-// Whatever copies EXIST on a machine must be byte-identical; a missing mirror is
-// fine (not every clone installs the rule home), a differing one is not.
+// The doctrine documents that are deliberately duplicated. The canonical copy lives
+// in a SEPARATE repo (the org TheColliery/.github) that this check CANNOT reach at
+// runtime — a stranger's CoalMine clone has no path to it — so the org copy is OUT OF
+// SCOPE here by construction. This check compares only the in-repo mirrors below
+// (the per-machine rule-home copies). Whatever of those EXIST must be byte-identical;
+// a missing mirror is fine (not every clone installs the rule home), a differing one
+// is not. (Keeping the in-repo mirrors in sync with the org canonical is a release-time
+// concern, handled outside this runtime check.)
 const DOCTRINE_MIRRORS = [
   {
     name: 'hooks-safety',
@@ -170,8 +174,17 @@ export function checkDoctrineMirrors(repo) {
 // it. Both are case-sensitive and require the comment form, so prose that merely
 // MENTIONS the phrase (the conductor's "no `coalmine: verified` stamp") and the
 // uppercase COALMINE:START/END install markers are never mistaken for stamps.
-const STAMP_OPEN = /<!--\s*coalmine:\s*verified/;
+// `g` so a malformed opener early in the file doesn't mask a well-formed stamp
+// later — every opener is located and validated against a bounded window.
+const STAMP_OPEN = /<!--\s*coalmine:\s*verified/g;
 const STAMP_RE = /<!--\s*coalmine:\s*verified\s+\d{4}-\d{2}-\d{2}[\s\S]*?revalidate\s+\d+d[\s\S]*?-->/;
+// A real stamp is ~80-150 chars; cap the window the full pattern ever sees. The
+// pattern has two lazy [\s\S]*? that backtrack O(n^2) on a poisoned .md (many
+// `revalidate Nd` hits with no closing `-->`), so feeding it a whole megabyte was a
+// quadratic DoS reachable via `node scripts/consistency.mjs` on a poisoned rule
+// file. Bounding the input to a constant makes the per-file cost O(1) in the regex
+// (so O(n) over the file): even worst-case backtracking is over <= STAMP_WINDOW chars.
+const STAMP_WINDOW = 2048;
 export function checkRuleStamps(repo) {
   const out = [];
   const roots = ['.claude/rules', '.agents/rules'].map((r) => path.join(repo, r));
@@ -184,7 +197,18 @@ export function checkRuleStamps(repo) {
       else if (e.name.endsWith('.md')) {
         let body;
         try { body = fs.readFileSync(p, 'utf8'); } catch { continue; }
-        if (STAMP_OPEN.test(body) && !STAMP_RE.test(body)) {
+        STAMP_OPEN.lastIndex = 0;
+        let m;
+        let bad = false;
+        let any = false;
+        while ((m = STAMP_OPEN.exec(body)) !== null) {
+          any = true;
+          // Validate only a bounded slice anchored at this opener — a well-formed
+          // stamp fits easily; a poisoned blob can never grow the regex's work.
+          if (STAMP_RE.test(body.slice(m.index, m.index + STAMP_WINDOW))) { bad = false; break; }
+          bad = true;
+        }
+        if (any && bad) {
           out.push({ level: 'FAIL', msg: `consistency: ${path.relative(repo, p)} has a malformed coalmine stamp (expected "verified <YYYY-MM-DD> ... revalidate <N>d")` });
         }
       }

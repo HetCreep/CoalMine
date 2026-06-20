@@ -4,6 +4,18 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.7.9] — 2026-06-21
+
+Round-2 dogfood audit (CoalBoard whole-Colliery, the user as customer) — CLI + consistency-gate bugfixes. The shipped skill runtime is unchanged.
+
+### Fixed
+- **CM-2:** `scripts/configure.mjs` `parseValue` now reuses `validateValue` (enforces `max`, not just `min`; `Number` not `parseInt`) — the CLI no longer silently accepts out-of-bounds (`--autoScanFileCap 1001` is now rejected). Kills the two-parser drift + the float-truncate footgun.
+- **CM-1:** `scripts/lib/consistency.mjs` runs `STAMP_RE` over a bounded `STAMP_WINDOW` (2048 chars) per opener — the quadratic backtracking on a poisoned rules `.md` (reachable via manual `node scripts/consistency.mjs`) is now O(1)/opener → linear over the file.
+- **sweepStale guard:** `hooks/rot-canary-stop.js` runs the housekeeping sweep ONLY on the active (auto) path — behind the disabled/manual/off guards, matching the PowerShell twin (Node≡PS parity). +2 hermetic tests.
+- **CM-DM (doc):** `checkDoctrineMirrors` comment corrected to its honest scope (it mirrors the in-repo `.claude`/`.agents` copies; the org `.github` copy is a separate repo, out of runtime reach — org-sync is a release-time concern).
+
+Gate: build + verify + 61 tests + consistency PASS.
+
 ## [3.7.8] — 2026-06-20
 
 CoalBoard-audit hardening (dogfood) — PowerShell-parity fixes + doc/config accuracy.

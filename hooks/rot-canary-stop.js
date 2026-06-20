@@ -212,11 +212,14 @@ function projectOverride() {
 }
 
 function main() {
-  sweepStale();
-
+  // A disabled/non-auto canary does NO work, not even the housekeeping sweep — the
+  // sweep runs only on the active (auto) path. Mirrors the PS twin, which already
+  // exits before its sweep when disabled/manual/off (Node≡PS parity).
   const ov = projectOverride();
   if (ov === 'off' || ov === 'manual') return;
   if (rcMode() !== 'auto') return;
+
+  sweepStale();
 
   let raw = '';
   try { raw = fs.readFileSync(0, 'utf8'); } catch { return; }

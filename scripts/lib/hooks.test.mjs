@@ -319,3 +319,40 @@ test('stop hook honors autoScanFileCapSlice override in .coalmine.json', () => {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+test('stop hook does NOT sweep stale temp when the canary is disabled (a disabled canary does no work)', () => {
+  const tmp = mkTmp();
+  try {
+    // A stale leftover from a crashed session (mtime ~99 days old → past the 7-day default).
+    const stale = path.join(tmp, 'rot-canary-OLD.touched');
+    fs.writeFileSync(stale, 'C:\\proj\\x.js\n');
+    const old = Date.now() - 99 * 24 * 60 * 60 * 1000;
+    fs.utimesSync(stale, new Date(old), new Date(old));
+    // Canary disabled for this project.
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ disabledCanaries: ['rot-canary'] }), 'utf8');
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'DIS', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '', 'disabled canary emits no nudge');
+    assert.ok(fs.existsSync(stale), 'disabled canary must skip the sweep — stale temp is left untouched');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('stop hook DOES sweep stale temp on the active (auto) path', () => {
+  const tmp = mkTmp();
+  try {
+    // Same stale leftover, but the canary is active (default auto, no override).
+    const stale = path.join(tmp, 'rot-canary-OLD.touched');
+    fs.writeFileSync(stale, 'C:\\proj\\x.js\n');
+    const old = Date.now() - 99 * 24 * 60 * 60 * 1000;
+    fs.utimesSync(stale, new Date(old), new Date(old));
+    // No .touched for THIS session → the hook sweeps, then bails (nothing to nudge).
+    const r = runHook(STOP, JSON.stringify({ session_id: 'ACT', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.ok(!fs.existsSync(stale), 'auto path sweeps stale temp older than the cutoff (Phoenix #1)');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
