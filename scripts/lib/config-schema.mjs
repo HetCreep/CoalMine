@@ -18,16 +18,16 @@ export const CONFIG_SCHEMA = [
   { key: 'enableConductor', type: 'bool', flags: ['-d', '--conductor'], help: 'Enable/disable conductor rules injection at session start' },
   { key: 'skipOnboarding', type: 'bool', flags: ['-o'], help: 'Skip the gold-standard onboarding offer at session start' },
   { key: 'defaultTier', type: 'enum', values: ['light', 'standard', 'heavy', 'auto'], titleCase: true, flags: ['-t'], help: 'Force an execution tier (Light, Standard, Heavy, auto)' },
-  { key: 'autoScanFileCap', type: 'int', flags: ['-c', '--file-cap'], help: 'Max touched files scanned automatically at session end (default: 10)' },
-  { key: 'autoScanFileCapSlice', type: 'int', flags: ['-y'], help: 'Number of most-recently-modified files kept (a file count, not a fraction) when autoScanFileCap is exceeded (default: 5)' },
-  { key: 'tripwireMaxFileSizeKb', type: 'int', flags: ['-s', '--tripwire-cap'], help: 'Max file size in KB for the tripwire scan (default: 100)' },
-  { key: 'tripwireMaxLines', type: 'int', flags: ['-n'], help: 'Line count that flags a file as a smell (default: 800)' },
-  { key: 'tempSweepStaleDays', type: 'int', flags: ['-w'], help: 'Age in days before session temp files are swept (default: 7)' },
+  { key: 'autoScanFileCap', type: 'int', min: 1, max: 1000, flags: ['-c', '--file-cap'], help: 'Max touched files scanned automatically at session end (default: 10)' },
+  { key: 'autoScanFileCapSlice', type: 'int', min: 1, max: 1000, flags: ['-y'], help: 'Number of most-recently-modified files kept (a file count, not a fraction) when autoScanFileCap is exceeded (default: 5)' },
+  { key: 'tripwireMaxFileSizeKb', type: 'int', min: 1, max: 102400, flags: ['-s', '--tripwire-cap'], help: 'Max file size in KB for the tripwire scan (default: 100)' },
+  { key: 'tripwireMaxLines', type: 'int', min: 1, max: 100000, flags: ['-n'], help: 'Line count that flags a file as a smell (default: 800)' },
+  { key: 'tempSweepStaleDays', type: 'int', min: 0, max: 3650, flags: ['-w'], help: 'Age in days before session temp files are swept (default: 7)' },
   { key: 'watchedExtensions', type: 'strArr', lower: true, flags: ['-e'], help: 'Comma-separated file extensions the touch hook watches (empty = defaults)' },
-  { key: 'ruleRevalidateDays', type: 'int', flags: ['-v', '--antivirusStalenessDays'], help: 'Days before general rules need re-validation (default: 90)' },
-  { key: 'platformRuleRevalidateDays', type: 'int', flags: ['-g'], help: 'Days before platform/model rules need re-validation (default: 30)' },
-  { key: 'definitionRevalidateDays', type: 'int', flags: ['-j'], help: 'Days before general reference definitions are stale (default: 90)' },
-  { key: 'platformDefinitionRevalidateDays', type: 'int', flags: ['-k'], help: 'Days before platform definitions are stale (default: 30)' },
+  { key: 'ruleRevalidateDays', type: 'int', min: 1, max: 3650, flags: ['-v', '--antivirusStalenessDays'], help: 'Days before general rules need re-validation (default: 90)' },
+  { key: 'platformRuleRevalidateDays', type: 'int', min: 1, max: 3650, flags: ['-g'], help: 'Days before platform/model rules need re-validation (default: 30)' },
+  { key: 'definitionRevalidateDays', type: 'int', min: 1, max: 3650, flags: ['-j'], help: 'Days before general reference definitions are stale (default: 90)' },
+  { key: 'platformDefinitionRevalidateDays', type: 'int', min: 1, max: 3650, flags: ['-k'], help: 'Days before platform definitions are stale (default: 30)' },
   { key: 'disabledCanaries', type: 'strArr', lower: true, flags: ['-x', '--disable'], help: 'Comma-separated canaries to disable (or "all")' },
   { key: 'rotCanaryMode', type: 'enum', values: ['auto', 'manual', 'off'], flags: ['-m', '--mode'], help: 'rot-canary auto-scan mode (auto, manual, off)' },
   { key: 'autoFixMode', type: 'enum', values: ['interactive', 'safe', 'off'], flags: ['-f'], help: 'Default fix-mode behavior (interactive, safe, off)' },
@@ -46,8 +46,10 @@ export function validateValue(spec, v) {
     case 'bool':
       return typeof v === 'boolean' ? null : 'must be a boolean';
     case 'int':
-      if (typeof v !== 'number') return 'must be a number';
-      if (spec.min !== undefined && v < spec.min) return `must be ≥ ${spec.min}`;
+      if (typeof v !== 'number' || !Number.isFinite(v)) return 'must be a finite number';
+      if (!Number.isInteger(v)) return 'must be an integer';
+      if (spec.min != null && v < spec.min) return `must be >= ${spec.min}`;
+      if (spec.max != null && v > spec.max) return `must be <= ${spec.max}`;
       return null;
     case 'enum':
       return typeof v === 'string' && spec.values.includes(v.toLowerCase())

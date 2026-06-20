@@ -4,6 +4,23 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.7.8] — 2026-06-20
+
+CoalBoard-audit hardening (dogfood) — PowerShell-parity fixes + doc/config accuracy.
+
+### Fixed
+- **PowerShell hooks — session_id sandbox allowlist (H3).** `rot-canary-stop.ps1` / `rot-canary-touch.ps1` now enforce the same `^[A-Za-z0-9_-]+$` allowlist as the Node twins (Phoenix #10), so a traversal-shaped `session_id` cannot escape `$env:TEMP`. Centralised in `hooks/_shared/ps-config.ps1`.
+- **PowerShell JSONC stripper (H4).** Ported the Node string-aware `stripJsonc` to PowerShell — the old `^\s*//` regex stripped only full-line comments, so a legal inline `// comment` broke `ConvertFrom-Json` and the ENTIRE `.coalmine.json` was silently ignored on PS hooks (Node honoured it). Now inline comments are stripped and `//` inside strings is preserved. + a Node≡PS stripper-equivalence assertion and a hermetic PS test (`scripts/lib/ps-config.test.ps1`).
+- **`config-schema.mjs` int validation (M4).** Ints validate with `Number.isInteger` (rejects `1.5`/`NaN`/`Infinity`) + `min`/`max` bounds on every int key — e.g. `tempSweepStaleDays` ≥ 0 (a `-1` made the PS sweep `AddDays(+1)` delete live-session temp files); `autoScanFileCapSlice` ≥ 1.
+- **PowerShell/Node parity (LOW).** `.touched` dedup lowercases on win32 (matching Node — no case-duplicate entries); a scalar `"all"` from `ConvertFrom-Json` no longer disables (matching Node's array guard).
+
+### Changed
+- **SECURITY.md scan provenance (M5).** Synced the version-transition guard comment to the prose (SkillSpector v2.2.3 · v3.7.7 · 100/100 · 10 FP · 2026-06-20).
+- **Platform-fact accuracy (M9).** Dropped the scrapped "Antigravity" entry from the orchestration escalation footer (rendered into all 9 skills) and the issue-template dropdown; removed the unverifiable "Windsurf (now Devin)" attribution (the churn disclaimer already covers it).
+
+### Removed
+- **Stray root `.coalmine.json`.** The maintainer's tuned machine config had been tracked at the repo root since v3.7.1; removed. Config is create-if-absent and `platform-configs/.coalmine.json` is the shipped template — no project-level config ships.
+
 ## [3.7.7] — 2026-06-19
 
 Path-safety hardening — defense-in-depth on the hook + installer file paths.

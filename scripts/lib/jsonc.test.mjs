@@ -39,3 +39,27 @@ test('// inside a string is preserved (not treated as a comment)', () => {
   const parsed = JSON.parse(stripJsonc(input));
   assert.equal(parsed.url, 'http://example.com');
 });
+
+// Node≡PS parity: the fixtures below are the canonical cross-stripper equivalence set.
+// The PS port (hooks/_shared/ps-config.ps1 Remove-JsoncComments) must produce identical
+// parse results on all of these. Run manually with pwsh to verify the PS side.
+test('Node stripJsonc: inline trailing comment on the same line as a value is stripped', () => {
+  const input = [
+    '{',
+    '  "mode": "auto", // trailing note',
+    '  "count": 3',
+    '}',
+  ].join('\n');
+  const parsed = JSON.parse(stripJsonc(input));
+  assert.deepEqual(parsed, { mode: 'auto', count: 3 });
+});
+
+test('Node stripJsonc: // inside a string value is NOT stripped (parity fixture)', () => {
+  // This is the primary parity fixture: the old PS regex mis-stripped the whole
+  // line when a string contained //, causing ConvertFrom-Json to throw and the
+  // config to be silently ignored. The PS port must match this result.
+  const input = '{"url":"http://example.com","mode":"auto"}';
+  const parsed = JSON.parse(stripJsonc(input));
+  assert.equal(parsed.url, 'http://example.com', '// inside a string survives');
+  assert.equal(parsed.mode, 'auto', 'other fields unaffected');
+});

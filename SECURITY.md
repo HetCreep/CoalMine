@@ -41,14 +41,15 @@ The `plugin/` distribution directory is generated output gated by checks:
 
 ---
 
-<!-- version-transition: the pin below reflects the LAST ACTUAL scan -- do NOT bump the SkillSpector/CoalMine version, date, or score without a real re-scan (an unscanned version's security is UNVERIFIED; never claim coverage). Re-scan periodically or on a significant plugin/ skill change (skillspector/scan.ps1 CoalMine), then re-sync the 3 finding refs. Last run: SkillSpector v2.2.3 · CoalMine v3.7.3 (commit 8d6804e) · 2026-06-17 19:53 UTC · 58/100 · 3 false positives. Line refs drift on skill edits — verify against the fresh scan output. (This file is at the repo root, OUTSIDE the scanned plugin/ dir, so this comment is not scanned.) -->
+<!-- version-transition: the pin below reflects the LAST ACTUAL scan -- do NOT bump the SkillSpector/CoalMine version, date, or score without a real re-scan (an unscanned version's security is UNVERIFIED; never claim coverage). Re-scan periodically or on a significant plugin/ skill change (skillspector/scan.ps1 CoalMine), then re-sync the 3 finding refs. Last run: SkillSpector v2.2.3 · CoalMine v3.7.7 (commit 3d51ee5) · 2026-06-20 · 100/100 · 10 false positives. Line refs drift on skill edits — verify against the fresh scan output. (This file is at the repo root, OUTSIDE the scanned plugin/ dir, so this comment is not scanned.) -->
 ## 🔬 Independent Scanning — NVIDIA SkillSpector
 
-CoalMine is evaluated against [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector), run locally via `uvx` (no install). Score **58/100 (HIGH)** — identical to the prior v2.1.4 result: the same 3 findings, all false positives.
+CoalMine is evaluated against [NVIDIA SkillSpector](https://github.com/NVIDIA/skillspector), run locally via `uvx` (no install). Score **100/100 (CRITICAL static)** — up from 58/100 because CoalMine now ships consent-gated **Self-Updating** (v3.7.5), which the static **RA1 self-modification** rule flags (×7) as a false positive; the jump is this new surface, not a defect. **10 findings, all false positives.**
 
-**Scan provenance:** SkillSpector **v2.2.3** · CoalMine **v3.7.3** (commit `8d6804e`) · **2026-06-17 19:53:58 UTC** (2026-06-18 local). Scanning is periodic, not per-release — this pins the last version actually verified, not the current ship; later releases are not claimed scanned.
+**Scan provenance:** SkillSpector **v2.2.3** · CoalMine **v3.7.7** (commit `3d51ee5`) · **2026-06-20**. Scanning is event-driven (a new SkillSpector version, or a genuinely new attack surface) — this pins the last version actually verified.
 
-* **Static Scan (58/100 - HIGH):** Raises 3 false positives due to instruction-bearing patterns typical in audit tools:
+* **Static Scan (100/100 - CRITICAL):** Raises 10 false positives. The 7 new since the 58/100 scan are all the consent-gated self-update:
+  * `HIGH · RA1 Self-Modification` ×7 (the `/coalmine:update` command + the conductor's self-update scheduler + `self-update` comments) - the series **consent-gated Self-Updating**: the hook only SCHEDULES (no network), the agent offers the platform's own `claude plugin update`; the skill never rewrites its own files. The other 3 (unchanged — instruction-bearing patterns typical of audit tools):
   * `HIGH · P2 Hidden Instructions` (`skills/gold-standard/references/method.md:1`) - The metadata rule-freshness stamp (an instruction-shaped HTML comment carrying no command or exfil directive).
   * `MED · EA2 Autonomous Decision` (`skills/gold-standard/SKILL.md:26`) - The line reads "...**never** assume approval"; the scanner matched the substring "assume approval" and missed the "never". The `ask_question` gate is the opposite of acting without confirmation.
   * `MED · RA2 Session Persistence` (`hooks/rot-canary-stop.js:160`) - The stop-hook session temp file (written to `tmpdir`, deleted on stop; not an OS-persistence mechanism).
