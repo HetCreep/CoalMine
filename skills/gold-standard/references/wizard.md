@@ -1,11 +1,11 @@
 # gold-standard — manual setup wizard
 
-> Manual-only (auto/keyword path skips it). Surface decisions + the bill only — never narrate mechanics.
+> Surface decisions + the bill — never narrate mechanics.
 
-**LAYMAN — bare `/gold-standard` / "audit my rules":** pick safe defaults (relevant dimensions from one cheap scan · Standard · AUDIT), then ONE plain question (no jargon):
-> "Check your project's rules/standards against world-class? ~Y tokens. → **go** · **go deeper** (also fill the gaps) · **cancel**"
+**LAYMAN — bare `/gold-standard` / "audit my rules":** one cheap scan picks safe defaults (relevant dimensions · Standard · AUDIT), then ONE plain question (no jargon):
+> "Check your project's rules/standards against world-class? ~Y tokens. → **go** · **go deeper** (fill the gaps + apply them) · **cancel**"
 
-`go` → AUDIT · `go deeper` → AUDIT + FILL. ADOPT/CONFORM stay act-gated per SKILL.md.
+`go` → AUDIT. `go deeper` → AUDIT + FILL + ADOPT: write the missing rules into the project AND make them binding this session (no separate ADOPT prompt — the chosen option IS the consent). CONFORM stays a separate explicit gate per SKILL.md. The Standard default IS the footer's tier — so the footer asks no tier question on this path.
 
 **PROGRAMMER — "advanced" / a stated preference / `ACTION=`.** Order → bill → pay:
 1. ONE batched question-box: **ACT** (AUDIT ✓ / +FILL / +ADOPT / +CONFORM) · **DIMENSIONS** (all-relevant ✓ / pick from the 12) · **TIER** (this IS the footer's tier question — fold it into THIS box; never ask tier twice).

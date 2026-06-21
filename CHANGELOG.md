@@ -4,6 +4,19 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.8.1] — 2026-06-21
+
+Gold-standard wizard flow-correctness + token-minimization — the v3.8.0 wizard shipped with an embed defect and a latent double-ask. Two adversarial loop-until-correct dogfood passes (trace every action → fix → re-verify; then squeeze tokens → re-verify all bars).
+
+### Fixed
+- **EMBED (the headline) — layman `go deeper` now firmly binds the rules.** It was `AUDIT + FILL` (rules written to disk but NOT in force this session → the layman then hit a separate redundant ADOPT gate to make them binding). Now `AUDIT + FILL + ADOPT` in that one consent — the gaps are written into the project's rules home AND made binding, so gold rules firmly bind without a second prompt. CONFORM (existing-code retrofit) stays a separate explicit gate.
+- **Latent double-ask on the layman path closed.** The layman box now states the Standard default IS the resident escalation-footer's tier — so the footer fires no second tier question on that path (the programmer box already folded it).
+
+### Changed
+- **Token-minimized.** A second loop squeezed the on-demand wizard 1551 → 1449 ch; every cut was re-verified against all 4 correctness bars (flow · no-double-ask · embed · no-dup), and 11 further cuts were rejected as bar-breaking = maximally lean. `SKILL.md` (resident) untouched.
+
+Gate: build + 69 node tests + consistency + verify PASS.
+
 ## [3.8.0] — 2026-06-21
 
 Gold-standard gains an interactive setup wizard (manual `/gold-standard` only — the auto/keyword path is untouched and pays nothing for it).
