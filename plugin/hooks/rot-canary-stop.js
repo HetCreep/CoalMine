@@ -272,11 +272,14 @@ function main() {
   let fileCapSlice = 5;
   try {
     const cfg = loadCfg();
+    // Clamp at read time to a positive integer — the schema bound (min:1) is enforced
+    // only by verify.mjs over the factory config, never at hook read time. Without this,
+    // {0} emits an empty-list nudge and {-1}/non-int silently drops the last touched file.
     if (cfg && typeof cfg.autoScanFileCap === 'number') {
-      fileCap = cfg.autoScanFileCap;
+      fileCap = Math.max(1, Math.floor(cfg.autoScanFileCap));
     }
     if (cfg && typeof cfg.autoScanFileCapSlice === 'number') {
-      fileCapSlice = cfg.autoScanFileCapSlice;
+      fileCapSlice = Math.max(1, Math.floor(cfg.autoScanFileCapSlice));
     }
   } catch {}
 

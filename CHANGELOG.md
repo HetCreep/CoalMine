@@ -4,6 +4,17 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.7.12] — 2026-06-21
+
+Board-audit round-2 fixes (sub4-reproduced) — config-clamp hardening; behavior unchanged on valid config.
+
+### Fixed
+- **rot-canary stop-hook clamps `autoScanFileCap` / `autoScanFileCapSlice` at READ (#2).** `{0}` no longer emits an empty-list "scan these (capped at 0)" nudge; `{-1}` no longer silently drops the last touched file; the PowerShell twin clamps identically (`Select-Object -First -1` no longer throws → Node≡PS parity restored). `Math.max(1, Math.floor(n))` at read time.
+- **`updateCheckDays` parity (#4/#5).** config-schema adds `max:365` (had `min:1` only); the conductor guard is now `Number.isInteger(v) && 1<=v<=365` (was `>=1` only — accepted `1.5`/`99999`). Parity with CoalBoard + CoalTipple.
+- +5 hermetic regression tests (64 → 69 node tests) proving each clamp closes its edge case.
+
+Gate: build + 69 node tests + consistency + verify PASS.
+
 ## [3.7.11] — 2026-06-21
 
 Board-audit fixes (verify-triaged from the whole-Colliery nasa board, 28/139 confirmed) — bugfixes only, no behavior change to the canaries.

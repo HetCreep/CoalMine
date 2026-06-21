@@ -220,6 +220,51 @@ test('enableConductor:false silences everything, including self-update directive
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 
+test('out-of-bound updateCheckDays:99999 is rejected → falls back to the 14d window (no never-due lockout)', () => {
+  // Board #5: the old guard (typeof number && >= 1) accepted 99999 verbatim, opening a
+  // 99999-day window — once the stamp is written it would never be due again. The fixed
+  // guard (Number.isInteger && >=1 && <=365) rejects it → default 14 → a 20-day-old stamp
+  // is due. If 99999 were still honored verbatim, 20 < 99999 → no directive.
+  const tmp = mkProject({ updateMode: 'ask', updateCheckDays: 99999 });
+  try {
+    writeStamp(tmp, isoDaysAgo(20));
+    const r = runConductor(tmp);
+    assert.equal(r.status, 0);
+    assert.ok(r.stdout.includes('CoalMine self-update (ask'), '99999 rejected → 14d default → 20d-old stamp is due');
+    assert.equal(readStamp(tmp), todayISO(), 'stamp refreshed to today');
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
+test('non-integer updateCheckDays:1.5 is rejected → falls back to the 14d window (not used verbatim)', () => {
+  // Board #5: the old guard accepted 1.5 (a float) verbatim. The fixed guard requires
+  // Number.isInteger → 1.5 rejected → default 14 → a 13-day-old stamp is NOT yet due.
+  // If 1.5 were honored verbatim, 13 >= 1.5 → it would fire — so silence proves rejection.
+  const tmp = mkProject({ updateMode: 'ask', updateCheckDays: 1.5 });
+  try {
+    writeStamp(tmp, isoDaysAgo(13));
+    const r = runConductor(tmp);
+    assert.equal(r.status, 0);
+    assert.ok(!r.stdout.includes('CoalMine self-update (ask'), '1.5 rejected → 14d default → 13d < 14 → not due');
+    assert.equal(readStamp(tmp), isoDaysAgo(13), 'stamp untouched (not due)');
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
+test('out-of-bound updateCheckDays:0 is rejected → falls back to the 14d window', () => {
+  // Board #5/#3 root: 0 must not be used verbatim (a 0-day window re-nudges every session).
+  // The lower-bound guard already rejected 0; this pins that the fixed guard still does.
+  // A 20-day-old stamp is due under the 14d default; a 0-day window would also fire here,
+  // so we additionally pin that a fresh (today) stamp stays SILENT — impossible if 0 were
+  // honored (0-day window → now-last < 0 never true → always due).
+  const tmp = mkProject({ updateMode: 'ask', updateCheckDays: 0 });
+  try {
+    writeStamp(tmp, todayISO());
+    const r = runConductor(tmp);
+    assert.equal(r.status, 0);
+    assert.ok(!r.stdout.includes('CoalMine self-update (ask'), '0 rejected → 14d default → fresh stamp is not due');
+    assert.equal(readStamp(tmp), todayISO(), 'stamp untouched (not due)');
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
 test('a corrupt stamp self-heals (treated as due) and is overwritten with a valid date', () => {
   const tmp = mkProject({ updateMode: 'ask' });
   try {

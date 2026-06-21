@@ -194,7 +194,7 @@ function main() {
       const v = cfg.updateMode.toLowerCase();
       if (v === 'ask' || v === 'auto' || v === 'remind' || v === 'off') updateMode = v;
     }
-    if (cfg && typeof cfg.updateCheckDays === 'number' && cfg.updateCheckDays >= 1) {
+    if (cfg && Number.isInteger(cfg.updateCheckDays) && cfg.updateCheckDays >= 1 && cfg.updateCheckDays <= 365) {
       updateCheckDays = cfg.updateCheckDays;
     }
   } catch {}

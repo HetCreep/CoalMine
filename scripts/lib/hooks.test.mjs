@@ -320,6 +320,60 @@ test('stop hook honors autoScanFileCapSlice override in .coalmine.json', () => {
   }
 });
 
+test('stop hook clamps autoScanFileCap:0 → no empty-list / "capped at 0" nudge (Board #2)', () => {
+  // Before the read-time clamp, {autoScanFileCap:0, autoScanFileCapSlice:0} → files.slice(0,0)
+  // → an empty file list + a "capped at 0 files" notice (a wasted, self-contradictory turn).
+  // The clamp floors both at 1, so the nudge lists a real file and never says "capped at 0".
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ autoScanFileCap: 0, autoScanFileCapSlice: 0 }), 'utf8');
+    const fileA = path.join(tmp, 'a.js');
+    const fileB = path.join(tmp, 'b.js');
+    fs.writeFileSync(fileA, 'x');
+    fs.writeFileSync(fileB, 'x');
+    const base = path.join(tmp, 'rot-canary-S5');
+    fs.writeFileSync(base + '.touched', `${fileA}\n${fileB}\n`);
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'S5', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.decision, 'block');
+    assert.ok(!out.reason.includes('capped at 0'), 'must NOT say "capped at 0" — the cap is clamped to 1');
+    assert.ok(out.reason.includes('a.js') || out.reason.includes('b.js'), 'nudge must list at least one real file, never an empty list');
+    // The list region (between the intro and any cap notice) carries a real "  - <file>" line.
+    assert.ok(/\n {2}- .+\.js/.test(out.reason), 'a non-empty bullet list of files is present');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('stop hook clamps autoScanFileCapSlice:-1 → does NOT drop the last touched file (Board #2)', () => {
+  // Before the clamp, {autoScanFileCap:2, autoScanFileCapSlice:-1} with 3 files → slice(0,-1)
+  // silently kept "all but the last" + a "capped at -1 files" notice. The clamp floors the
+  // slice at 1 → the notice reads "capped at 1 files" and the all-but-last drop is impossible.
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ autoScanFileCap: 2, autoScanFileCapSlice: -1 }), 'utf8');
+    const fileA = path.join(tmp, 'a.js');
+    const fileB = path.join(tmp, 'b.js');
+    const fileC = path.join(tmp, 'c.js');
+    fs.writeFileSync(fileA, 'x');
+    fs.writeFileSync(fileB, 'x');
+    fs.writeFileSync(fileC, 'x');
+    const base = path.join(tmp, 'rot-canary-S6');
+    fs.writeFileSync(base + '.touched', `${fileA}\n${fileB}\n${fileC}\n`);
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'S6', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.decision, 'block');
+    assert.ok(!out.reason.includes('capped at -1'), 'must NOT emit a negative "-1" slice notice');
+    assert.ok(out.reason.includes('capped at 1 files'), 'slice clamped to 1 (positive int), not the negative "all-but-last" behavior');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('stop hook does NOT sweep stale temp when the canary is disabled (a disabled canary does no work)', () => {
   const tmp = mkTmp();
   try {

@@ -32,7 +32,7 @@ export const CONFIG_SCHEMA = [
   { key: 'rotCanaryMode', type: 'enum', values: ['auto', 'manual', 'off'], flags: ['-m', '--mode'], help: 'rot-canary auto-scan mode (auto, manual, off)' },
   { key: 'autoFixMode', type: 'enum', values: ['interactive', 'safe', 'off'], flags: ['-f'], help: 'Default fix-mode behavior (interactive, safe, off)' },
   { key: 'updateMode', type: 'enum', values: ['ask', 'auto', 'remind', 'off'], flags: ['-u', '--update-mode'], help: 'Self-update behavior at session start (ask, auto, remind, off; default: ask)' },
-  { key: 'updateCheckDays', type: 'int', min: 1, flags: ['-p', '--update-days'], help: 'Days between self-update checks/reminders (default: 14)' },
+  { key: 'updateCheckDays', type: 'int', min: 1, max: 365, flags: ['-p', '--update-days'], help: 'Days between self-update checks/reminders (default: 14)' },
   { key: 'schemaPaths', type: 'strArr', flags: ['--schemas'], help: 'Comma-separated glob paths to schemas/API specs' },
   { key: 'migrationDirs', type: 'strArr', flags: ['--migrations'], help: 'Comma-separated database migration directories' },
   { key: 'packageManifests', type: 'strArr', flags: ['--manifests'], help: 'Comma-separated package manifest / lockfile paths' },

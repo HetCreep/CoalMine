@@ -133,12 +133,15 @@ try {
   $files = [System.IO.File]::ReadAllLines($touched) | Where-Object { $_ -and [System.IO.File]::Exists($_) } | Sort-Object -Unique
   if (-not $files) { exit 0 }
 
-  # autoScanFileCap and autoScanFileCapSlice implementation
+  # autoScanFileCap and autoScanFileCapSlice implementation.
+  # Clamp at read time to a positive integer (Node≡PS parity) — the schema bound
+  # (min:1) is enforced only by verify.mjs, never at hook read time. Without this,
+  # {0} emits an empty-list nudge and {-1}/non-int makes Select-Object -First throw.
   $fileCap = 10
   $fileCapSlice = 5
   if ($cfg) {
-    if ($cfg.autoScanFileCap -ne $null) { $fileCap = $cfg.autoScanFileCap }
-    if ($cfg.autoScanFileCapSlice -ne $null) { $fileCapSlice = $cfg.autoScanFileCapSlice }
+    if ($cfg.autoScanFileCap -ne $null) { $fileCap = [Math]::Max(1, [int][Math]::Floor([double]$cfg.autoScanFileCap)) }
+    if ($cfg.autoScanFileCapSlice -ne $null) { $fileCapSlice = [Math]::Max(1, [int][Math]::Floor([double]$cfg.autoScanFileCapSlice)) }
   }
 
   $capNotice = ''
