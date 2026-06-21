@@ -40,6 +40,8 @@ The installer wires `verify.mjs`, `consistency.mjs`, and the `node --test` unit 
 
 `SKILL.md` is an open standard. CoalMine installs on Claude Code (plugin `coalmine@coalmine`) and any subagent-capable agent via `node scripts/install.mjs <agent|all>` (writes to that agent's skills folder, e.g. `.agents/skills/`). See the [README](README.md#-universal-agent-support) for the full agent matrix and what ports where.
 
+**Two tiers, honestly.** Any subagent agent is **design-supported** through the open `SKILL.md` standard (the canaries just run) — usable today with no probe. The canaries are **verified** on Claude Code (full, with the auto-trigger hooks) and Antigravity (skills run; the hooks are Claude-Code-only). Verification follows *access*, not a request queue: if you run a platform we haven't, open an issue and we'll walk you through a one-off capability probe **you run** on your side, then we confirm it and add it to the verified matrix. The probe prompts stay private, and we never mark a platform "verified" until it's actually been run there — the free, open-standard path is always there; "verified" is earned by whoever has the platform.
+
 ---
 
 ## 🗂️ Project Layout
