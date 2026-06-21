@@ -2,11 +2,12 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
-## [Unreleased]
+## [3.8.2] — 2026-06-21
 
-CB-audit round fixes — **repo-level only (PowerShell hooks · scripts · CI · tests); the `plugin/` dist is unchanged, so no version bump.** A PowerShell-hook user gets these by pulling the repo; the Claude Code plugin is byte-identical to v3.8.1.
+Gold-standard wizard CHANGE-path correctness (parity with CoalBoard v1.4.2). This touches the shipped `plugin/`, so it earns the bump; the previously-unreleased PowerShell/CI repo fixes below ride along on this tag.
 
 ### Fixed
+- **Wizard `change` now recomputes the bill + re-consents (`bill → change → bill → pay`).** The programmer-path confirm in `references/wizard.md` said "go / change / cancel → spawn only on go" but never specified that `change` must loop back → RECOMPUTE the bill → re-present a FRESH consent box — so a change (→ Heavy fan-out · +FILL · +CONFORM) could score/spawn on a stale, un-reconsented bill. Now spelled out; spawn only on a `go` of the CURRENT bill. (Same consent-integrity fix as CoalBoard v1.4.2.)
 - **[CRITICAL] PowerShell `disabledCanaries` kill-switch was dead for single-element arrays.** `{"disabledCanaries":["rot-canary"]}` / `["all"]` / legacy `{"disable":["all"]}` failed to disable the canary on Windows PowerShell 5.1 (the Windows default) — it still recorded + nudged + swept. Root cause: an `if`-expression assignment enumerated a single-element `Object[]` into a scalar `String`, then a `-is [array]` guard dropped the scalar to `@()`. Fix: `$disabledArr = @($disabled)` (force-array) in both `rot-canary-touch.ps1` + `rot-canary-stop.ps1`; the old in-code comment misdiagnosed it as `ConvertFrom-Json` unwrapping (it preserves single-element arrays — `watchedExtensions` was always safe) — comment corrected.
 - **[HIGH] PowerShell merge-conflict tripwire false-fired on a bare `=======` banner.** Ported the Node co-occurrence guard (CHANGELOG [3.7.11]): flag `=======` only when a `<<<<<<< `/`>>>>>>> ` bracket co-occurs.
 - **[HIGH] CI ran fewer tests than the local hooks** (`ci.yml` ran 6, the git hooks run 8). Added `jsonc.test.mjs` + `conductor-update.test.mjs` (+ a PowerShell parity step) to CI; corrected the false "same gate" comment.
