@@ -10,6 +10,11 @@ if [ -f scripts/verify.mjs ]; then
     [ -f "$t" ] || { echo "CoalMine gate: missing $t" >&2; exit 1; }
   done
   node --test scripts/lib/render.test.mjs scripts/lib/hooks.test.mjs scripts/lib/install.test.mjs scripts/lib/configure.test.mjs scripts/lib/regions.test.mjs scripts/lib/consistency.test.mjs scripts/lib/jsonc.test.mjs scripts/lib/conductor-update.test.mjs || exit 1
+  # PowerShell parity test (Remove-JsoncComments + Test-ValidSessionId) — skip if
+  # pwsh is absent so the gate still runs on a box without PowerShell; fail loud when present.
+  if command -v pwsh >/dev/null 2>&1; then
+    pwsh -NoProfile -File scripts/lib/ps-config.test.ps1 || exit 1
+  fi
   node scripts/verify.mjs
   exit $?
 fi

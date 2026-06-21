@@ -140,6 +140,39 @@ export function checkVersionPins(repo) {
   return out;
 }
 
+// 1d. The JSONC comment-stripper regex is hand-duplicated in jsonc.mjs (ESM) and
+// hooks/_shared/node-config.js (CJS — Phoenix self-contained, can't require()).
+// Each has its own test, but no test reads BOTH; a divergence in one would not be
+// mechanically caught. This extracts the regex literal from each and fails if they
+// differ — the "two copies silently drift" class, mechanized (no runtime change).
+const JSONC_REGEX_RE = /\.replace\((\/"\(\?:[\s\S]*?\/g),/;
+export function checkJsoncRegexSync(repo) {
+  const out = [];
+  const sources = [
+    'scripts/lib/jsonc.mjs',
+    'hooks/_shared/node-config.js',
+  ];
+  const literals = [];
+  for (const rel of sources) {
+    const p = path.join(repo, rel);
+    let body;
+    try { body = fs.readFileSync(p, 'utf8'); } catch (e) {
+      out.push({ level: 'FAIL', msg: `consistency: ${rel} unreadable for jsonc-regex sync: ${e.message}` });
+      return out;
+    }
+    const m = body.match(JSONC_REGEX_RE);
+    if (!m) {
+      out.push({ level: 'FAIL', msg: `consistency: could not locate the JSONC stripper regex in ${rel}` });
+      return out;
+    }
+    literals.push({ rel, lit: m[1] });
+  }
+  if (literals[0].lit !== literals[1].lit) {
+    out.push({ level: 'FAIL', msg: `consistency: JSONC stripper regex DIVERGED — ${literals[1].rel} differs from ${literals[0].rel} (keep the two copies in sync)` });
+  }
+  return out;
+}
+
 // 2. Doctrine mirrors must be byte-identical wherever they exist. A lone diverging
 // copy is the mechanical fingerprint of a stale sync or a tampered rule file.
 export function checkDoctrineMirrors(repo) {
@@ -221,10 +254,10 @@ export function checkRuleStamps(repo) {
 // Tracked-file checks safe to run in the commit gate (no machine-local rule home
 // required). Returns findings[]; empty = consistent.
 export function checkTracked(repo) {
-  return [...checkCanaryCount(repo), ...checkAgentCount(repo), ...checkVersionPins(repo)];
+  return [...checkCanaryCount(repo), ...checkAgentCount(repo), ...checkVersionPins(repo), ...checkJsoncRegexSync(repo)];
 }
 
 // Every check, for the on-demand consistency CLI (includes machine-local rule home).
 export function checkAll(repo) {
-  return [...checkCanaryCount(repo), ...checkAgentCount(repo), ...checkVersionPins(repo), ...checkDoctrineMirrors(repo), ...checkRuleStamps(repo)];
+  return [...checkCanaryCount(repo), ...checkAgentCount(repo), ...checkVersionPins(repo), ...checkJsoncRegexSync(repo), ...checkDoctrineMirrors(repo), ...checkRuleStamps(repo)];
 }

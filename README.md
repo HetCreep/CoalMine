@@ -147,14 +147,33 @@ Installing is the power button. The agent conducts the canaries and asks for con
 
 ### Configuration Schema
 
+The full key set (the source of truth is `scripts/lib/config-schema.mjs`; the shipped `platform-configs/.coalmine.json` template documents every key inline):
+
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `language` | String | `auto` | Override language detection (`en` \| `th` \| `ja` \| `zh` \| `es`) |
-| `defaultTier` | String | `auto` | Force execution tier (`Light` \| `Standard` \| `Heavy`) |
-| `autoScanFileCap` | Number | `10` | Maximum touched files to scan at session end |
-| `tripwireMaxFileSizeKb` | Number | `100` | Size limit in KB for editor conflict checks |
+| `language` | String | `auto` | Override language detection (`auto` \| `en` \| `th` \| `ja` \| `zh` \| `es`) |
 | `enableConductor` | Boolean | `true` | Set false to disable rules injection on Session Start |
+| `skipOnboarding` | Boolean | `false` | Skip the gold-standard onboarding offer at session start |
+| `defaultTier` | String | `auto` | Force execution tier (`Light` \| `Standard` \| `Heavy` \| `auto`) |
+| `rotCanaryMode` | String | `auto` | rot-canary auto-scan mode (`auto` \| `manual` \| `off`) |
+| `autoScanFileCap` | Number | `10` | Maximum touched files to scan at session end |
+| `autoScanFileCapSlice` | Number | `5` | Most-recently-modified files kept when `autoScanFileCap` is exceeded (a count, not a fraction) |
+| `tripwireMaxFileSizeKb` | Number | `100` | Size limit in KB for the tripwire scan |
+| `tripwireMaxLines` | Number | `800` | Line count that flags a file as a smell |
+| `tempSweepStaleDays` | Number | `7` | Age in days before session temp files are swept |
+| `watchedExtensions` | Array | `[]` | File extensions the touch hook watches (empty = defaults) |
+| `updateMode` | String | `ask` | Self-update behavior at session start (`ask` \| `auto` \| `remind` \| `off`) |
+| `updateCheckDays` | Number | `14` | Days between self-update checks/reminders |
+| `ruleRevalidateDays` | Number | `90` | Days before general rules need re-validation |
+| `platformRuleRevalidateDays` | Number | `30` | Days before platform/model rules need re-validation |
+| `definitionRevalidateDays` | Number | `90` | Days before general reference definitions are stale |
+| `platformDefinitionRevalidateDays` | Number | `30` | Days before platform definitions are stale |
 | `disabledCanaries` | Array | `[]` | Canaries to disable (e.g. `["rot-canary"]` or `["all"]`) |
+| `autoFixMode` | String | `interactive` | Default fix-mode behavior (`interactive` \| `safe` \| `off`) |
+| `schemaPaths` | Array | `[]` | Glob paths to schemas / API specs |
+| `migrationDirs` | Array | `[]` | Database migration directories |
+| `packageManifests` | Array | `[]` | Package manifest / lockfile paths |
+| `trustedDomains` | Array | `[]` | Extra trusted domains for source grounding |
 
 ### Configurator Utility
 ```bash

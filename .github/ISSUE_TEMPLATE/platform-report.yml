@@ -18,6 +18,7 @@ body:
         - Amp
         - Junie
         - Codex CLI
+        - Antigravity
         - Other (name it below)
     validations:
       required: true
@@ -25,7 +26,7 @@ body:
     id: version
     attributes:
       label: CoalMine version + agent version
-      placeholder: "CoalMine v3.7.10 · Cursor 2.4"  # version-pin: tracks .claude-plugin/plugin.json — bump on release
+      placeholder: "CoalMine v3.7.11 · Cursor 2.4"  # version-pin: tracks .claude-plugin/plugin.json — bump on release
     validations:
       required: true
   - type: dropdown

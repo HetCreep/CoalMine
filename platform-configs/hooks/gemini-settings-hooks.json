@@ -4,12 +4,12 @@
     "AfterTool": [
       {
         "matcher": "write_file|replace",
-        "hooks": [{ "type": "command", "command": "node C:/path/to/CoalMine/hooks/rot-canary-touch.js" }]
+        "hooks": [{ "type": "command", "command": "node \"C:/path/to/CoalMine/hooks/rot-canary-touch.js\"" }]
       }
     ],
     "AfterAgent": [
       {
-        "hooks": [{ "type": "command", "command": "node C:/path/to/CoalMine/hooks/rot-canary-stop.js" }]
+        "hooks": [{ "type": "command", "command": "node \"C:/path/to/CoalMine/hooks/rot-canary-stop.js\"" }]
       }
     ]
   }

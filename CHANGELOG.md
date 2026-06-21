@@ -4,6 +4,26 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.7.11] — 2026-06-21
+
+Board-audit fixes (verify-triaged from the whole-Colliery nasa board, 28/139 confirmed) — bugfixes only, no behavior change to the canaries.
+
+### Fixed
+- **PS-config parity test now gated** — `scripts/lib/ps-config.test.ps1` wired into pre-commit + pre-push (skip-if-absent pwsh; fail-loud when present). Closes the scripts-quality §2 gap where a PowerShell-side regression could ship silently.
+- **JSONC-stripper sync gate** — new `consistency.mjs checkJsoncRegexSync` fails if the comment-stripper regex in `scripts/lib/jsonc.mjs` and `hooks/_shared/node-config.js` ever diverge (was hand-duplicated, ungated).
+- **merge-conflict tripwire FP** — `rot-canary-touch.js` flags a `=======` line only when a real `<<<<<<< `/`>>>>>>> ` marker co-occurs (a bare 7-equals banner no longer false-positives).
+- **`>maxLines` off-by-one** — a file at exactly the cap (with or without a trailing newline) is no longer flagged.
+- **platform hook templates** — the 5 `platform-configs/hooks/*.json` now quote the node script path (no word-split on a path with spaces; hooks-safety §3).
+- **fix-mode safety guard** — the scale/telemetry/testability/drift "Apply safe …" bullets now carry the checkpoint → build/test → revert-if-red guard the other canaries already have.
+- **`install.mjs`** — `copyDefaultConfig` warn path sets `process.exitCode = 1` (fail-loud, scripts-quality §1).
+- **README** — the Configuration-Schema table is completed to all 23 keys (was 6), sourced from `config-schema.mjs`.
+- **issue-template** — Antigravity added to the agent dropdown (it is a supported install target).
+
+Gate: build + 64 node tests + consistency (+ new jsonc-sync) + verify PASS.
+
+### Notes
+- **Erratum to the [3.7.8] "Platform-fact accuracy (M9)" entry.** That entry's wording ("Dropped the scrapped Antigravity entry from the orchestration escalation footer") over-scoped. The Antigravity removal landed in the references/escalation.md Heavy-lever table only; the always-resident `ask_question` alias footer still names Antigravity, which is correct — **Antigravity remains a fully-supported install target.** Antigravity is not "scrapped"; future CHANGELOG entries will not imply it is.
+
 ## [3.7.10] — 2026-06-21
 
 SKILL.md load-path carve (token economy) — every canary's behavior unchanged.

@@ -158,9 +158,16 @@ function main() {
   } catch { return; }
 
   const smells = [];
-  if (lines.some((l) => /^(<<<<<<< |>>>>>>> |=======$)/.test(l))) smells.push('merge-conflict markers');
+  // A real merge conflict always has an angle-bracket opener/closer. Key the tripwire
+  // on those: a bare '=======' line is a common ASCII section banner in source comments,
+  // so flag the '=======' divider only when a '<<<<<<< '/'>>>>>>> ' line co-occurs.
+  const hasConflictBracket = lines.some((l) => /^(<<<<<<< |>>>>>>> )/.test(l));
+  if (hasConflictBracket && lines.some((l) => /^(<<<<<<< |>>>>>>> |=======$)/.test(l))) smells.push('merge-conflict markers');
   const maxLines = getTripwireMaxLines();
-  if (lines.length > maxLines) smells.push(`file >${maxLines} lines (${lines.length})`);
+  // A file with exactly maxLines content lines + a trailing newline splits to maxLines+1
+  // elements; drop that single trailing empty element so a file AT the cap is not flagged.
+  const lineCount = lines.length - (lines[lines.length - 1] === '' ? 1 : 0);
+  if (lineCount > maxLines) smells.push(`file >${maxLines} lines (${lineCount})`);
   if (smells.length) {
     // One line per file — the stop hook reports each .smells line verbatim.
     try { fs.appendFileSync(base + '.smells', `${normF}: ${smells.join('; ')}\n`); } catch {}

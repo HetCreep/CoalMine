@@ -369,6 +369,7 @@ function copyDefaultConfig() {
     }
   } catch (err) {
     console.warn(`  [warn] failed to copy settings: ${err.message}`);
+    process.exitCode = 1;
   }
 }
 

@@ -3,7 +3,7 @@
   "version": 1,
   "hooks": {
     "afterFileEdit": [
-      { "command": "node C:/path/to/CoalMine/hooks/rot-canary-touch.js" }
+      { "command": "node \"C:/path/to/CoalMine/hooks/rot-canary-touch.js\"" }
     ],
     "stop": [
       { "command": "node -e \"const cp=require('child_process'),fs=require('fs');const r=cp.spawnSync(process.execPath,['C:/path/to/CoalMine/hooks/rot-canary-stop.js'],{input:fs.readFileSync(0),encoding:'utf8'});try{const o=JSON.parse(r.stdout);if(o&&o.reason)console.log(JSON.stringify({followup_message:o.reason}))}catch{}\"" }
