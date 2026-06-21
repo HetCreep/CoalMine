@@ -12,6 +12,8 @@ Answer: **"For a project that does THIS — are rules/standards/features 100% vs
 
 Four acts: **AUDIT** → **FILL** → **ADOPT** → **CONFORM**. Stop at any.
 
+**Manual `/gold-standard` = interactive setup:** read `references/wizard.md` (dual-audience — layman 1-question default · programmer order→bill→pay). The auto/keyword path (the Triggers table) skips it.
+
 ## Triggers
 | Keyword | Act |
 |---|---|

@@ -4,6 +4,21 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.8.0] — 2026-06-21
+
+Gold-standard gains an interactive setup wizard (manual `/gold-standard` only — the auto/keyword path is untouched and pays nothing for it).
+
+### Added
+- **`gold-standard/references/wizard.md` — dual-audience interactive setup**, read on-demand when a user runs `/gold-standard` manually:
+  - **Layman** (bare `/gold-standard` / "audit my rules"): AI picks safe defaults (relevant dimensions from one cheap scan · Standard · AUDIT), then asks ONE plain jargon-free question (`go` · `go deeper` · `cancel`).
+  - **Programmer** ("advanced" / `ACTION=`): one batched question-box (ACT · DIMENSIONS · TIER) → bill computed FROM the picks → `go`/`change`/`cancel`. Order → bill → pay (bill after picks = never a stale default).
+- A one-line manual-entry pointer in `gold-standard/SKILL.md`; the Triggers/auto path skips the wizard, so the always-resident body and the cheap auto path stay unchanged.
+
+### Notes
+- Token-economy dogfood (a sub simulated both paths + dumped every step): the wizard's TIER question is **folded into** the resident escalation-footer's existing tier-pick — never asked twice — removing a duplicate round-trip and a contradictory instruction; the ADOPT/CONFORM choice-gate is stated once (pointer to SKILL.md) instead of three times. Net ~27% leaner than the first draft.
+
+Gate: build + 69 node tests + consistency + verify PASS.
+
 ## [3.7.12] — 2026-06-21
 
 Board-audit round-2 fixes (sub4-reproduced) — config-clamp hardening; behavior unchanged on valid config.
