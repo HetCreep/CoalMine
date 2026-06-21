@@ -14,22 +14,14 @@ To report a security issue in a canary, hook, or installer:
 
 ## 🔑 Commit & Tag Signatures
 
-All commits and release tags are SSH-signed (`gpg.format=ssh`). Maintainer signing key:
-```text
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEtqTWGKhX1Dk9nZP8ns13Wl5zsO1Cz3VlTS6m1p2fP9 HetCreep git signing key
-```
+All commits and release tags are SSH-signed (`gpg.format=ssh`); GitHub renders the Verified badge.
 
-Verify signatures locally:
+Verify locally:
 ```bash
-# Setup allowed signers
-echo "noreply@hetcreep ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEtqTWGKhX1Dk9nZP8ns13Wl5zsO1Cz3VlTS6m1p2fP9" > coalmine_signers
+echo "* ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEtqTWGKhX1Dk9nZP8ns13Wl5zsO1Cz3VlTS6m1p2fP9" > coalmine_signers
 git config gpg.ssh.allowedSignersFile ./coalmine_signers
-
-# Verify HEAD and latest tag
-git verify-commit HEAD
-git tag -v "$(git describe --tags --abbrev=0)"
+git verify-commit HEAD && git tag -v "$(git describe --tags --abbrev=0)"
 ```
-*Note: Verified badges display automatically on GitHub.*
 
 ---
 
