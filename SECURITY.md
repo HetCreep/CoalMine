@@ -38,6 +38,7 @@ git tag -v "$(git describe --tags --abbrev=0)"
 The `plugin/` distribution directory is generated output gated by checks:
 * **Pre-commit/Pre-push Gates:** `node scripts/verify.mjs` automatically re-renders skills from source and byte-compares the committed output to prevent drift.
 * **Reproducible Builds:** Any user can clone, run `node scripts/build-plugin.mjs`, and verify the output is byte-identical.
+* **Test Suite:** `node --test` runs the zero-dependency unit and hermetic-hook tests (an explicit file list, wired into the git hooks).
 
 ---
 
@@ -56,4 +57,8 @@ CoalMine is evaluated against [NVIDIA SkillSpector](https://github.com/NVIDIA/sk
 * **Method:** SkillSpector's static analyzer was **run locally (2026-06-18) via `uvx --from git+https://github.com/NVIDIA/skillspector.git skillspector scan`** against the conformed `plugin/` dist — no install required. (An earlier note that the binary "needs a Python 3.12 environment not on this setup" was incorrect: `uvx` runs it without a local Python install.)
 * **LLM Semantic Scan:** attempted via NVIDIA (`NVIDIA_INFERENCE_KEY`, provider `nv_build`) but the API rate-limited the request (HTTP 429), so SkillSpector fell back to the static result above — by design.
 
-**Structural Assurance:** Security is built structurally. Every hook obeys the [Phoenix-13 rules](https://github.com/TheColliery/.github/blob/main/hooks-safety.md) (zero-dependency, no network, no child processes, fail-silent, session cleanup). No data-exfiltration path exists.
+---
+
+## 🛡️ Structural Safety (Phoenix-13)
+
+Security is built structurally. Every hook obeys the [Phoenix-13 rules](https://github.com/TheColliery/.github/blob/main/hooks-safety.md) (zero-dependency, no network, no child processes, fail-silent, session cleanup). No data-exfiltration path exists.

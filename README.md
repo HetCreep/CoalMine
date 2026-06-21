@@ -2,15 +2,18 @@
 
 # 🐤 CoalMine
 
+> *A mine's canary dies first so the miners live — these nine die first so your codebase lives.*
+
 **9 Quality-Safeguard Canaries for AI Coding Agents** — Detect code rot, weak rules, hallucinations, supply-chain vulnerabilities, brittle architectures, and API contract drift before they pollute your codebase.
 
 ![version](https://img.shields.io/github/v/tag/HetCreep/CoalMine?label=version&color=blue)
 ![license](https://img.shields.io/badge/license-MIT-blue)
+![status](https://img.shields.io/badge/status-live-brightgreen)
 ![SKILL.md](https://img.shields.io/badge/SKILL.md-open_standard_·_major_agents-success)
 ![skills](https://img.shields.io/badge/skills-9-success)
 ![agents](https://img.shields.io/badge/works_with-major_agents_·_Claude_·_Cursor_·_Windsurf-informational)
 
-[Design Principles](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md) · [Eval Results](https://github.com/TheColliery/.github/blob/main/benchmarks/CoalMine/RESULTS.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Releases](https://github.com/HetCreep/CoalMine/releases)
+[Design Principles](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md) · [Benchmark](https://github.com/TheColliery/.github/tree/main/benchmarks/CoalMine) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Releases](https://github.com/HetCreep/CoalMine/releases)
 
 **Part of [TheColliery](https://github.com/TheColliery)** — siblings: **[CoalTipple](https://github.com/TheColliery/CoalTipple)** (model/effort routing) · **[CoalBoard](https://github.com/TheColliery/CoalBoard)** (consensus & debate board).
 
@@ -75,7 +78,7 @@
 
 ---
 
-## 🚀 Installation & Verification
+## 🚀 Install
 
 ### Option A — Claude Code Plugin (No clone needed)
 ```text
@@ -140,7 +143,7 @@ Installing is the power button. The agent conducts the canaries and asks for con
 
 ---
 
-## ⚙️ Configuration (.coalmine.json)
+## ⚙️ Configure (.coalmine.json)
 
 * **General Users (Zero-Config):** Automatically generated `.coalmine.json` pre-configured with safe, token-optimal defaults.
 * **Programmers (Overrides):** Inline comments document every key. Run the configurator tool or edit manually.
@@ -206,22 +209,25 @@ Canaries report in a lean shape (one-line verdict + severity table of confirmed 
 
 ---
 
-## 📊 Measured detection quality
+## 📊 Benchmark
 
-AV-Comparatives-style [eval harness](https://github.com/TheColliery/.github/blob/main/benchmarks/CoalMine/README.md) results scored mechanically over 16 fixtures:
+**Headline:** `rot-canary` scored **100% recall · 100% precision · 0/4 decoy false-positives** over the 16-fixture corpus, scored mechanically (2026-06-13).
 
-| Canary | Engine | Recall | Precision | Decoy FPs | Severity accuracy |
-|---|---|---|---|---|---|
-| `rot-canary` | `claude-fable-5` (Baseline) | **100%** (13/13) | **100%** | **0**/4 | 13/13 |
-| `rot-canary` | `Antigravity` (Blind) | **100%** (13/13) | **100%** | **0**/4 | 12/13 |
+`rot-canary` is measured AV-Comparatives-style — recall, precision, decoy false-positives, and severity accuracy over a fixed fixture corpus, scored mechanically, cross-engine. **Honest scope:** small, dated samples authored in-project — a regression floor, not an independent benchmark; re-run on model/skill changes.
 
-*Measured 2026-06-13 (v3.4.0). Detailed log: [RESULTS.md](https://github.com/TheColliery/.github/blob/main/benchmarks/CoalMine/RESULTS.md).*
+Full method, per-category scoring, and the cross-engine comparison live in the series records: [`TheColliery/.github/benchmarks/CoalMine`](https://github.com/TheColliery/.github/tree/main/benchmarks/CoalMine).
 
 ---
 
 ## 🧭 Design Principles
 
 Bound by the 11 principles of the [Quantum Computer Spec](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md): maximum performance, zero visible errors, single-brand, minimum power, essential accessories, error correction, determinism, isolation, measurement, trustworthiness, and entanglement.
+
+---
+
+## 🏭 Part of TheColliery
+
+CoalMine shares its engineering doctrine with [CoalTipple](https://github.com/TheColliery/CoalTipple) (model/effort routing) and [CoalBoard](https://github.com/TheColliery/CoalBoard) (consensus & debate board): Phoenix-13 hooks (zero-dependency, no network, fail-silent, no child processes, deterministic), single-source-of-truth config schemas, and a strict no-overkill discipline. Install one and it stands alone; install all and they compose without conflict.
 
 ---
 

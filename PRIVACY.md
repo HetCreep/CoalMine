@@ -8,4 +8,4 @@
 - **Error reports are manual.** When a component misbehaves, your agent may OFFER to open a pre-filled GitHub issue form; nothing is ever submitted automatically, and you see and edit the full contents before sending.
 - **Local files only.** Per-project state lives in files you can read (`.coalmine.json`, `.coalmine-manifest.json`, temp session markers that self-clean within 7 days).
 
-Questions: [open an issue](https://github.com/HetCreep/CoalMine/issues).
+Questions: open an issue at <https://github.com/HetCreep/CoalMine/issues>.
