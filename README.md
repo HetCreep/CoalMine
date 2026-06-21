@@ -212,7 +212,7 @@ Canaries report in a lean shape (one-line verdict + severity table of confirmed 
 
 ## 📊 Benchmark
 
-**Headline:** `rot-canary` scored **100% recall · 100% precision · 0/4 decoy false-positives** over the 16-fixture corpus, scored mechanically (2026-06-13).
+**Headline:** `rot-canary` scored **100% recall · 100% precision · 0/4 decoy false-positives** over the 16-fixture corpus, scored mechanically (skill v3.4.0, 2026-06-13).
 
 `rot-canary` is measured AV-Comparatives-style — recall, precision, decoy false-positives, and severity accuracy over a fixed fixture corpus, scored mechanically, cross-engine. **Honest scope:** small, dated samples authored in-project — a regression floor, not an independent benchmark; re-run on model/skill changes.
 
