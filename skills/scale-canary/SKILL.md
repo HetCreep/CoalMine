@@ -11,21 +11,21 @@ description: >-
 Audit code for scalability issues, performance bottlenecks, and resource leaks.
 
 ## Auditing Categories
-1. **O(N^2) Complexity** — Nested loops over growable collections without indexing or caching (causes performance crashes at scale).
-2. **N+1 Database Queries** — Querying database records in a loop instead of performing a batch JOIN or using bulk prefetching.
-3. **Memory Bloat / Leaks** — Appending data to global arrays or maps without clearing them, leading to unbounded memory growth.
-4. **Blocking Main Loop** — Performing synchronous file system operations or CPU-heavy calculations in the main event thread (causes lag/hangs).
-5. **Resource Leakage** — Leaving streams, connections, or file handles open without closing them inside a `finally` block.
+1. **O(N^2) Complexity** — nested loops over growable collections without indexing or caching (crashes at scale).
+2. **N+1 Database Queries** — querying records in a loop instead of a batch JOIN or bulk prefetch.
+3. **Memory Bloat / Leaks** — appending to global arrays/maps without clearing them → unbounded growth.
+4. **Blocking Main Loop** — synchronous FS ops or CPU-heavy work on the main event thread (lag/hangs).
+5. **Resource Leakage** — streams, connections, or handles left open without a `finally` close.
 
-Per-ORM N+1 shapes, per-stack blocking patterns, and scoping rules (what NOT to flag): read `references/checks.md` before scanning.
+Per-ORM N+1 shapes, per-stack blocking patterns, and what NOT to flag: read `references/checks.md` before scanning.
 
 ## Fix mode (choice-gated)
 
-In Agent Context, after the audit report, present via `ask_question`:
+In Agent Context, after the report, present via `ask_question`:
 
-- **Apply safe optimizations:** Replace synchronous file operations with asynchronous ones, and insert `finally` blocks for stream closing.
-- **Let me pick:** Allow the user to select specific optimizations.
-- **Report only:** Exit without making changes.
+- **Apply safe optimizations:** async-ify synchronous file ops; insert `finally` blocks for stream closing.
+- **Let me pick:** user selects specific optimizations.
+- **Report only:** exit unchanged.
 
 ## Output
 `| file:line | bottleneck | severity | finding | optimization plan |`

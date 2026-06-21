@@ -11,21 +11,21 @@ description: >-
 Audit code to ensure it is decoupled, modular, and easy to cover with automated tests.
 
 ## Auditing Categories
-1. **Hardcoded Constructors** — Instantiating dependencies inside classes (e.g., `new DatabaseClient()`) instead of injecting them via constructor or factory (prevents mocking).
-2. **SRP Violations** — Classes or methods performing too many distinct duties (e.g., a service class that also parses JSON and formats UI output).
-3. **Static Dependencies** — Heavy reliance on global static methods or Singletons that make isolation in tests impossible.
-4. **Time & Environment Coupling** — Direct calls to `DateTime.Now`, `fs`, or `process.env` without abstraction layers (makes testing time-sensitive or path-sensitive behavior fragile).
-5. **Private Logic Gaps** — Complex business logic hidden inside private methods that cannot be tested directly (recommend extracting to testable helper modules).
+1. **Hardcoded Constructors** — instantiating deps inside classes (`new DatabaseClient()`) instead of injecting via constructor/factory (prevents mocking).
+2. **SRP Violations** — a class or method doing too many distinct duties (e.g. a service that also parses JSON and formats UI).
+3. **Static Dependencies** — reliance on global static methods or Singletons that make test isolation impossible.
+4. **Time & Environment Coupling** — direct `DateTime.Now`, `fs`, or `process.env` calls without an abstraction layer (fragile time/path-sensitive tests).
+5. **Private Logic Gaps** — complex business logic hidden in private methods that can't be tested directly (extract to testable helpers).
 
 Per-stack patterns and the mock-strategy vocabulary: read `references/checks.md` before scanning.
 
 ## Fix mode (choice-gated)
 
-In Agent Context, after the audit report, present via `ask_question`:
+In Agent Context, after the report, present via `ask_question`:
 
-- **Apply safe refactoring:** Extract hardcoded initializations into constructor parameters (Dependency Injection pattern) and add interface definitions.
-- **Let me pick:** Allow the user to select specific refactoring moves.
-- **Report only:** Exit without making changes.
+- **Apply safe refactoring:** extract hardcoded initializations into constructor params (DI) + add interface definitions.
+- **Let me pick:** user selects specific refactoring moves.
+- **Report only:** exit unchanged.
 
 ## Output
 `| file:line | coupling point | severity | finding | mock strategy |`

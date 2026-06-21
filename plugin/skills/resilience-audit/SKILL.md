@@ -13,10 +13,10 @@ For every operation: **"what happens when this FAILS?"** Report; do NOT fix unle
 ## Failure categories
 1. **External I/O** — network down/slow, API 4xx/5xx/timeout, rate-limit. Retry w/ backoff? Timeout set? Clear error vs hang?
 2. **Storage** — disk full, permission denied, partial write. Atomic write (temp+rename)? Cleanup on failure? Existing good copy untouched?
-3. **Partial completion** — half-done op (extracted 50/100 files). Reported as FAILURE, never success.
+3. **Partial completion** — half-done op (50/100 files). Reported as FAILURE, never success.
 4. **Crash / OOM** — killed mid-op. Idempotent restart? No orphaned half-state?
 5. **Concurrency** — two instances, race, deadlock. Locking / idempotency / safe re-entry?
-6. **Input / data** — malformed, null, truncated, huge. Validate at boundary? Fail-fast with clear error?
+6. **Input / data** — malformed, null, truncated, huge. Validate at boundary? Fail-fast?
 7. **Dependency down** — fallback/cache/graceful degrade? Clear error vs silent hang?
 8. **Resource exhaustion** — bounded? Backpressure? Cleanup on error path?
 
@@ -49,24 +49,22 @@ Severity: CRITICAL (data loss/corruption/silent-success) · HIGH (crash/hang/par
 
 ## Escalation — Scope & Model Quality
 
-Tiers are **capability targets**, not platform commands — resolve each to your host's nearest lever. If your platform lacks a lever, **degrade gracefully: never fake parallelism you cannot do** — escalate via model tier + reasoning depth instead.
+Tiers are **capability targets**, not platform commands — resolve each to your host's nearest lever. No lever for one? **Degrade gracefully — never fake parallelism you can't do**; escalate via model tier + reasoning depth instead.
 
-| Level | Intent | Capability target | Token Cost |
+| Level | Intent | Capability target | Cost |
 |---|---|---|---|
-| **Light** | Spot failure-mode check, key paths only | Cheapest/fastest mode · most economical model · single agent, no sub-agents. | Low |
-| **Standard** | Balanced FMEA, multi-category coverage | Balanced model · default/raised reasoning · focused sub-agents per category **only if your platform runs concurrent workers** (else stay single-agent). | Balanced |
-| **Heavy** | Full 8-category FMEA + adversarial verify | Most capable model + largest context · deepest reasoning (max/xhigh) · maximum sub-agent fan-out **if supported** · adversarial cross-check where available. | High |
+| **Light** | Spot failure-mode check, key paths only | Cheapest model · single agent, no sub-agents. | Low |
+| **Standard** | Balanced FMEA, multi-category coverage | Balanced model · raised reasoning · sub-agents per category **only if your platform runs concurrent workers** (else single-agent). | Balanced |
+| **Heavy** | Full 8-category FMEA + adversarial verify | Most capable model + largest context · deepest reasoning · max sub-agent fan-out **if supported** · adversarial cross-check where available. | High |
 
-**Per-platform Heavy lever** (use your host's, if it has concurrent fan-out): Claude Code → Dynamic Workflows / `ultracode` (≤16 concurrent agents); OpenAI Codex → `xhigh` + subagents + Cloud `--attempts`; Cursor → Max Mode + parallel Cloud Agents; Amp → Oracle + subagents; GitHub Copilot → `/fleet` (Copilot CLI) + Cloud agent; Goose → subagents; JetBrains → Junie CLI; Gemini CLI / Cline (read-only) / Windsurf → subagents. **If your platform has no concurrent fan-out, escalate by model + reasoning only.** ⚠️ Subagent support CHURNS fast — most major agents added it through 2026 — so verify your platform's current capability rather than trusting any fixed list here.
+Per-platform Heavy levers + Heavy-run durability: read `references/escalation.md` before a Heavy run. No concurrent fan-out on your host → escalate by model + reasoning only.
 
-**Agent Context (interactive):** score the tier rubric, then call `ask_question` once with the 3 tiers — the rubric's pick marked `✓`, score shown, labels localized — and wait for the user's choice before starting. `ask_question` = your platform's question tool: Claude Code `AskUserQuestion` · Cline `ask_question` · Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in prompts; none → numbered text menu.
+**Agent Context (interactive):** score the tier rubric, then call `ask_question` once with the 3 tiers — the pick marked `✓`, score shown, labels localized — and wait for the choice before starting. `ask_question` = your platform's question tool: Claude Code `AskUserQuestion` · Cline `ask_question` · Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in prompts; none → numbered text menu.
 
-**Tier rubric (deterministic):** +1 each — ① >20 files or whole-repo/cross-module reach ② >2 of this skill's categories/dimensions/aspects relevant ③ release/security/pre-ship context ④ findings will drive code changes. **0–1 Light · 2–3 Standard · 4 Heavy.** **Freshness cap:** if the scope was already audited ≥Standard this session, cap the recommendation at Light regardless of the base score — re-auditing fresh ground wastes tokens; scope the run to what changed since. **Default tier:** honor `.coalmine.json` `defaultTier` (Light/Standard/Heavy) as the default on every route unless the user requests a tier for that run. An explicit user tier request always overrides everything.
+**Tier rubric (deterministic):** +1 each — ① >20 files or whole-repo/cross-module reach ② >2 of this skill's categories relevant ③ release/security/pre-ship context ④ findings will drive code changes. **0–1 Light · 2–3 Standard · 4 Heavy.** **Freshness cap:** scope already audited ≥Standard this session → cap at Light (re-auditing fresh ground wastes tokens; scope to what changed). **Default tier:** honor `.coalmine.json` `defaultTier` unless the user requests a tier for that run — an explicit request overrides everything.
 
-**Hook Context (auto-triggered):** auto-Light, no tier question, no sub-agents — report first. If the session is interactive (a user is present), offer the fix menu after the report; truly non-interactive runs stay report-only. Never fix without a chosen option.
+**Hook Context (auto-triggered):** auto-Light, no tier question, no sub-agents — report first. Interactive session (a user is present) → offer the fix menu after the report; non-interactive → report-only. Never fix without a chosen option.
 
-**Heavy durability:** run in short phases, reading results between them; if a run dies, recover finished sub-agent results from your platform's run records and re-spawn only what is missing. On Claude Code, fan out with the bundled `coalmine-scanner` agent (read-only, one dimension per spawn, table output).
+**Entanglement:** after the report, if confirmed findings fall in another canary's domain, offer it once via `ask_question` (one line, max one offer): perf/N+1 → scale-canary · contract/serialization/config → drift-canary · failure-path/retry → resilience-audit · logging/metrics → telemetry-canary · coupling/DI → testability-canary · dependency/CVE → supply-chain-audit · unverified version-sensitive claim → source-grounding · missing/stale rule → gold-standard.
 
-**Self error-report:** if this skill itself misbehaves (contradictory instruction, broken procedure, wrong finding class), OFFER to file it at https://github.com/HetCreep/CoalMine/issues/new/choose with a summary the user has reviewed — never auto-submit, never include unapproved code or paths.
-
-**Entanglement:** after delivering the report, if confirmed findings fall in another canary's domain, offer that canary once via `ask_question` (one line, max one offer): perf/N+1 → scale-canary · contract/serialization/config → drift-canary · failure-path/retry → resilience-audit · logging/metrics → telemetry-canary · coupling/DI → testability-canary · dependency/CVE → supply-chain-audit · unverified version-sensitive claim → source-grounding · missing/stale rule → gold-standard.
+**Self error-report:** if this skill misbehaves (contradictory instruction, broken procedure, wrong finding class), OFFER to file it at https://github.com/HetCreep/CoalMine/issues/new/choose with a user-reviewed summary — never auto-submit, never include unapproved code or paths.

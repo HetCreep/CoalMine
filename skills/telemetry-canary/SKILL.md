@@ -8,24 +8,24 @@ description: >-
 
 <!-- SHARED:LANGUAGE_HEADER -->
 
-Audit code for proper telemetry instrumentation. Ensure the application is not a black box in production.
+Audit code for proper telemetry instrumentation — ensure the app is not a black box in production.
 
 ## Auditing Categories
-1. **Empty / Silent Catch** — Catch blocks that swallow exceptions without logging a stack trace or forwarding the error (violates visibility).
-2. **Unstructured Logs** — Plain-string logging in server code (recommend JSON or structured key-value formats for cloud queries).
-3. **No Correlation ID** — Operations traversing boundaries (HTTP/gRPC/threads) without propagating a trace/correlation ID.
-4. **Missing Metrics** — Critical business transactions (e.g., checkouts, auth, errors) that lack counter/histogram instrumentation.
-5. **No Stack Traces** — Errors logged without stack context (e.g., `logger.error(e.message)` instead of passing the entire error object `logger.error(e)`).
+1. **Empty / Silent Catch** — catch blocks that swallow exceptions without logging a stack trace or forwarding the error.
+2. **Unstructured Logs** — plain-string logging in server code (prefer JSON / structured key-value for cloud queries).
+3. **No Correlation ID** — operations crossing boundaries (HTTP/gRPC/threads) without propagating a trace/correlation ID.
+4. **Missing Metrics** — critical transactions (checkout, auth, errors) lacking counter/histogram instrumentation.
+5. **No Stack Traces** — errors logged without stack context (`logger.error(e.message)` instead of `logger.error(e)`).
 
-Per-stack grep patterns and right/wrong shapes for every category: read `references/checks.md` before scanning.
+Per-stack grep patterns and right/wrong shapes per category: read `references/checks.md` before scanning.
 
 ## Fix mode (choice-gated)
 
-In Agent Context, after the audit report, present via `ask_question`:
+In Agent Context, after the report, present via `ask_question`:
 
-- **Apply safe logs:** Insert missing error logging into empty catch blocks (using a standard logger template) and add stack trace mapping.
-- **Let me pick:** Allow the user to select which telemetry gaps to resolve.
-- **Report only:** Exit without making changes.
+- **Apply safe logs:** insert error logging into empty catch blocks (standard logger template) + stack-trace mapping.
+- **Let me pick:** user selects which telemetry gaps to resolve.
+- **Report only:** exit unchanged.
 
 ## Output
 `| file:line | category | severity | finding | recommendation |`

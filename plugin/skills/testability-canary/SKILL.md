@@ -11,21 +11,21 @@ description: >-
 Audit code to ensure it is decoupled, modular, and easy to cover with automated tests.
 
 ## Auditing Categories
-1. **Hardcoded Constructors** — Instantiating dependencies inside classes (e.g., `new DatabaseClient()`) instead of injecting them via constructor or factory (prevents mocking).
-2. **SRP Violations** — Classes or methods performing too many distinct duties (e.g., a service class that also parses JSON and formats UI output).
-3. **Static Dependencies** — Heavy reliance on global static methods or Singletons that make isolation in tests impossible.
-4. **Time & Environment Coupling** — Direct calls to `DateTime.Now`, `fs`, or `process.env` without abstraction layers (makes testing time-sensitive or path-sensitive behavior fragile).
-5. **Private Logic Gaps** — Complex business logic hidden inside private methods that cannot be tested directly (recommend extracting to testable helper modules).
+1. **Hardcoded Constructors** — instantiating deps inside classes (`new DatabaseClient()`) instead of injecting via constructor/factory (prevents mocking).
+2. **SRP Violations** — a class or method doing too many distinct duties (e.g. a service that also parses JSON and formats UI).
+3. **Static Dependencies** — reliance on global static methods or Singletons that make test isolation impossible.
+4. **Time & Environment Coupling** — direct `DateTime.Now`, `fs`, or `process.env` calls without an abstraction layer (fragile time/path-sensitive tests).
+5. **Private Logic Gaps** — complex business logic hidden in private methods that can't be tested directly (extract to testable helpers).
 
 Per-stack patterns and the mock-strategy vocabulary: read `references/checks.md` before scanning.
 
 ## Fix mode (choice-gated)
 
-In Agent Context, after the audit report, present via `ask_question`:
+In Agent Context, after the report, present via `ask_question`:
 
-- **Apply safe refactoring:** Extract hardcoded initializations into constructor parameters (Dependency Injection pattern) and add interface definitions.
-- **Let me pick:** Allow the user to select specific refactoring moves.
-- **Report only:** Exit without making changes.
+- **Apply safe refactoring:** extract hardcoded initializations into constructor params (DI) + add interface definitions.
+- **Let me pick:** user selects specific refactoring moves.
+- **Report only:** exit unchanged.
 
 ## Output
 `| file:line | coupling point | severity | finding | mock strategy |`
@@ -34,25 +34,23 @@ Severity: CRITICAL (un-mockable external write/network call) · HIGH (SRP violat
 
 ## Escalation — Scope & Model Quality
 
-Tiers are **capability targets**, not platform commands — resolve each to your host's nearest lever. If your platform lacks a lever, **degrade gracefully: never fake parallelism you cannot do** — escalate via model tier + reasoning depth instead.
+Tiers are **capability targets**, not platform commands — resolve each to your host's nearest lever. No lever for one? **Degrade gracefully — never fake parallelism you can't do**; escalate via model tier + reasoning depth instead.
 
-| Level | Intent | Capability target | Token Cost |
+| Level | Intent | Capability target | Cost |
 |---|---|---|---|
-| **Light** | Spot coupling check, key classes only | Cheapest/fastest mode · most economical model · single agent, no sub-agents. | Low |
-| **Standard** | Balanced decoupling audit, multi-category | Balanced model · default/raised reasoning · focused sub-agents per category **only if your platform runs concurrent workers** (else stay single-agent). | Balanced |
-| **Heavy** | Full 5-category audit + adversarial verify | Most capable model + largest context · deepest reasoning (max/xhigh) · maximum sub-agent fan-out **if supported** · adversarial cross-check where available. | High |
+| **Light** | Spot coupling check, key classes only | Cheapest model · single agent, no sub-agents. | Low |
+| **Standard** | Balanced decoupling audit, multi-category | Balanced model · raised reasoning · sub-agents per category **only if your platform runs concurrent workers** (else single-agent). | Balanced |
+| **Heavy** | Full 5-category audit + adversarial verify | Most capable model + largest context · deepest reasoning · max sub-agent fan-out **if supported** · adversarial cross-check where available. | High |
 
-**Per-platform Heavy lever** (use your host's, if it has concurrent fan-out): Claude Code → Dynamic Workflows / `ultracode` (≤16 concurrent agents); OpenAI Codex → `xhigh` + subagents + Cloud `--attempts`; Cursor → Max Mode + parallel Cloud Agents; Amp → Oracle + subagents; GitHub Copilot → `/fleet` (Copilot CLI) + Cloud agent; Goose → subagents; JetBrains → Junie CLI; Gemini CLI / Cline (read-only) / Windsurf → subagents. **If your platform has no concurrent fan-out, escalate by model + reasoning only.** ⚠️ Subagent support CHURNS fast — most major agents added it through 2026 — so verify your platform's current capability rather than trusting any fixed list here.
+Per-platform Heavy levers + Heavy-run durability: read `references/escalation.md` before a Heavy run. No concurrent fan-out on your host → escalate by model + reasoning only.
 
-**Agent Context (interactive):** score the tier rubric, then call `ask_question` once with the 3 tiers — the rubric's pick marked `✓`, score shown, labels localized — and wait for the user's choice before starting. `ask_question` = your platform's question tool: Claude Code `AskUserQuestion` · Cline `ask_question` · Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in prompts; none → numbered text menu.
+**Agent Context (interactive):** score the tier rubric, then call `ask_question` once with the 3 tiers — the pick marked `✓`, score shown, labels localized — and wait for the choice before starting. `ask_question` = your platform's question tool: Claude Code `AskUserQuestion` · Cline `ask_question` · Copilot `askQuestions` · Gemini CLI `ask_user` · Codex `request_user_input` · Cursor/Windsurf/Antigravity built-in prompts; none → numbered text menu.
 
-**Tier rubric (deterministic):** +1 each — ① >20 files or whole-repo/cross-module reach ② >2 of this skill's categories/dimensions/aspects relevant ③ release/security/pre-ship context ④ findings will drive code changes. **0–1 Light · 2–3 Standard · 4 Heavy.** **Freshness cap:** if the scope was already audited ≥Standard this session, cap the recommendation at Light regardless of the base score — re-auditing fresh ground wastes tokens; scope the run to what changed since. **Default tier:** honor `.coalmine.json` `defaultTier` (Light/Standard/Heavy) as the default on every route unless the user requests a tier for that run. An explicit user tier request always overrides everything.
+**Tier rubric (deterministic):** +1 each — ① >20 files or whole-repo/cross-module reach ② >2 of this skill's categories relevant ③ release/security/pre-ship context ④ findings will drive code changes. **0–1 Light · 2–3 Standard · 4 Heavy.** **Freshness cap:** scope already audited ≥Standard this session → cap at Light (re-auditing fresh ground wastes tokens; scope to what changed). **Default tier:** honor `.coalmine.json` `defaultTier` unless the user requests a tier for that run — an explicit request overrides everything.
 
-**Hook Context (auto-triggered):** auto-Light, no tier question, no sub-agents — report first. If the session is interactive (a user is present), offer the fix menu after the report; truly non-interactive runs stay report-only. Never fix without a chosen option.
+**Hook Context (auto-triggered):** auto-Light, no tier question, no sub-agents — report first. Interactive session (a user is present) → offer the fix menu after the report; non-interactive → report-only. Never fix without a chosen option.
 
-**Heavy durability:** run in short phases, reading results between them; if a run dies, recover finished sub-agent results from your platform's run records and re-spawn only what is missing. On Claude Code, fan out with the bundled `coalmine-scanner` agent (read-only, one dimension per spawn, table output).
+**Entanglement:** after the report, if confirmed findings fall in another canary's domain, offer it once via `ask_question` (one line, max one offer): perf/N+1 → scale-canary · contract/serialization/config → drift-canary · failure-path/retry → resilience-audit · logging/metrics → telemetry-canary · coupling/DI → testability-canary · dependency/CVE → supply-chain-audit · unverified version-sensitive claim → source-grounding · missing/stale rule → gold-standard.
 
-**Self error-report:** if this skill itself misbehaves (contradictory instruction, broken procedure, wrong finding class), OFFER to file it at https://github.com/HetCreep/CoalMine/issues/new/choose with a summary the user has reviewed — never auto-submit, never include unapproved code or paths.
-
-**Entanglement:** after delivering the report, if confirmed findings fall in another canary's domain, offer that canary once via `ask_question` (one line, max one offer): perf/N+1 → scale-canary · contract/serialization/config → drift-canary · failure-path/retry → resilience-audit · logging/metrics → telemetry-canary · coupling/DI → testability-canary · dependency/CVE → supply-chain-audit · unverified version-sensitive claim → source-grounding · missing/stale rule → gold-standard.
+**Self error-report:** if this skill misbehaves (contradictory instruction, broken procedure, wrong finding class), OFFER to file it at https://github.com/HetCreep/CoalMine/issues/new/choose with a user-reviewed summary — never auto-submit, never include unapproved code or paths.
 

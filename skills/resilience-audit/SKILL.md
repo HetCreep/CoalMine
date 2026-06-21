@@ -13,10 +13,10 @@ For every operation: **"what happens when this FAILS?"** Report; do NOT fix unle
 ## Failure categories
 1. **External I/O** — network down/slow, API 4xx/5xx/timeout, rate-limit. Retry w/ backoff? Timeout set? Clear error vs hang?
 2. **Storage** — disk full, permission denied, partial write. Atomic write (temp+rename)? Cleanup on failure? Existing good copy untouched?
-3. **Partial completion** — half-done op (extracted 50/100 files). Reported as FAILURE, never success.
+3. **Partial completion** — half-done op (50/100 files). Reported as FAILURE, never success.
 4. **Crash / OOM** — killed mid-op. Idempotent restart? No orphaned half-state?
 5. **Concurrency** — two instances, race, deadlock. Locking / idempotency / safe re-entry?
-6. **Input / data** — malformed, null, truncated, huge. Validate at boundary? Fail-fast with clear error?
+6. **Input / data** — malformed, null, truncated, huge. Validate at boundary? Fail-fast?
 7. **Dependency down** — fallback/cache/graceful degrade? Clear error vs silent hang?
 8. **Resource exhaustion** — bounded? Backpressure? Cleanup on error path?
 

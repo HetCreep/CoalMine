@@ -4,6 +4,16 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [3.7.10] — 2026-06-21
+
+SKILL.md load-path carve (token economy) — every canary's behavior unchanged.
+
+### Changed
+- **#9 / #18 carve** — the escalation footer (the 2 shared partials injected ×9) compressed −27.6% (4170 → 3019 chars/injection = **−10,359 resident chars across the 9 skills**); the per-platform Heavy-lever table + Heavy-durability prose moved to a NEW shared `references/escalation.md` (build-injected into all 9, loaded ON-DEMAND, off the Light/auto/Stop-hook path). Plus per-skill body trims. Total always-loaded resident cost **−17%** (68,343 → 56,695 chars). The always-resident footer keeps every auto/hook-path behavior (the tier rubric, the +1 scoring, the `ask_question` gate, Hook Context, the entanglement domain-map, self-error-report). Rolls the CoalBoard load-path carve (skill-authoring §4) to CoalMine.
+- New `scripts/lib/render.mjs` shared-references mechanism (writes the one source verbatim into each skill's `references/`, propagated to dist + every install target + manifest hashing) + a `scripts/verify.mjs` `checkSharedReferences` byte-sync check (with a negative test: a tampered dist shared-ref fails the gate). +3 render tests (61 → 64 node tests).
+
+Gate: build + 64 node tests + consistency + verify PASS.
+
 ## [3.7.9] — 2026-06-21
 
 Round-2 dogfood audit (CoalBoard whole-Colliery, the user as customer) — CLI + consistency-gate bugfixes. The shipped skill runtime is unchanged.

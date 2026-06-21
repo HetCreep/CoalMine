@@ -11,26 +11,26 @@ description: >-
 Audit code to ensure changes do not break backward compatibility or cause database/API mismatches.
 
 ## Auditing Categories
-1. **Breaking Schema Migrations** — Database schema edits that drop columns, change types, or add non-null columns without defaults (causes crashes during deployments).
-2. **API Contract breaking changes** — Modifying existing REST/GraphQL properties, removing API endpoints, or adding required query fields that break old clients.
-3. **Serialization mismatches** — Editing properties in serialized data payloads (JSON, Protobuf, XML) without maintaining deserialization fallbacks.
-4. **Library Contract Drift** — Changing the signature of public methods in a shared library without maintaining deprecated wrappers.
-5. **Environment Configuration drift** — Introducing new required configuration keys (`.env` or OS variables) without providing defaults or fallback logic.
+1. **Breaking Schema Migrations** — dropping columns, changing types, or adding non-null columns without defaults (crashes on deploy).
+2. **API Contract breaking changes** — modifying existing REST/GraphQL properties, removing endpoints, or adding required query fields that break old clients.
+3. **Serialization mismatches** — editing properties in serialized payloads (JSON, Protobuf, XML) without deserialization fallbacks.
+4. **Library Contract Drift** — changing a public method signature in a shared library without a deprecated wrapper.
+5. **Environment Configuration drift** — introducing new required config keys (`.env` / OS vars) without defaults or fallback.
 
 Expand/contract migration rules, per-format serialization fallbacks, and the breaking-vs-additive API checklist: read `references/checks.md` before scanning.
 
-**Scope:** honor `.coalmine.json` `schemaPaths` / `migrationDirs` if set — scan those globs/dirs as the schemas and migration locations; else infer by inspecting the repo.
+**Scope:** honor `.coalmine.json` `schemaPaths` / `migrationDirs` if set — scan those globs/dirs; else infer by inspecting the repo.
 
 ## Discipline
-- **Style Drift Resolution (applies in Fix mode):** when an approved compatibility fix touches an area where multiple code styles are mixed, conform the minority patterns to the most dominant/frequent style (highest average usage) in the project to minimize churn — never start a standalone style refactor.
+- **Style Drift Resolution (Fix mode):** when an approved fix touches mixed-style code, conform the minority patterns to the dominant style (highest average usage) to minimize churn — never start a standalone style refactor.
 
 ## Fix mode (choice-gated)
 
-In Agent Context, after the audit report, present via `ask_question`:
+In Agent Context, after the report, present via `ask_question`:
 
-- **Apply safe deprecations:** Mark API endpoints/methods as deprecated and add backward-compatibility mapping wrappers.
-- **Let me pick:** Allow the user to select specific compatibility fixes.
-- **Report only:** Exit without making changes.
+- **Apply safe deprecations:** mark endpoints/methods deprecated + add backward-compatibility mapping wrappers.
+- **Let me pick:** user selects specific compatibility fixes.
+- **Report only:** exit unchanged.
 
 ## Output
 `| file:line | contract interface | severity | finding | migration path |`

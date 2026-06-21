@@ -10,7 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadShared, renderSkillMd, listSkills } from './lib/render.mjs';
+import { loadShared, renderSkillMd, listSkills, SHARED_REFERENCES } from './lib/render.mjs';
 import { TARGETS } from './lib/targets.mjs';
 import { CONFIG_SCHEMA, validateValue } from './lib/config-schema.mjs';
 import { stripJsonc } from './lib/jsonc.mjs';
@@ -119,6 +119,11 @@ for (const t of REGION_TARGETS) {
   }
 }
 
+// Basenames the build injects from skills/_shared/references/ into every skill's
+// references/ — they have no per-skill source, so compareAux must not treat them
+// as orphans; they are byte-checked against the shared source separately below.
+const SHARED_REF_NAMES = new Set(SHARED_REFERENCES.map((r) => r.name));
+
 // Aux files (references/, skill-meta.json) ship verbatim — byte-compare both
 // directions so a hand-edited or orphaned dist file can never reach the marketplace.
 function compareAux(srcDir, dstDir, label) {
@@ -145,10 +150,29 @@ function compareAux(srcDir, dstDir, label) {
     const dstEntries = fs.readdirSync(dstDir, { withFileTypes: true });
     for (const e of dstEntries) {
       if (e.name === 'SKILL.md') continue;
+      // A shared reference (build-injected into references/) legitimately has no
+      // per-skill source — checked against skills/_shared below, not here.
+      if (SHARED_REF_NAMES.has(e.name) && !fs.existsSync(path.join(srcDir, e.name))) continue;
       if (!fs.existsSync(path.join(srcDir, e.name))) fail(`${label}/${e.name} has no source — run: node scripts/build-plugin.mjs`);
     }
   } catch (err) {
     fail(`${label} dist directory read failed: ${err.message}`);
+  }
+}
+
+// Every skill's dist references/<shared> must match the single shared source
+// byte-for-byte (the ×9 footer-carve guarantee: one source, identical at each).
+function checkSharedReferences(skills, shared) {
+  for (const r of SHARED_REFERENCES) {
+    const want = (shared.sharedReferences?.[r.name] ?? '').replace(/\r\n/g, '\n');
+    for (const s of skills) {
+      const dp = path.join(pluginDir, 'skills', s, 'references', r.name);
+      if (!fs.existsSync(dp)) { fail(`plugin/skills/${s}/references/${r.name} missing — run: node scripts/build-plugin.mjs`); continue; }
+      try {
+        if (fs.readFileSync(dp, 'utf8').replace(/\r\n/g, '\n') !== want) fail(`plugin/skills/${s}/references/${r.name} STALE vs skills/_shared/references/${r.name} — run: node scripts/build-plugin.mjs`);
+        else pass(`plugin/skills/${s}/references/${r.name} in sync (shared)`);
+      } catch (e) { fail(`plugin/skills/${s}/references/${r.name} compare failed: ${e.message}`); }
+    }
   }
 }
 
@@ -175,6 +199,8 @@ if (!fs.existsSync(pluginDir)) {
     compareAux(path.join(skillsSrc, s), path.join(pluginDir, 'skills', s), `plugin/skills/${s}`);
     pass(`plugin/skills/${s} in sync`);
   }
+  // Shared references (build-injected into every skill) must match the one source.
+  checkSharedReferences(skills, shared);
   // Reverse check: nothing ships from the dist that has no source (orphan guard).
   try {
     const pluginEntries = fs.readdirSync(pluginDir, { withFileTypes: true });

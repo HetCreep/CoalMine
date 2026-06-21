@@ -7,11 +7,24 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+// The single shared reference every skill ships in references/escalation.md.
+// It holds the on-demand Heavy-tier detail (per-platform levers + durability)
+// moved out of the always-resident footer — stored ONCE here, written into each
+// skill's references/ at build/install so the auto/Light path never pays for it.
+export const SHARED_REFERENCES = [
+  { name: 'escalation.md', src: 'references/escalation.md' },
+];
+
 export function loadShared(sharedDir) {
   return {
     languageHeader:   fs.readFileSync(path.join(sharedDir, 'language-header.md'),   'utf8').trimEnd(),
     orchestration:    fs.readFileSync(path.join(sharedDir, 'orchestration.md'),      'utf8').trimEnd(),
     escalationFooter: fs.readFileSync(path.join(sharedDir, 'escalation-footer.md'),  'utf8').trimEnd(),
+    // Verbatim (no trimEnd): the body must land byte-identical at every target so
+    // verify.mjs can byte-compare each skill's references/escalation.md to it.
+    sharedReferences: Object.fromEntries(
+      SHARED_REFERENCES.map((r) => [r.name, fs.readFileSync(path.join(sharedDir, r.src), 'utf8')]),
+    ),
   };
 }
 
@@ -58,6 +71,16 @@ export function installSkillDir(from, to, shared) {
     const dst = path.join(to, f.name);
     if (f.isDirectory()) fs.cpSync(src, dst, { recursive: true });
     else fs.copyFileSync(src, dst);
+  }
+  // Inject the shared reference(s) into references/ AFTER the per-skill copy, so
+  // the always-resident footer can point here instead of inlining the detail ×9.
+  const refs = shared.sharedReferences ?? {};
+  if (Object.keys(refs).length > 0) {
+    const refDir = path.join(to, 'references');
+    fs.mkdirSync(refDir, { recursive: true });
+    for (const [name, body] of Object.entries(refs)) {
+      fs.writeFileSync(path.join(refDir, name), body, 'utf8');
+    }
   }
   if (fs.existsSync(path.join(from, 'SKILL.md'))) {
     fs.writeFileSync(path.join(to, 'SKILL.md'), renderSkillMd(from, shared), 'utf8');
