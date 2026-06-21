@@ -11,7 +11,8 @@
 ![status](https://img.shields.io/badge/status-live-brightgreen)
 ![SKILL.md](https://img.shields.io/badge/SKILL.md-open_standard_·_major_agents-success)
 ![skills](https://img.shields.io/badge/skills-9-success)
-![agents](https://img.shields.io/badge/works_with-major_agents_·_Claude_·_Cursor_·_Windsurf-informational)
+![Claude Code](https://img.shields.io/badge/Claude_Code-validated-success)
+![agents](https://img.shields.io/badge/works_with-Claude_·_Antigravity_·_Cursor_·_Windsurf-informational)
 
 [Design Principles](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md) · [Benchmark](https://github.com/TheColliery/.github/tree/main/benchmarks/CoalMine) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Releases](https://github.com/HetCreep/CoalMine/releases)
 
