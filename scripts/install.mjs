@@ -359,6 +359,14 @@ function applyConfig(targetKey, label) {
 function copyDefaultConfig() {
   // Copy default .coalmine.json to project root if not already present.
   console.log('\nConfiguring settings...');
+  // Self-pollution guard: running the installer from the CoalMine source repo itself
+  // (cwd === repo) would drop an untracked-but-not-ignored .coalmine.json at the repo
+  // root — the exact stray-config incident removed in v3.7.8. The source repo ships
+  // platform-configs/.coalmine.json as the template, never an active root config.
+  if (path.resolve(process.cwd()) === repo) {
+    console.log('  (running from the CoalMine source repo — skipping root .coalmine.json to avoid self-pollution)');
+    return;
+  }
   try {
     const configDest = path.join(process.cwd(), '.coalmine.json');
     if (!fs.existsSync(configDest)) {

@@ -4,6 +4,17 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 
 ## [Unreleased]
 
+CB-audit round fixes — **repo-level only (PowerShell hooks · scripts · CI · tests); the `plugin/` dist is unchanged, so no version bump.** A PowerShell-hook user gets these by pulling the repo; the Claude Code plugin is byte-identical to v3.8.1.
+
+### Fixed
+- **[CRITICAL] PowerShell `disabledCanaries` kill-switch was dead for single-element arrays.** `{"disabledCanaries":["rot-canary"]}` / `["all"]` / legacy `{"disable":["all"]}` failed to disable the canary on Windows PowerShell 5.1 (the Windows default) — it still recorded + nudged + swept. Root cause: an `if`-expression assignment enumerated a single-element `Object[]` into a scalar `String`, then a `-is [array]` guard dropped the scalar to `@()`. Fix: `$disabledArr = @($disabled)` (force-array) in both `rot-canary-touch.ps1` + `rot-canary-stop.ps1`; the old in-code comment misdiagnosed it as `ConvertFrom-Json` unwrapping (it preserves single-element arrays — `watchedExtensions` was always safe) — comment corrected.
+- **[HIGH] PowerShell merge-conflict tripwire false-fired on a bare `=======` banner.** Ported the Node co-occurrence guard (CHANGELOG [3.7.11]): flag `=======` only when a `<<<<<<< `/`>>>>>>> ` bracket co-occurs.
+- **[HIGH] CI ran fewer tests than the local hooks** (`ci.yml` ran 6, the git hooks run 8). Added `jsonc.test.mjs` + `conductor-update.test.mjs` (+ a PowerShell parity step) to CI; corrected the false "same gate" comment.
+- **`configure.mjs`** now fails loud (exit 1) on a malformed `.coalmine.json` (was a silent exit 0) — scripts-quality §1.
+- **`install.mjs`** guards against writing a root `.coalmine.json` into the source repo (self-pollution).
+- **`consistency.mjs`** JSONC-sync gate notes the 3rd (PowerShell) stripper copy it cannot byte-compare.
+- New **`scripts/lib/ps-hooks.test.ps1`** (10 hermetic PowerShell spawn assertions covering both bugs above) + 3 new node tests (configure fail-loud, install self-pollution ×2) → **72 node tests** + 16+10 PowerShell.
+
 ## [3.8.1] — 2026-06-21
 
 Gold-standard wizard flow-correctness + token-minimization — the v3.8.0 wizard shipped with an embed defect and a latent double-ask. Two adversarial loop-until-correct dogfood passes (trace every action → fix → re-verify; then squeeze tokens → re-verify all bars).

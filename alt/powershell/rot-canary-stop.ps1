@@ -83,8 +83,11 @@ try {
   $staleDays = 7
   if ($cfg) {
     $disabled = if ($null -ne $cfg.disabledCanaries) { $cfg.disabledCanaries } else { $cfg.disable } # legacy key honored
-    # Node parity: disabledCanaries must be an array (PS 5.1 ConvertFrom-Json unwraps single-element arrays to scalars)
-    $disabledArr = if ($disabled -is [array]) { $disabled } else { @() }
+    # Node parity: force to an array. ConvertFrom-Json PRESERVES a single-element array,
+    # but the if-expression assignment above enumerates a single-element Object[] into a
+    # scalar String — so an old `-is [array]` guard dropped {"disabledCanaries":["rot-canary"]}
+    # to @() and the kill-switch silently no-op'd. @($disabled) re-wraps a scalar (and $null) safely.
+    $disabledArr = @($disabled)
     if ($disabledArr -contains 'rot-canary' -or $disabledArr -contains 'all') { exit 0 }
     $rcCfgMode = if ($null -ne $cfg.rotCanaryMode) { $cfg.rotCanaryMode } else { $cfg.mode } # legacy key honored
     if ($rcCfgMode -eq 'off' -or $rcCfgMode -eq 'manual') { exit 0 }

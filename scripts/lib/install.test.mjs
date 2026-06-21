@@ -108,6 +108,49 @@ test('corrupt manifest entries can never escape the target directory', () => {
   }
 });
 
+test('installer run from the CoalMine source repo does NOT drop a root .coalmine.json (self-pollution guard)', () => {
+  const target = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-selfpol-'));
+  const rootCfg = path.join(repo, '.coalmine.json');
+  // The full installer also rewrites .git/hooks/{pre-commit,pre-push} from the source
+  // copies; snapshot those (and the root config) so the test leaves the real repo byte-
+  // identical no matter what the guard does.
+  const snap = (p) => (fs.existsSync(p) ? fs.readFileSync(p) : null);
+  const restore = (p, buf) => { if (buf === null) { try { fs.rmSync(p, { force: true }); } catch {} } else fs.writeFileSync(p, buf); };
+  const cfgBefore = snap(rootCfg);
+  const pc = path.join(repo, '.git', 'hooks', 'pre-commit');
+  const pp = path.join(repo, '.git', 'hooks', 'pre-push');
+  const pcBefore = snap(pc);
+  const ppBefore = snap(pp);
+  try {
+    // cwd === repo → copyDefaultConfig must skip the write entirely.
+    const r = runInstall(target, repo);
+    assert.equal(r.status, 0, `install from source repo must pass:\n${r.stdout}${r.stderr}`);
+    if (cfgBefore === null) {
+      assert.ok(!fs.existsSync(rootCfg), 'no .coalmine.json may be created at the source repo root');
+    }
+    assert.match(r.stdout, /self-pollution|source repo/i, 'the skip is reported');
+  } finally {
+    // Leave the real repo exactly as found (config + git hooks).
+    restore(rootCfg, cfgBefore);
+    restore(pc, pcBefore);
+    restore(pp, ppBefore);
+    fs.rmSync(target, { recursive: true, force: true });
+  }
+});
+
+test('installer run from a real project (cwd ≠ source repo) DOES create the root .coalmine.json', () => {
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-realproj-'));
+  fs.mkdirSync(path.join(proj, '.git')); // a real project repo
+  const target = path.join(proj, 'skills');
+  try {
+    const r = runInstall(target, proj);
+    assert.equal(r.status, 0, `install into a real project must pass:\n${r.stdout}${r.stderr}`);
+    assert.ok(fs.existsSync(path.join(proj, '.coalmine.json')), 'a real project still gets its default config (guard must not over-trigger)');
+  } finally {
+    fs.rmSync(proj, { recursive: true, force: true });
+  }
+});
+
 test('detectPresentAgents: only agents whose marker dir exists; claude/cline never auto-detected', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-detect-'));
   try {

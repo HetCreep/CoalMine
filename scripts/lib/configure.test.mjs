@@ -33,6 +33,23 @@ test('configure writes values and migrates legacy/retired keys away', () => {
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('configure fails loud (exit 1) when the existing .coalmine.json is malformed, backs it up, and still rebuilds', () => {
+  const dir = freshProject();
+  try {
+    // A truly unparseable config (a bare word, not JSON, no rescuable comments).
+    fs.writeFileSync(path.join(dir, '.coalmine.json'), 'this is not json at all', 'utf8');
+    const r = spawnSync(process.execPath, [CONFIGURE, '--language', 'en'], { cwd: dir, encoding: 'utf8', timeout: 60000 });
+    // scripts-quality §1: a malformed config silently overwritten is a partial failure → non-zero exit.
+    assert.strictEqual(r.status, 1, 'a malformed existing config must fail loud (exit 1)');
+    assert.match(r.stderr + r.stdout, /malformed/i, 'the user is warned the config was malformed');
+    // The run still completes the requested write (rebuilt from defaults) and preserves the old bytes.
+    const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.coalmine.json'), 'utf8'));
+    assert.strictEqual(cfg.language, 'en', 'the requested change is still applied on a rebuild');
+    assert.ok(fs.existsSync(path.join(dir, '.coalmine.json.bak')), 'the malformed config is backed up, never lost');
+    assert.strictEqual(fs.readFileSync(path.join(dir, '.coalmine.json.bak'), 'utf8'), 'this is not json at all');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('help documents every schema key — drift between table and help is impossible to ship', () => {
   const r = spawnSync(process.execPath, [CONFIGURE, '--help'], { encoding: 'utf8', timeout: 60000 });
   assert.strictEqual(r.status, 0);

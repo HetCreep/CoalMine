@@ -145,6 +145,14 @@ export function checkVersionPins(repo) {
 // Each has its own test, but no test reads BOTH; a divergence in one would not be
 // mechanically caught. This extracts the regex literal from each and fails if they
 // differ — the "two copies silently drift" class, mechanized (no runtime change).
+//
+// THIRD COPY (PS, deliberately NOT in this literal compare): hooks/_shared/ps-config.ps1
+// Remove-JsoncComments is a hand-written character state machine, not a regex, so it has
+// no equivalent literal to diff against the two JS copies — a cross-language literal
+// compare is infeasible, not omitted by oversight. Its parity is guarded BEHAVIORALLY
+// instead: the cross-stripper equivalence fixtures in scripts/lib/jsonc.test.mjs are
+// mirrored by scripts/lib/ps-config.test.ps1 (H4), so the PS port must produce identical
+// parse results on the same inputs. Do NOT fake a literal compare here.
 const JSONC_REGEX_RE = /\.replace\((\/"\(\?:[\s\S]*?\/g),/;
 export function checkJsoncRegexSync(repo) {
   const out = [];

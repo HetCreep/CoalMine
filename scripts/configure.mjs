@@ -134,6 +134,10 @@ function main() {
         delete cfg.pullRequestRemote;
       }
     } catch (e) {
+      // Fail loud (scripts-quality §1): a malformed config we silently overwrite is a
+      // partial failure the user must notice — flag the non-zero exit even though the
+      // run continues from defaults (the old config is backed up where possible).
+      process.exitCode = 1;
       try {
         fs.copyFileSync(configPath, configPath + '.bak');
         console.warn('Warning: existing .coalmine.json is malformed — backed it up to .coalmine.json.bak and rebuilding.');
