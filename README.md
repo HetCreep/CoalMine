@@ -213,9 +213,9 @@ Canaries report in a lean shape (one-line verdict + severity table of confirmed 
 
 ## 📊 Benchmark
 
-**Headline:** `rot-canary` scored **100% recall · 100% precision · 0/4 decoy false-positives** over the 16-fixture corpus, scored mechanically (skill v3.4.0, 2026-06-13).
+**Headline (measured 2026-07-03, skill v3.8.4):** 7 canaries measured over 82 planted-defect fixtures × 4 engines (Claude Fable 5 / Opus 4.8 / Sonnet 5 / Haiku 4.5 + Gemini 3.5 Flash), K=3-5 repeated runs per arm — **recall at 100% on 6 of 7 suites for every engine · zero decoy false alarms across the entire batch (~200 clean-file opportunities)** · drift-canary is the discriminating suite (88% median — engines find every planted disagreement but split on which side is authoritative).
 
-`rot-canary` is measured AV-Comparatives-style — recall, precision, decoy false-positives, and severity accuracy over a fixed fixture corpus, scored mechanically, cross-engine. **Honest scope:** small, dated samples authored in-project — a regression floor, not an independent benchmark; re-run on model/skill changes.
+Each canary is measured AV-Comparatives-style — recall, precision, decoy false-positives, and severity accuracy over fixed fixture corpora, scored mechanically, cross-engine, with repeated runs (flips extend K per the locked methodology). **Honest scope:** small, dated samples authored in-project — a regression floor, not an independent benchmark; re-run on model/skill changes.
 
 Full method, per-category scoring, and the cross-engine comparison live in the series records: [`TheColliery/.github/benchmarks/CoalMine`](https://github.com/TheColliery/.github/tree/main/benchmarks/CoalMine).
 
