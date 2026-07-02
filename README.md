@@ -147,47 +147,17 @@ Installing is the power button. The agent conducts the canaries and asks for con
 
 ## ⚙️ Configure (.coalmine.json)
 
-* **General Users (Zero-Config):** Automatically generated `.coalmine.json` pre-configured with safe, token-optimal defaults.
-* **Programmers (Overrides):** Inline comments document every key. Run the configurator tool or edit manually.
+Zero-config: the installer generates `.coalmine.json` with safe, token-optimal defaults. The high-impact keys:
 
-### Configuration Schema
+| Key | Default | What it does |
+|---|---|---|
+| `language` | `auto` | Language for prompts and nudges (`auto` \| `en` \| `th` \| `ja` \| `zh` \| `es`) |
+| `enableConductor` | `true` | Master switch for rules injection at session start |
+| `rotCanaryMode` | `auto` | rot-canary session-end auto-scan (`auto` \| `manual` \| `off`) |
+| `defaultTier` | `auto` | Force an execution tier (`Light` \| `Standard` \| `Heavy` \| `auto`) |
+| `disabledCanaries` | `[]` | Canaries to disable (e.g. `["rot-canary"]` or `["all"]`) |
 
-The full key set (the source of truth is `scripts/lib/config-schema.mjs`; the shipped `platform-configs/.coalmine.json` template documents every key inline):
-
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `language` | String | `auto` | Override language detection (`auto` \| `en` \| `th` \| `ja` \| `zh` \| `es`) |
-| `enableConductor` | Boolean | `true` | Set false to disable rules injection on Session Start |
-| `skipOnboarding` | Boolean | `false` | Skip the gold-standard onboarding offer at session start |
-| `defaultTier` | String | `auto` | Force execution tier (`Light` \| `Standard` \| `Heavy` \| `auto`) |
-| `rotCanaryMode` | String | `auto` | rot-canary auto-scan mode (`auto` \| `manual` \| `off`) |
-| `autoScanFileCap` | Number | `10` | Maximum touched files to scan at session end |
-| `autoScanFileCapSlice` | Number | `5` | Most-recently-modified files kept when `autoScanFileCap` is exceeded (a count, not a fraction) |
-| `tripwireMaxFileSizeKb` | Number | `100` | Size limit in KB for the tripwire scan |
-| `tripwireMaxLines` | Number | `800` | Line count that flags a file as a smell |
-| `tempSweepStaleDays` | Number | `7` | Age in days before session temp files are swept |
-| `watchedExtensions` | Array | `[]` | File extensions the touch hook watches (empty = defaults) |
-| `updateMode` | String | `ask` | Self-update behavior at session start (`ask` \| `auto` \| `remind` \| `off`) |
-| `updateCheckDays` | Number | `14` | Days between self-update checks/reminders |
-| `ruleRevalidateDays` | Number | `90` | Days before general rules need re-validation |
-| `platformRuleRevalidateDays` | Number | `30` | Days before platform/model rules need re-validation |
-| `definitionRevalidateDays` | Number | `90` | Days before general reference definitions are stale |
-| `platformDefinitionRevalidateDays` | Number | `30` | Days before platform definitions are stale |
-| `disabledCanaries` | Array | `[]` | Canaries to disable (e.g. `["rot-canary"]` or `["all"]`) |
-| `autoFixMode` | String | `interactive` | Default fix-mode behavior (`interactive` \| `safe` \| `off`) |
-| `schemaPaths` | Array | `[]` | Glob paths to schemas / API specs |
-| `migrationDirs` | Array | `[]` | Database migration directories |
-| `packageManifests` | Array | `[]` | Package manifest / lockfile paths |
-| `trustedDomains` | Array | `[]` | Extra trusted domains for source grounding |
-
-### Configurator Utility
-```bash
-# Set language and cap limit
-node scripts/configure.mjs --language th --file-cap 15
-
-# Disable specific canaries (mechanically enforced for rot-canary/conductor; advisory for skill-canaries)
-node scripts/configure.mjs --disable rot-canary
-```
+Full key reference: every key + default lives in [`scripts/lib/config-schema.mjs`](scripts/lib/config-schema.mjs) and the commented template [`platform-configs/.coalmine.json`](platform-configs/.coalmine.json) — or run `node scripts/configure.mjs --help`.
 
 ---
 
