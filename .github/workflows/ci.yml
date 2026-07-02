@@ -4,17 +4,23 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - '**.md'
+      # skip verify/test only for NON-shipped docs — a SHIPPED markdown artifact (skills/**/SKILL.md, commands/*.md) MUST run CI (verify checks dist-sync)
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'CONTRIBUTING.md'
+      - 'PRIVACY.md'
+      - 'SECURITY.md'
       - 'LICENSE'
-      - 'profile/**'
-      - '.github/profile/**'
   pull_request:
     branches: [main]
     paths-ignore:
-      - '**.md'
+      # skip verify/test only for NON-shipped docs — a SHIPPED markdown artifact (skills/**/SKILL.md, commands/*.md) MUST run CI (verify checks dist-sync)
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'CONTRIBUTING.md'
+      - 'PRIVACY.md'
+      - 'SECURITY.md'
       - 'LICENSE'
-      - 'profile/**'
-      - '.github/profile/**'
 
 permissions:
   contents: read
