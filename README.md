@@ -107,6 +107,7 @@ Run from **your project's root folder** (not inside the CoalMine clone):
 cd /path/to/your-project
 node /path/to/CoalMine/scripts/install.mjs <agent|all|PATH>
 ```
+* Supported `<agent>`: `antigravity`, `cursor`, `codex`, `cline`, `copilot`, `windsurf`, `amp`, `goose`, `junie`, `gemini` (for `claude`, prefer the plugin above) — see [Universal Agent Support](#-universal-agent-support) for target folders + choice-tool support.
 * `all` auto-detects and installs to all configured agents in the directory.
 * The installer sets up pre-commit/pre-push gates in `.git/hooks`, writes trigger rules, and generates `.coalmine.json` config.
 
