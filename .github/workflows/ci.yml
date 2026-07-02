@@ -39,11 +39,10 @@ jobs:
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version: ${{ matrix.node }}
-      # Zero-dependency: no install. scripts/test.mjs is the single guarded node-test
-      # gate (existsSync precheck + orphan check + fail-loud) — a missing/renamed test
-      # can no longer silently drop from the run (on Node 24 a missing arg alongside a
-      # present one greens as a zero-match filter). The runner's TESTS list is the
-      # source of truth the local hooks also mirror.
+      # Zero-dependency: no install step. Run the same fail-loud gate as a local pre-push,
+      # cross-platform — verify (dist-sync + repo consistency checks) then the test suite.
+      # No build step here: rebuilding the dist in CI would mask a stale COMMITTED
+      # plugin/ — the exact drift verify exists to catch.
       - run: node scripts/verify.mjs
       - run: node scripts/test.mjs
       # PowerShell parity tests (the PS twins of the Node hooks) — pwsh ships on the GitHub

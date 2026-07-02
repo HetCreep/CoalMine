@@ -1,16 +1,22 @@
+# Internal governance + design notes — machine-local, never shipped to the public repo
+CLAUDE.md
+MEMORY*.md
+AGENTS.md
+.claude/
+.agents/
+
+# Dependencies / build cruft
+node_modules/
+
+# Runtime state — a root machine config created only if CoalMine is installed INTO this repo; never ship
+# (the shipped factory template is platform-configs/.coalmine.json, which is NOT matched here)
+/.coalmine.json
+
+# Generated SkillSpector scan reports (provenance recorded in SECURITY.md; the raw report is not shipped)
+skillspector-*
+
+# OS / editor cruft
 .DS_Store
 Thumbs.db
+*.log
 *.swp
-
-# Local-only agent files
-MEMORY.md
-AGENTS.md
-CLAUDE.md
-.agents/
-.claude/
-
-# Next-project design drafts stay local
-COALTIPPLE_DESIGN.md
-
-# Generated SkillSpector scan reports (.md / .json) — folded into SECURITY.md, not shipped
-skillspector-*

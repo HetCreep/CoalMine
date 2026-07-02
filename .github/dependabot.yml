@@ -1,6 +1,6 @@
 version: 2
 updates:
-  # Zero runtime dependencies; the only thing to keep fresh is the GitHub Actions
+  # Zero runtime dependencies, so the only thing to keep fresh is the GitHub Actions
   # the workflows pin. Dependabot opens a PR when a pinned action has a newer release.
   - package-ecosystem: github-actions
     directory: /
