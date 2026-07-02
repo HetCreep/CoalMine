@@ -4,12 +4,9 @@
 # Exit on failure to prevent commit
 
 if [ -f scripts/verify.mjs ]; then
-  # Fail loud if a gate test file is missing — node --test silently ignores
-  # missing path arguments, which would drop tests from the gate unnoticed.
-  for t in scripts/lib/render.test.mjs scripts/lib/hooks.test.mjs scripts/lib/install.test.mjs scripts/lib/configure.test.mjs scripts/lib/regions.test.mjs scripts/lib/consistency.test.mjs scripts/lib/jsonc.test.mjs scripts/lib/conductor-update.test.mjs; do
-    [ -f "$t" ] || { echo "CoalMine gate: missing $t" >&2; exit 1; }
-  done
-  node --test scripts/lib/render.test.mjs scripts/lib/hooks.test.mjs scripts/lib/install.test.mjs scripts/lib/configure.test.mjs scripts/lib/regions.test.mjs scripts/lib/consistency.test.mjs scripts/lib/jsonc.test.mjs scripts/lib/conductor-update.test.mjs || exit 1
+  # Single guarded node-test gate (existsSync precheck + orphan check + fail-loud);
+  # scripts/test.mjs owns the test list so CI and the hooks cannot drift apart.
+  node scripts/test.mjs || exit 1
   # PowerShell parity tests (shared ps-config + the spawned rot-canary PS hooks) — skip
   # if pwsh is absent so the gate still runs on a box without PowerShell; fail loud when present.
   if command -v pwsh >/dev/null 2>&1; then

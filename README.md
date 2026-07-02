@@ -184,8 +184,8 @@ The full key set (the source of truth is `scripts/lib/config-schema.mjs`; the sh
 # Set language and cap limit
 node scripts/configure.mjs --language th --file-cap 15
 
-# Disable specific canaries
-node scripts/configure.mjs --disable rot-canary,drift-canary
+# Disable specific canaries (mechanically enforced for rot-canary/conductor; advisory for skill-canaries)
+node scripts/configure.mjs --disable rot-canary
 ```
 
 ---

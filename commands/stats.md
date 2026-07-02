@@ -2,7 +2,7 @@
 description: CoalMine measurement dashboard — canary activity this session + rule-freshness status across the project's rules home
 ---
 
-Produce the CoalMine stats report for this project, in the user's language. Two sections, tables only:
+Produce the CoalMine stats report for this project, in the user's language. Three sections, tables only:
 
 **1. Canary activity (this session, from conversation context):**
 | canary | runs | findings (C/H/M/L) | fixes accepted |

@@ -275,3 +275,44 @@ test('a corrupt stamp self-heals (treated as due) and is overwritten with a vali
     assert.equal(readStamp(tmp), todayISO(), 'corrupt stamp overwritten with today');
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
+
+test('KIND 2 ReDoS: a poisoned rule file (many openers, no terminator) does NOT hang the conductor', () => {
+  // A poisoned .md: many valid stamp OPENERS and ZERO closing `-->`. The old
+  // whole-file global capturing STAMP_RE walks each opener's lazy [\s\S]*? to EOF
+  // looking for `-->` and fails → N openers × O(N)-to-EOF = O(n^2). Measured on
+  // the old regex (this shape): 1MB=2.3s, 2MB=9.2s (clean quadratic doubling,
+  // matching the judge's 1MB=2.65s / 2MB=10.6s). The bounded-window fix caps each
+  // opener's regex input to STAMP_WINDOW, so it is linear (2MB≈0.46s). A 4s ceiling
+  // sits far below the old ~9s and far above the fix's sub-second + Node startup —
+  // it fails loud on a regression without flaking on a slow CI box.
+  const tmp = mkProject({ updateMode: 'off' }); // off → isolate: only the KIND 2 scan runs
+  try {
+    const rulesDir = path.join(tmp, '.claude', 'rules', 'ecc');
+    fs.mkdirSync(rulesDir, { recursive: true });
+    const opener = '<!-- coalmine: verified 2026-01-01 revalidate 30d '; // NO closing -->
+    fs.writeFileSync(path.join(rulesDir, 'poison.md'), opener.repeat(40000), 'utf8'); // ~2MB
+    const t0 = Date.now();
+    const r = runConductor(tmp);
+    const elapsed = Date.now() - t0;
+    assert.equal(r.status, 0, 'poisoned input still exits 0 (Phoenix #4)');
+    assert.ok(elapsed < 4000, `conductor completed in ${elapsed}ms — bounded window keeps the scan linear (old O(n^2) took ~9s at 2MB)`);
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
+test('KIND 2 bounded window still counts a well-formed past-due stamp buried in a large file', () => {
+  // Correctness guard for the window fix: a genuine past-due stamp preceded by a
+  // large benign body must still be detected (the fix must not drop real stamps).
+  const tmp = mkProject({ updateMode: 'ask' });
+  try {
+    writeStamp(tmp, todayISO()); // suppress KIND 1
+    const rulesDir = path.join(tmp, '.claude', 'rules', 'ecc');
+    fs.mkdirSync(rulesDir, { recursive: true });
+    const body = '# rule\n' + 'x'.repeat(500 * 1024) + '\n' +
+      `<!-- coalmine: verified ${isoDaysAgo(100)} · exemplar X · revalidate 30d -->\n`;
+    fs.writeFileSync(path.join(rulesDir, 'big.md'), body, 'utf8');
+    const r = runConductor(tmp);
+    assert.equal(r.status, 0);
+    assert.ok(r.stdout.includes('past their revalidate date'), 'a real past-due stamp in a large file is still detected');
+    assert.ok(r.stdout.includes('1 gold-standard rule'), 'counts exactly one');
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});

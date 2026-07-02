@@ -2,6 +2,21 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [3.8.3] — 2026-07-02
+
+Board-audit fixes (two parallel nasa/standard boards, every finding reproduced by a judge running the code). Headline is a shipped-hook ReDoS; the CI test-gate hole and doc-accuracy nits ride along.
+
+### Fixed
+- **[HIGH] Conductor ReDoS — the SessionStart gold-rule scan was O(n²) on a poisoned rule file.** `hooks/coalmine-conductor.js` `countPastDueStamps` ran a global capturing `STAMP_RE` (two lazy `[\s\S]*?`) over every `.claude/rules/**/*.md` + `.agents/rules/**` + `AGENTS.md` whole-file on every session start; a rules file with many `<!-- coalmine: verified` openers and no closing `-->` made each opener's lazy match walk to EOF → N openers × O(N) = quadratic. Judge/independent timing on that shape: 1 MB ≈ 2.3 s, 2 MB ≈ 9.2 s (clean quadratic doubling), so a cloned/untrusted repo carrying a large poisoned `.md` could hang the session start (Phoenix #3 "≤100ms" violated ~100×; fail-silent doesn't help — the loop returns, it just stalls). Fixed by mirroring the exact guard the sibling `scripts/lib/consistency.mjs` already carries (v3.7.9 CM-1): a cheap non-backtracking `STAMP_OPEN` locates each opener, and the capturing pattern runs over only a bounded `STAMP_WINDOW = 2048`-char slice per opener → per-opener regex work is O(1), so O(n) over the file (2 MB ≈ 0.46 s). New hermetic regression in `conductor-update.test.mjs` fails loud on the old O(n²) (wall-clock ceiling) and pins that a real past-due stamp buried in a large file is still counted. (No PowerShell twin: the conductor is Node-only — the PS ports are the rot-canary touch/stop hooks, neither of which scans stamps.)
+- **[HIGH] CI test-gate had no missing-file guard.** `.github/workflows/ci.yml` passed a hardcoded 8-file list to `node --test`; on Node 24 a missing file arg alongside a present one is reinterpreted as a zero-match name filter → the run can exit 0 with a renamed/deleted test silently dropped from the authoritative `main` gate. The local pre-commit/pre-push hooks already guarded with `[ -f "$t" ]`, but CI did not. New **`scripts/test.mjs`** — the single guarded node-test runner (existsSync precheck + on-disk-orphan check + fail-loud, mirroring CoalTipple's `scripts/test.mjs`); CI and both git hooks now call it, so the test list lives in exactly one place and cannot drift.
+- **[MED] `PRIVACY.md` contradicted the code on where hooks write.** It said the hooks "write only to your OS temp directory and their own session markers," but the conductor writes a persistent `~/.claude/.coalmine-update-check` date stamp and rot-canary reads `~/.claude/.rot-canary-mode` (SECURITY.md already disclosed these). Reworded to name the `~/.claude/` update-stamp + mode/opt-out files, all local, none transmitted.
+- **[LOW] `disabledCanaries` example overstated the mechanism.** The `platform-configs/.coalmine.json` comment and the README `--disable` example listed `drift-canary` (a skill-canary the key honors only advisorily) as if disable-able like `rot-canary`. Reworded: the key is mechanically enforced for the hook-driven canaries (`rot-canary`, `conductor`) plus `all`; skill-canaries honor it advisorily.
+- **[LOW] `commands/stats.md` said "two sections" but delivers three** (canary activity · rule freshness · definitions freshness). Count corrected.
+- **[LOW] Dead sub-expression in the rot-canary merge-conflict tripwire.** `hooks/rot-canary-touch.js` tested `/^(<<<<<<< |>>>>>>> |=======$)/` only after a `<<<<<<< `/`>>>>>>> ` bracket was already confirmed present, so the `=======$` alt could never independently fire. Collapsed to the single bracket test.
+
+### Notes
+- Reproducibility: the conductor ReDoS was confirmed by independent hermetic timing (not lens assertion); the CI gate hole was reproduced on Node 24.17.0. No `plugin/` runtime capability was added — this is a bug-fix + gate-hardening PATCH.
+
 ## [3.8.2] — 2026-06-21
 
 Gold-standard wizard CHANGE-path correctness (parity with CoalBoard v1.4.2). This touches the shipped `plugin/`, so it earns the bump; the previously-unreleased PowerShell/CI repo fixes below ride along on this tag.

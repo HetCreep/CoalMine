@@ -104,7 +104,7 @@
   // SECTION 4: CUSTOM CANARY PATHS & SCOPES (การกำหนดขอบเขตและโดเมนของโครงการ)
   // =========================================================================
 
-  // ## List of quality canaries or features to disable (e.g. ["rot-canary", "drift-canary"] or ["all"]).
+  // ## Features to disable. Mechanically enforced for the hook-driven canaries — "rot-canary" (the auto-scan hooks) and "conductor" — plus "all"; the on-demand skill-canaries honor it advisorily. E.g. ["rot-canary"] or ["all"].
   // # Setting type: Array of Strings
   // # Default value: []
   "disabledCanaries": [],

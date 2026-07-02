@@ -138,8 +138,21 @@ function updateDirective(mode, days) {
 // verified-date + Nd < today. The stamp's own Nd is authoritative; when a stamp
 // omits the value, fall back to config (ruleRevalidateDays general default).
 // Local file reads only — no spend, no network.
-const STAMP_RE = /<!--\s*coalmine:\s*verified\s+(\d{4}-\d{2}-\d{2})([\s\S]*?)-->/g;
+//
+// A cheap global opener locates each stamp; the capturing pattern then runs over
+// only a bounded slice per opener. The capturing pattern's two lazy [\s\S]*?
+// backtrack O(n^2) on a poisoned .md (an opener with no closing `-->`, or many
+// `revalidate Nd` hits before one), so running it whole-file was a quadratic DoS
+// reachable on every SessionStart when a cloned/untrusted repo carries a large
+// poisoned rule file. Bounding the input the capturing pattern ever sees to a
+// constant makes per-opener cost O(1) (so O(n) over the file). Mirrors the same
+// STAMP_WINDOW guard in scripts/lib/consistency.mjs (v3.7.9 CM-1).
+const STAMP_OPEN = /<!--\s*coalmine:\s*verified/g;
+const STAMP_RE = /<!--\s*coalmine:\s*verified\s+(\d{4}-\d{2}-\d{2})([\s\S]*?)-->/;
 const REVALIDATE_RE = /revalidate\s+(\d+)d/;
+// A real stamp is ~80-150 chars; a well-formed stamp fits easily, a poisoned blob
+// can never grow the regex's work past this bound.
+const STAMP_WINDOW = 2048;
 
 function countPastDueStamps(roots, today, cfg) {
   let count = 0;
@@ -147,14 +160,20 @@ function countPastDueStamps(roots, today, cfg) {
   const scanFile = (p) => {
     let body;
     try { body = fs.readFileSync(p, 'utf8'); } catch { return; }
-    let m;
-    STAMP_RE.lastIndex = 0;
-    while ((m = STAMP_RE.exec(body)) !== null) {
-      const verified = m[1];
-      const rev = m[2].match(REVALIDATE_RE);
-      const days = rev ? Number(rev[1]) : generalFallback;
-      const d = dayDiff(verified, today);
-      if (d !== null && d > days) count++;
+    STAMP_OPEN.lastIndex = 0;
+    let o;
+    while ((o = STAMP_OPEN.exec(body)) !== null) {
+      // Match the full stamp only within a bounded slice anchored at this opener.
+      const m = STAMP_RE.exec(body.slice(o.index, o.index + STAMP_WINDOW));
+      if (m) {
+        const rev = m[2].match(REVALIDATE_RE);
+        const days = rev ? Number(rev[1]) : generalFallback;
+        const d = dayDiff(m[1], today);
+        if (d !== null && d > days) count++;
+      }
+      // Advance past this opener so a zero-length global match can't loop, and
+      // overlapping openers inside one window are still each considered.
+      if (STAMP_OPEN.lastIndex <= o.index) STAMP_OPEN.lastIndex = o.index + 1;
     }
   };
   const walk = (dir) => {
