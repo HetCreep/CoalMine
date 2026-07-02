@@ -91,7 +91,12 @@ try {
     if ($disabledArr -contains 'rot-canary' -or $disabledArr -contains 'all') { exit 0 }
     $rcCfgMode = if ($null -ne $cfg.rotCanaryMode) { $cfg.rotCanaryMode } else { $cfg.mode } # legacy key honored
     if ($rcCfgMode -eq 'off' -or $rcCfgMode -eq 'manual') { exit 0 }
-    if ($null -ne $cfg.tempSweepStaleDays) { $staleDays = $cfg.tempSweepStaleDays }
+    # Clamp at read time to a non-negative integer (Node≡PS parity) — the schema bound
+    # (min:0) is enforced only by verify.mjs, never at hook read time. Without this, a
+    # negative value pushes the cutoff into the future so the sweep deletes EVERY
+    # rot-canary-* temp (incl. concurrent sessions'); a non-numeric value → the default 7.
+    $tsd = $cfg.tempSweepStaleDays -as [double]
+    if ($null -ne $tsd) { $staleDays = [Math]::Max(0, [int][Math]::Floor($tsd)) }
   }
   if ((Get-RcMode) -ne 'auto') { exit 0 }
 

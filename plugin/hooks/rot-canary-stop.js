@@ -120,8 +120,13 @@ function cleanupSession(base) {
 function getTempSweepStaleDays() {
   try {
     const cfg = loadCfg();
-    if (cfg && typeof cfg.tempSweepStaleDays === 'number') {
-      return cfg.tempSweepStaleDays;
+    // Clamp at read time to a non-negative integer — the schema bound (min:0) is enforced
+    // only by verify.mjs over the factory config, never at hook read time. Without this, a
+    // negative value pushes the cutoff into the future so sweepStale would delete EVERY
+    // rot-canary-* temp (incl. concurrent sessions'); a fractional value skews the cutoff.
+    // NaN/non-finite → the factory default (7), matching the schema.
+    if (cfg && typeof cfg.tempSweepStaleDays === 'number' && Number.isFinite(cfg.tempSweepStaleDays)) {
+      return Math.max(0, Math.floor(cfg.tempSweepStaleDays));
     }
   } catch {}
   return 7;

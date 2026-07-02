@@ -2,6 +2,13 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [3.8.4] — 2026-07-02
+
+Board round-3 LOW: a config read-time clamp the earlier Board #2 clamp pass missed on the same-class sibling.
+
+### Fixed
+- **[LOW] `tempSweepStaleDays` was read raw with no read-time clamp.** `hooks/rot-canary-stop.js` `getTempSweepStaleDays()` returned `cfg.tempSweepStaleDays` straight from an untrusted project `.coalmine.json`, unlike its in-file sibling `autoScanFileCap` (clamped `Math.max(1, Math.floor(n))` since v3.7.12, with a comment naming exactly this hazard). A **negative** value pushes the sweep cutoff into the future → `mtime < cutoff` holds for every `rot-canary-*` temp, so `sweepStale` would delete ALL of them, including a concurrent session's fresh temp; a fractional value skews the cutoff. Confined to CoalMine's own `os.tmpdir()` namespace + fail-silent + self-inflicted config → LOW, but a real same-class miss. Clamped to a non-negative integer (schema `min:0`, floor at 0; NaN/non-finite → the factory default 7) in **both** the Node hook and the PowerShell twin `alt/powershell/rot-canary-stop.ps1` (which read `$cfg.tempSweepStaleDays` into `$staleDays` with the identical gap — Node≡PS parity). New hermetic regression in `scripts/lib/hooks.test.mjs` (a negative override must not delete a fresh concurrent-session temp), mirroring the existing `autoScanFileCap` clamp tests.
+
 ## [3.8.3] — 2026-07-02
 
 Board-audit fixes (two parallel nasa/standard boards, every finding reproduced by a judge running the code). Headline is a shipped-hook ReDoS; the CI test-gate hole and doc-accuracy nits ride along.

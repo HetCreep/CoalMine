@@ -410,3 +410,25 @@ test('stop hook DOES sweep stale temp on the active (auto) path', () => {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+test('stop hook clamps tempSweepStaleDays:-30 → does NOT delete a future-dated concurrent temp (board round-3 LOW)', () => {
+  // Before the read-time clamp, {tempSweepStaleDays:-30} pushed the cutoff 30 days into the
+  // FUTURE (cutoff = now - (-30)d = now + 30d), so `mtime < cutoff` held even for files NEWER
+  // than now — the sweep deleted a concurrent session's live temp. Clamped to 0 → cutoff = now
+  // → a file dated in the future survives. A future mtime is the observable that separates the
+  // two: unclamped deletes it (< now+30d), clamped keeps it (not < now).
+  const tmp = mkTmp();
+  try {
+    const future = path.join(tmp, 'rot-canary-CONCURRENT.touched');
+    fs.writeFileSync(future, 'C:\\proj\\y.js\n');
+    const ahead = Date.now() + 10 * 24 * 60 * 60 * 1000; // 10 days ahead — inside the buggy 30d future window
+    fs.utimesSync(future, new Date(ahead), new Date(ahead));
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ tempSweepStaleDays: -30 }), 'utf8');
+    // No .touched for THIS session → the hook sweeps, then bails (nothing to nudge).
+    const r = runHook(STOP, JSON.stringify({ session_id: 'CLAMP', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.ok(fs.existsSync(future), 'a negative override must not push the cutoff into the future and delete a live temp');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
