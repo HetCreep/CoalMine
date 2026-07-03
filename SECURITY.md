@@ -14,13 +14,11 @@ To report a security issue in a canary, hook, or installer:
 
 ## 🔑 Commit & Tag Signatures
 
-All commits and release tags are SSH-signed (`gpg.format=ssh`); GitHub renders the Verified badge.
-
-Verify locally:
+Every **release tag** and **maintainer commit** is SSH-signed (`gpg.format=ssh`); GitHub shows the Verified badge on them. Automated **Dependabot / CI** commits are unsigned by design (they carry no maintainer key), so verify a signed **release tag** — the artifact a release consumer trusts:
 ```bash
 echo "* ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEtqTWGKhX1Dk9nZP8ns13Wl5zsO1Cz3VlTS6m1p2fP9" > coalmine_signers
 git config gpg.ssh.allowedSignersFile ./coalmine_signers
-git verify-commit HEAD && git tag -v "$(git describe --tags --abbrev=0)"
+git tag -v "$(git describe --tags --abbrev=0)"
 ```
 
 ---
