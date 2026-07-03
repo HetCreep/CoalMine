@@ -20,3 +20,10 @@ skillspector-*
 Thumbs.db
 *.log
 *.swp
+
+# editor / env / tmp (preventive)
+.vscode/
+.idea/
+.env
+.env.*
+*.tmp
