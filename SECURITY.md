@@ -46,7 +46,7 @@ CoalMine is evaluated against [NVIDIA SkillSpector](https://github.com/NVIDIA/sk
   * `HIGH · P2 Hidden Instructions` (`skills/gold-standard/references/method.md:1`, confidence 0.21) — the metadata rule-freshness stamp (an instruction-shaped HTML comment carrying no command or exfil directive).
   * `MED · EA2 Autonomous Decision` (`skills/gold-standard/SKILL.md:28`) — the line reads "...**never** assume approval"; the scanner matched the substring "assume approval" and missed the "never." The `ask_question` gate is the opposite of acting without confirmation.
   * `MED · RA2 Session Persistence` (`hooks/rot-canary-stop.js:160`) — the stop-hook session temp file (written to `tmpdir`, deleted on stop) plus the flagged text itself: the USER's documented opt-out ("Disable: create `~/.claude/.rot-canary-off`") — a kill-switch, not an OS-persistence mechanism.
-* **Method:** `uvx --from git+https://github.com/NVIDIA/skillspector.git skillspector scan` against the conformed `plugin/` dist — no install required.
+* **Method:** `uvx --from git+https://github.com/NVIDIA/skillspector.git skillspector scan <plugin> --format json` — uvx fetches its own ephemeral Python, so no manual Python/pip install is needed; a JSON report is written even when the optional LLM stage is skipped.
 * **LLM Semantic Scan:** not run this pass (`--no-llm` — static-only is the documented, FP-prone baseline: pattern-match without the skill-contract context).
 
 ---
