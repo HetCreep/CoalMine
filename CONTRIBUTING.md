@@ -66,4 +66,4 @@ Bump the version in `.claude-plugin/plugin.json` → add a `CHANGELOG.md` entry 
 
 ## 📄 License & Conduct
 
-Contributions are licensed under the [MIT License](LICENSE). Assume good faith and be respectful. Report security issues per [SECURITY.md](SECURITY.md); if a canary itself misbehaves, file it via the repo issues.
+Contributions are licensed under the [Apache License 2.0](LICENSE). Assume good faith and be respectful. Report security issues per [SECURITY.md](SECURITY.md); if a canary itself misbehaves, file it via the repo issues.
