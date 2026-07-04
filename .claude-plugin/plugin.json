@@ -5,6 +5,6 @@
   "author": { "name": "HetCreep" },
   "homepage": "https://github.com/HetCreep/CoalMine",
   "repository": "https://github.com/HetCreep/CoalMine",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "keywords": ["code-review", "code-health", "quality", "audit", "dead-code", "supply-chain", "resilience", "hallucination", "observability", "testability", "performance", "drift", "skills", "hooks"]
 }
