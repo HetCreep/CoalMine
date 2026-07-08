@@ -57,16 +57,36 @@ function Remove-JsoncComments {
   return $result.ToString()
 }
 
-function Load-CoalmineConfig {
-  $p = Join-Path (Find-GitRoot) '.coalmine.json'
-  if (-not (Test-Path $p)) { return $null }
+function Read-CoalmineConfigFile {
+  param([string]$Path)
+  if (-not (Test-Path $Path)) { return $null }
   try {
-    $rawJson = [System.IO.File]::ReadAllText($p)
+    $rawJson = [System.IO.File]::ReadAllText($Path)
     $cleanJson = Remove-JsoncComments $rawJson
-    return $cleanJson | ConvertFrom-Json
+    $parsed = $cleanJson | ConvertFrom-Json
+    if ($parsed -is [PSCustomObject]) { return $parsed }
+    return $null
   } catch {
     return $null
   }
+}
+
+function Load-CoalmineConfig {
+  # Two-level (Node twin parity): global ~/.claude/.coalmine.json overlaid per key
+  # by the project <gitroot>/.coalmine.json (project wins). __proto__/constructor/
+  # prototype keys dropped at merge for parity with the Node guard.
+  $globalCfg = Read-CoalmineConfigFile (Join-Path (Join-Path $env:USERPROFILE '.claude') '.coalmine.json')
+  $projectCfg = Read-CoalmineConfigFile (Join-Path (Find-GitRoot) '.coalmine.json')
+  if (-not $globalCfg) { return $projectCfg }
+  if (-not $projectCfg) { return $globalCfg }
+  $merged = [ordered]@{}
+  foreach ($src in @($globalCfg, $projectCfg)) {
+    foreach ($prop in $src.PSObject.Properties) {
+      if ($prop.Name -in @('__proto__', 'constructor', 'prototype')) { continue }
+      $merged[$prop.Name] = $prop.Value
+    }
+  }
+  return [PSCustomObject]$merged
 }
 
 function Test-ValidSessionId {

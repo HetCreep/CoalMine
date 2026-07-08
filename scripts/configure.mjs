@@ -3,6 +3,7 @@
 // (scripts/lib/config-schema.mjs, shared with verify.mjs): a key added there
 // is automatically settable, validated, and documented here.
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { CONFIG_SCHEMA, validateValue } from './lib/config-schema.mjs';
 import { stripJsonc } from './lib/jsonc.mjs';
@@ -34,11 +35,13 @@ function printHelp() {
     const flags = [`--${spec.key}`, ...(spec.flags || [])].join(', ');
     lines.push(`  ${flags.padEnd(48)} ${spec.help}`);
   }
+  lines.push(`  ${'--global'.padEnd(48)} Write ~/.claude/.coalmine.json (the global layer) instead of the project git-root file`);
   lines.push(`  ${'--help, -h'.padEnd(48)} Show this help message`);
   lines.push('');
   lines.push('Examples:');
   lines.push('  node scripts/configure.mjs --language th --file-cap 15');
   lines.push('  node scripts/configure.mjs --disable rot-canary,drift-canary');
+  lines.push('  node scripts/configure.mjs --global --default-tier light');
   console.log(lines.join('\n'));
 }
 
@@ -93,8 +96,14 @@ function main() {
     process.exit(0);
   }
 
-  const root = findGitRoot(process.cwd());
-  const configPath = path.join(root, '.coalmine.json');
+  // --global targets the global layer (~/.claude/.coalmine.json); default targets
+  // the project git-root file. Hooks merge the two per key, project wins.
+  const globalIdx = args.indexOf('--global');
+  const isGlobal = globalIdx !== -1;
+  if (isGlobal) args.splice(globalIdx, 1);
+  const configPath = isGlobal
+    ? path.join(os.homedir(), '.claude', '.coalmine.json')
+    : path.join(findGitRoot(process.cwd()), '.coalmine.json');
 
   let cfg = {};
   let hadComments = false;
@@ -170,6 +179,7 @@ function main() {
   }
 
   try {
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
     fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2) + '\n', 'utf8');
     if (hadComments) {
       console.warn('Note: inline comments were stripped (this tool writes plain JSON). Every key stays documented in platform-configs/.coalmine.json.');

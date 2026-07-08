@@ -56,6 +56,21 @@ test('help documents every schema key — drift between table and help is imposs
   for (const spec of CONFIG_SCHEMA) {
     assert.ok(r.stdout.includes(`--${spec.key}`), `help is missing --${spec.key}`);
   }
+  assert.ok(r.stdout.includes('--global'), 'help is missing the --global target flag');
+});
+
+test('--global writes ~/.claude/.coalmine.json, never the project file (v3.9.0 two-level)', () => {
+  const dir = freshProject();
+  try {
+    // Sandbox the home dir into the project sandbox so the real ~/.claude is never touched.
+    const env = { ...process.env, USERPROFILE: dir, HOME: dir };
+    const r = spawnSync(process.execPath, [CONFIGURE, '--global', '--language', 'th'], { cwd: dir, encoding: 'utf8', env, timeout: 60000 });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const globalPath = path.join(dir, '.claude', '.coalmine.json');
+    assert.ok(fs.existsSync(globalPath), '--global must create/write the global-layer file (mkdir included)');
+    assert.strictEqual(JSON.parse(fs.readFileSync(globalPath, 'utf8')).language, 'th');
+    assert.ok(!fs.existsSync(path.join(dir, '.coalmine.json')), '--global must not touch the project file');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('configure writes a valid updateMode and rejects an out-of-enum value', () => {

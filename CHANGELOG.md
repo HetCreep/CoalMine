@@ -2,6 +2,18 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [3.9.0] - 2026-07-09
+
+**MINOR** — the two-level config cascade lands (one-flock key-parity with the 4 siblings; closes the dead-global-config finding the CoalFace sweep's QC surfaced: the user's tuned `~/.claude/.coalmine.json` was never read by any hook).
+
+### Added
+- **Global config layer:** every hook now reads `~/.claude/.coalmine.json` and overlays it per key with the project `<gitroot>/.coalmine.json` (project wins) — the same two-level cascade every sibling ships. Either file alone works; keys named `__proto__`/`constructor`/`prototype` are dropped at merge (an untrusted project config must not pollute the prototype). Shipped in the shared config partial, so all three Node hooks AND both PowerShell twins gain it in one place (Node≡PS parity).
+- **`configure.mjs --global`:** targets the global layer (`~/.claude/.coalmine.json`, directory created if missing) instead of the project git-root file. Help + example added.
+- Hermetic regressions: global-only honored · project-wins-per-key · proto-key dropped at merge (Node), global-honored + project-wins (PS twins), `--global` writes home-not-project (configure).
+
+### Changed
+- README Configure intro: from "there is no global layer" (true until this release) to the two-level cascade with the `--global` writer named.
+
 ## [3.8.5] - 2026-07-09
 
 **PATCH** — platform-landscape refresh + a Configure-intro truth fix (part of the flock doc-conform sweep, CoalFace-orchestrated).

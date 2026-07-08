@@ -127,6 +127,26 @@ try {
   Check 'touch: real <<<<<<< + ======= conflict IS flagged'    $conflictFlagged
 } finally { Remove-Item $sb.Root -Recurse -Force -ErrorAction SilentlyContinue }
 
+# ── Two-level config (v3.9.0): global ~/.claude/.coalmine.json + project git-root ──
+# USERPROFILE is sandboxed to $sb.Root, so the global layer is <root>\.claude\.coalmine.json
+# and the project layer is <root>\.coalmine.json (the .git marker stops Find-GitRoot there).
+$sb = New-Sandbox
+try {
+  New-Item -ItemType Directory -Path (Join-Path $sb.Root '.claude') -Force | Out-Null
+  '{"disabledCanaries":["rot-canary"]}' | Set-Content -Path (Join-Path $sb.Root '.claude\.coalmine.json') -Encoding UTF8
+  $codeFile = Join-Path $sb.Root 'g.js'
+  'const g = 1;' | Set-Content -Path $codeFile -Encoding UTF8
+  $stdin = (@{ session_id = 'PSGLO'; tool_input = @{ file_path = $codeFile } } | ConvertTo-Json -Compress)
+  $r = Invoke-Hook $touch $stdin $sb
+  Check 'touch: GLOBAL-layer disable alone is honored'          (-not (Test-Path (Join-Path $sb.Temp 'rot-canary-PSGLO.touched')))
+
+  # project overrides global per key (project wins): global disables, project re-enables.
+  '{"disabledCanaries":[]}' | Set-Content -Path (Join-Path $sb.Root '.coalmine.json') -Encoding UTF8
+  $stdin2 = (@{ session_id = 'PSWIN'; tool_input = @{ file_path = $codeFile } } | ConvertTo-Json -Compress)
+  $r2 = Invoke-Hook $touch $stdin2 $sb
+  Check 'touch: project empty disabledCanaries WINS over global' (Test-Path (Join-Path $sb.Temp 'rot-canary-PSWIN.touched'))
+} finally { Remove-Item $sb.Root -Recurse -Force -ErrorAction SilentlyContinue }
+
 Write-Host ''
 Write-Host "PS hook results: $pass passed, $fail failed"
 if ($fail -gt 0) { exit 1 } else { exit 0 }

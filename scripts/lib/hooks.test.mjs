@@ -432,3 +432,51 @@ test('stop hook clamps tempSweepStaleDays:-30 → does NOT delete a future-dated
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+// --- Two-level config (v3.9.0): global ~/.claude/.coalmine.json + project git-root file ---
+// The sandbox maps USERPROFILE/HOME to tmp, so the global layer is <tmp>/.claude/.coalmine.json
+// and the project layer is <tmp>/.coalmine.json (cwd = tmp, no .git → findGitRoot returns tmp).
+
+test('GLOBAL .coalmine.json alone is honored (the layer that was previously never read)', () => {
+  const tmp = mkTmp();
+  try {
+    fs.mkdirSync(path.join(tmp, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, '.claude', '.coalmine.json'), JSON.stringify({ enableConductor: false }), 'utf8');
+    const r = runHook(CONDUCTOR, '', tmp);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '', 'a global-layer enableConductor:false must silence the conductor with no project file present');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('project .coalmine.json overrides the global per key (project wins)', () => {
+  const tmp = mkTmp();
+  try {
+    fs.mkdirSync(path.join(tmp, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, '.claude', '.coalmine.json'), JSON.stringify({ enableConductor: false }), 'utf8');
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ enableConductor: true }), 'utf8');
+    const r = runHook(CONDUCTOR, '', tmp);
+    assert.equal(r.status, 0);
+    assert.ok(r.stdout.includes('[CoalMine]'), 'project enableConductor:true must win over the global false');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('merge drops __proto__/constructor/prototype keys (pollution cannot ride the overlay)', () => {
+  const tmp = mkTmp();
+  try {
+    // An untrusted project config trying to smuggle enableConductor:false through __proto__:
+    // the merge must drop the key entirely, so the conductor still emits.
+    fs.mkdirSync(path.join(tmp, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, '.claude', '.coalmine.json'), JSON.stringify({ skipOnboarding: true }), 'utf8');
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), '{ "__proto__": { "enableConductor": false }, "constructor": { "x": 1 }, "prototype": { "y": 2 } }', 'utf8');
+    const r = runHook(CONDUCTOR, '', tmp);
+    assert.equal(r.status, 0);
+    assert.ok(r.stdout.includes('[CoalMine]'), 'proto-shaped keys must be dropped at merge, never honored');
+    assert.ok(!r.stdout.includes('offer /gold-standard ONCE'), 'the global layer keys still apply through the merge');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
