@@ -16,7 +16,7 @@
 
 [Design Principles](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md) · [Benchmark](https://github.com/TheColliery/.github/tree/main/benchmarks/CoalMine) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Releases](https://github.com/HetCreep/CoalMine/releases)
 
-**Part of [TheColliery](https://github.com/TheColliery)** — siblings: **[CoalTipple](https://github.com/TheColliery/CoalTipple)** (model/effort routing) · **[CoalBoard](https://github.com/TheColliery/CoalBoard)** (consensus & debate board) · **[CoalHearth](https://github.com/TheColliery/CoalHearth)** (session warm-resume) · **[CoalFace](https://github.com/TheColliery/CoalFace)** (fan-out discipline).
+**Part of [TheColliery](https://github.com/TheColliery)** — siblings: **[CoalTipple](https://github.com/TheColliery/CoalTipple)** (model/effort routing) · **[CoalBoard](https://github.com/TheColliery/CoalBoard)** (consensus & debate board) · **[CoalHearth](https://github.com/TheColliery/CoalHearth)** (session warm-resume) · **[CoalFace](https://github.com/TheColliery/CoalFace)** (fan-out discipline) · **[CoalWash](https://github.com/TheColliery/CoalWash)** (memory defrag) · **[CoalLedger](https://github.com/TheColliery/CoalLedger)** (docs health).
 
 </div>
 
@@ -93,6 +93,9 @@
 ```bash
 npx skills add HetCreep/CoalMine
 ```
+
+### Option A3 — claude.ai (web / desktop app)
+Zip any canary's folder from `skills/` and upload it as a custom skill (Settings → Capabilities → Skills). Manual invocation only — no hooks there. Steps + capability notes: [CLAUDE-AI-INSTALL](https://github.com/TheColliery/.github/blob/main/CLAUDE-AI-INSTALL.md).
 
 ### Option B — Universal Installer
 
@@ -199,7 +202,7 @@ Bound by the 11 principles of the [Quantum Computer Spec](https://github.com/The
 
 ## 🏭 Part of TheColliery
 
-CoalMine shares its engineering doctrine with [CoalTipple](https://github.com/TheColliery/CoalTipple) (model/effort routing), [CoalBoard](https://github.com/TheColliery/CoalBoard) (consensus & debate board), [CoalHearth](https://github.com/TheColliery/CoalHearth) (session warm-resume), and [CoalFace](https://github.com/TheColliery/CoalFace) (fan-out discipline): Phoenix-13 hooks (zero-dependency, no network, fail-silent, no child processes, deterministic), single-source-of-truth config schemas, and a strict no-overkill discipline. Install one and it stands alone; install all and they compose without conflict.
+CoalMine shares its engineering doctrine with [CoalTipple](https://github.com/TheColliery/CoalTipple) (model/effort routing), [CoalBoard](https://github.com/TheColliery/CoalBoard) (consensus & debate board), [CoalHearth](https://github.com/TheColliery/CoalHearth) (session warm-resume), [CoalFace](https://github.com/TheColliery/CoalFace) (fan-out discipline), [CoalWash](https://github.com/TheColliery/CoalWash) (memory defrag), and [CoalLedger](https://github.com/TheColliery/CoalLedger) (docs health): Phoenix-13 hooks (zero-dependency, no network, fail-silent, no child processes, deterministic), single-source-of-truth config schemas, and a strict no-overkill discipline. Install one and it stands alone; install all and they compose without conflict.
 
 ---
 
