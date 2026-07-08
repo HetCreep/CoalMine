@@ -12,7 +12,7 @@
 ![SKILL.md](https://img.shields.io/badge/SKILL.md-open_standard_·_major_agents-success)
 ![skills](https://img.shields.io/badge/skills-9-success)
 ![Claude Code](https://img.shields.io/badge/Claude_Code-validated-success)
-![agents](https://img.shields.io/badge/works_with-Claude_·_Antigravity_·_Cursor_·_Windsurf-informational)
+![agents](https://img.shields.io/badge/works_with-Claude_·_Antigravity_·_Cursor_·_Devin-informational)
 
 [Design Principles](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md) · [Benchmark](https://github.com/TheColliery/.github/tree/main/benchmarks/CoalMine) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Releases](https://github.com/HetCreep/CoalMine/releases)
 
@@ -55,10 +55,10 @@
 | **Claude Code** | plugin cache (recommended) or `~/.claude/skills/` | `/plugin install coalmine@coalmine` | ✅ **Native:** `AskUserQuestion` |
 | **Antigravity** | `.agents/skills/` | `node scripts/install.mjs antigravity` | ✅ **Native:** built-in question prompt |
 | **Cursor** | `.cursor/skills/` | `node scripts/install.mjs cursor` | ✅ **Native:** built-in ask-question tool |
-| **Windsurf** | `.windsurf/skills/` | `node scripts/install.mjs windsurf` | ✅ **Native:** `suggested_responses` |
+| **Devin Desktop (ex-Windsurf)** | `.windsurf/skills/` | `node scripts/install.mjs windsurf` | ✅ **Native:** `suggested_responses` |
 | **GitHub Copilot** | `.github/skills/` | `node scripts/install.mjs copilot` | ✅ **Native:** `askQuestions` |
 | **Cline** | `.claude/skills/` | `node scripts/install.mjs cline` | ✅ **Native:** `ask_question` |
-| **Gemini CLI** | `.gemini/skills/` | `node scripts/install.mjs gemini` | ✅ **Native:** `ask_user` |
+| **Gemini CLI (superseded by Antigravity CLI, Jun 2026)** | `.gemini/skills/` | `node scripts/install.mjs gemini` | ✅ **Native:** `ask_user` |
 | **Goose** | `.agents/skills/` | `node scripts/install.mjs goose` | ⚠️ **Text Fallback:** no question tool |
 | **Amp** | `.agents/skills/` | `node scripts/install.mjs amp` | ⚠️ **Text Fallback:** tool not documented |
 | **Junie** | `.junie/skills/` | `node scripts/install.mjs junie` | ⚠️ **Text Fallback:** tool not documented |
@@ -147,7 +147,7 @@ Installing is the power button. The agent conducts the canaries and asks for con
 
 ## ⚙️ Configure (.coalmine.json)
 
-Zero-config: the installer generates `.coalmine.json` with safe, token-optimal defaults. The high-impact keys:
+Zero-config: the installer generates a single per-project `.coalmine.json`, read from the git root — there is no global layer — so you can shut it off per project (`enableConductor: false`; `disabledCanaries: ["all"]` disables just the canary offers). The high-impact keys:
 
 | Key | Default | What it does |
 |---|---|---|

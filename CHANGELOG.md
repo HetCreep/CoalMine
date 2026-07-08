@@ -2,9 +2,13 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
-## [Unreleased]
+## [3.8.5] - 2026-07-09
+
+**PATCH** — platform-landscape refresh + a Configure-intro truth fix (part of the flock doc-conform sweep, CoalFace-orchestrated).
 
 ### Changed
+- **Platform refs refreshed (July 2026 landscape):** Windsurf → "Devin Desktop (ex-Windsurf)" (rebrand, Jun 2; mechanics/paths/CLI tokens kept verbatim); Gemini CLI mentions annotated "(superseded by Antigravity CLI, Jun 2026)" — kept, never removed (legacy installs remain real). Touches the shared escalation footer (renders into all 9 skills), the escalation reference, the rot-canary cadence reference, the README works-with badge + agent table, and the platform-configs hook snippets.
+- **Configure intro now tells CoalMine's TRUE config model:** a single per-project `.coalmine.json` read from the git root — there is NO global layer (every hook reads `<gitroot>/.coalmine.json` only; verified in code) — with the per-project off-switch named (`enableConductor: false`; `disabledCanaries: ["all"]` for canary offers only). The previous wording implied the flock's two-level cascade, which CoalMine's code does not implement.
 - Relicensed from MIT to Apache-2.0. `LICENSE` is now the Apache License 2.0 (verbatim); a new `NOTICE` carries the attribution; the `plugin.json` `license` field is `Apache-2.0`. No code or behavior change.
 
 ## [3.8.4] — 2026-07-02
