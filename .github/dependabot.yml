@@ -1,10 +1,18 @@
 version: 2
 updates:
-  # Zero runtime dependencies, so the only thing to keep fresh is the GitHub Actions
-  # the workflows pin. Dependabot opens a PR when a pinned action has a newer release.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
     commit-message:
       prefix: ci
+    # Assign every bump PR to the maintainer -> a notification fires (assignment is
+    # a "participating" event, delivered at any watch level). Human still merges.
+    assignees:
+      - HetCreep
+    # Group all github/codeql-action/* paths (init/analyze/upload-sarif) into ONE PR
+    # so they bump together -> no init/analyze version skew (which reds CodeQL).
+    groups:
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
