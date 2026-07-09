@@ -2,6 +2,11 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [3.9.2] - 2026-07-09
+
+### Removed
+- **`AGENTS.md` Rule 5 ("Work Execution Gate + Haldane Safety Protocol") destroyed outright, and its "Work Execution Gate" paragraph removed from all 4 shipped platform templates** — `platform-configs/clinerules.template`, `copilot-instructions.template`, `cursor.mdc.template`, `windsurf.md.template`. This was a dev-machine personal workflow (a 3-option Do-now/Add-to-plan/View-plan task gate, plus an in-flight-file spawn-safety protocol) that had leaked into shipped surfaces — never a CoalMine skill feature. Each template's canary proactive-offer paragraph (Run now / Queue / Skip for the 9 canaries) is kept — that is the skill's actual function, not the gate. The concern is owned by shipped skills instead: CoalFace's fan-out/in-flight discipline, and each conductor's consent-gated offers. v3.9.1 (earlier today) removed only the README's public-facing claim about this gate and kept Rule 5 as this repo's own local governance; the user then ordered full destruction, reversing that call — this release completes it. `AGENTS.md` (machine-local, gitignored, never shipped) is tombstoned the same day.
+
 ## [3.9.1] - 2026-07-09
 
 ### Removed
