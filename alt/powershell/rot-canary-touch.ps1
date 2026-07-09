@@ -74,7 +74,9 @@ function Read-CoalmineConfigFile {
 function Load-CoalmineConfig {
   # Two-level (Node twin parity): global ~/.claude/.coalmine.json overlaid per key
   # by the project <gitroot>/.coalmine.json (project wins). __proto__/constructor/
-  # prototype keys dropped at merge for parity with the Node guard.
+  # prototype keys dropped at merge for parity with the Node guard. NO safer-value-wins
+  # guard (Node twin parity) — every hook-read key is Phoenix-13 side-effect-free, so a
+  # project override has no safety choice to weaken.
   $globalCfg = Read-CoalmineConfigFile (Join-Path (Join-Path $env:USERPROFILE '.claude') '.coalmine.json')
   $projectCfg = Read-CoalmineConfigFile (Join-Path (Find-GitRoot) '.coalmine.json')
   if (-not $globalCfg) { return $projectCfg }
@@ -144,7 +146,12 @@ try {
   if ([System.IO.File]::Exists($f)) {
     # Skip very large files based on tripwireMaxFileSizeKb
     $maxSizeKb = 100
-    if ($cfg -and $cfg.tripwireMaxFileSizeKb -ne $null) { $maxSizeKb = $cfg.tripwireMaxFileSizeKb }
+    # Node parity (rot-canary-touch.js clamp): floor a raw 0/negative to >=1 so a bad
+    # project value can't disable the size gate. A JSON number parses to int/long/double
+    # (never NaN/Inf), so a type check is the finite check on PS 5.1.
+    if ($cfg -and ($cfg.tripwireMaxFileSizeKb -is [int] -or $cfg.tripwireMaxFileSizeKb -is [long] -or $cfg.tripwireMaxFileSizeKb -is [double])) {
+      $maxSizeKb = [Math]::Max(1, [Math]::Floor([double]$cfg.tripwireMaxFileSizeKb))
+    }
     if ((Get-Item $f).Length -gt ($maxSizeKb * 1KB)) { exit 0 }
 
     $lines = [System.IO.File]::ReadAllLines($f)
@@ -161,7 +168,9 @@ try {
     }
 
     $maxLines = 800
-    if ($cfg -and $cfg.tripwireMaxLines -ne $null) { $maxLines = $cfg.tripwireMaxLines }
+    if ($cfg -and ($cfg.tripwireMaxLines -is [int] -or $cfg.tripwireMaxLines -is [long] -or $cfg.tripwireMaxLines -is [double])) {
+      $maxLines = [Math]::Max(1, [Math]::Floor([double]$cfg.tripwireMaxLines))
+    }
     if ($n -gt $maxLines) { $smells += "file >$maxLines lines ($n)" }
 
     if ($smells.Count) { [System.IO.File]::AppendAllText("$base.smells", ('{0}: {1}' -f $f, ($smells -join '; ')) + "`r`n") }

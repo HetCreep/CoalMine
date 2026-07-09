@@ -135,19 +135,6 @@ Installing is the power button. The agent conducts the canaries and asks for con
 
 ---
 
-## 🛡️ Work Execution Gate & Haldane Safety
-
-1. **Work Execution Gate:** Before starting a task, the agent presents a confirm menu:
-   * **ทำทันที / Do now** — Assess scope, recommend tier, and execute.
-   * **เก็บเข้าแผนงาน / Add to plan** — Queue in `task.md`.
-   * **ดูแผนงานทั้งหมด / View full plan** — View queued tasks, adjust tiers, and run.
-2. **Haldane Safety Protocol (for sub-agents):**
-   * Active files edited by sub-agents are marked `[/] in-flight` in `task.md` to prevent collisions.
-   * If conversation shifts to topics affecting in-flight files, the agent warns you first.
-3. **Proactive Suggestions:** The agent automatically offers canary runs via `ask_question` when relevant changes (e.g., adding a package) are detected.
-
----
-
 ## ⚙️ Configure (.coalmine.json)
 
 Zero-config to start — and two config levels when you want them: a global `~/.claude/.coalmine.json` overlaid per key by the project `<gitroot>/.coalmine.json` (project wins), so you can tune or **shut off a globally-tuned CoalMine per project** (`enableConductor: false`; `disabledCanaries: ["all"]` disables just the canary offers). The installer generates the per-project file; write the global layer with `node scripts/configure.mjs --global <flags>`. The high-impact keys:

@@ -75,7 +75,9 @@ function Read-CoalmineConfigFile {
 function Load-CoalmineConfig {
   # Two-level (Node twin parity): global ~/.claude/.coalmine.json overlaid per key
   # by the project <gitroot>/.coalmine.json (project wins). __proto__/constructor/
-  # prototype keys dropped at merge for parity with the Node guard.
+  # prototype keys dropped at merge for parity with the Node guard. NO safer-value-wins
+  # guard (Node twin parity) — every hook-read key is Phoenix-13 side-effect-free, so a
+  # project override has no safety choice to weaken.
   $globalCfg = Read-CoalmineConfigFile (Join-Path (Join-Path $env:USERPROFILE '.claude') '.coalmine.json')
   $projectCfg = Read-CoalmineConfigFile (Join-Path (Find-GitRoot) '.coalmine.json')
   if (-not $globalCfg) { return $projectCfg }

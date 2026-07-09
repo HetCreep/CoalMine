@@ -2,6 +2,17 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [3.9.1] - 2026-07-09
+
+### Removed
+- **README §"Work Execution Gate & Haldane Safety" — a false plugin-feature claim.** The public README advertised a Work Execution Gate + Haldane Safety Protocol as if the installed plugin performs them, but they are defined ONLY in the gitignored `AGENTS.md` (Rule 5 — this repo's local dev-governance / cross-agent instruction templates); the shipped `plugin/` has no code for them, so an installing user never got them. Removed from the README; Rule 5 stays as this repo's own governance. (Board-2 dogfood finding; the "false claim worse than none" class, same as the CoalFace wallet fix.)
+
+### Fixed
+- **Config read-time clamps on three raw numeric keys** — `ruleRevalidateDays` (conductor), `tripwireMaxFileSizeKb` + `tripwireMaxLines` (touch hook) were read raw; a negative / 0 / NaN value in a project `.coalmine.json` broke the gate (mass false past-due nagging / a silently-disabled smell tripwire). Now floored to a positive integer (`Number.isFinite` + `Math.max(1, Math.floor(...))`), matching the `tempSweepStaleDays` / `autoScanFileCap` clamps already in place. +1 hermetic regression (80 node tests).
+
+### Notes
+- Board-2 also flagged a "monotonic config" gap (a project override weakening a global safety choice, à la CoalWash's `mergeSafety`). On verification this is a FALSE POSITIVE for CoalMine and was NOT shipped: every hook-read config key is Phoenix-13 side-effect-free (report / nudge / scan — nothing deleted or auto-edited), and the one auto-EDIT key (`autoFixMode`) is read by the AGENT from the raw file, not by any hook via the merge — so a hook-side safer-value-wins guard would protect nothing. The finding pattern-matched CoalWash's memory-DELETE trust-boundary onto CoalMine's side-effect-free hooks. Rationale recorded in `hooks/_shared/node-config.js`.
+
 ## [3.9.0] - 2026-07-09
 
 **MINOR** — the two-level config cascade lands (one-flock key-parity with the 4 siblings; closes the dead-global-config finding the CoalFace sweep's QC surfaced: the user's tuned `~/.claude/.coalmine.json` was never read by any hook).

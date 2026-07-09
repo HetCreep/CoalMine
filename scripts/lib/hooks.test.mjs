@@ -260,6 +260,24 @@ test('touch hook honors tripwireMaxLines override in .coalmine.json', () => {
   }
 });
 
+test('touch hook clamps a negative tripwireMaxLines → no mass false-smell (Board-2 clamp)', () => {
+  const tmp = mkTmp();
+  try {
+    // raw -3 would flag EVERY file (lines > -3 is always true); clamped to >=1 a
+    // 1-line file must NOT be flagged. Same clamp class as tripwireMaxFileSizeKb / ruleRevalidateDays.
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ tripwireMaxLines: -3 }), 'utf8');
+    const oneLine = path.join(tmp, 'one.js');
+    fs.writeFileSync(oneLine, 'x'); // 1 line, no trailing newline
+    const r = runHook(TOUCH, JSON.stringify({ session_id: 'T5b', tool_input: { file_path: oneLine } }), tmp);
+    assert.equal(r.status, 0);
+    const smellsFile = path.join(tmp, 'rot-canary-T5b.smells');
+    const smells = fs.existsSync(smellsFile) ? fs.readFileSync(smellsFile, 'utf8') : '';
+    assert.ok(!smells.includes('lines'), 'a negative tripwireMaxLines must not produce a line-count smell on a 1-line file');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('loadCfg parses JSONC with a backslash-terminated string before a later // string (no silent revert to defaults)', () => {
   const tmp = mkTmp();
   try {

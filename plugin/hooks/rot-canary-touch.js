@@ -58,6 +58,11 @@ function readCfgFile(file) {
 // __proto__/constructor/prototype keys are dropped at merge (an untrusted
 // project config must not pollute the prototype). Cached — one disk pass per
 // invocation (Phoenix #3: budget the work, not the process).
+// NOTE: NO safer-value-wins guard here (unlike CoalWash) BY DESIGN — every
+// hook-read key is Phoenix-13 side-effect-free (report / nudge / scan, nothing
+// deleted or auto-edited), so a project override has no safety choice to weaken;
+// and the one auto-EDIT key (autoFixMode) is read by the AGENT from the raw file,
+// not by any hook via this merge, so a hook-side guard would protect nothing.
 let _cfg;
 function loadCfg() {
   if (_cfg !== undefined) return _cfg;
@@ -97,8 +102,10 @@ function projectOverride() {
 function getTripwireMaxFileSizeKb() {
   try {
     const cfg = loadCfg();
-    if (cfg && typeof cfg.tripwireMaxFileSizeKb === 'number') {
-      return cfg.tripwireMaxFileSizeKb;
+    // clamp: a raw project value of 0 / negative / NaN would break the size gate
+    // (same class as the tempSweepStaleDays clamp). Floor to a positive integer.
+    if (cfg && Number.isFinite(cfg.tripwireMaxFileSizeKb)) {
+      return Math.max(1, Math.floor(cfg.tripwireMaxFileSizeKb));
     }
   } catch {}
   return 100;
@@ -106,8 +113,8 @@ function getTripwireMaxFileSizeKb() {
 function getTripwireMaxLines() {
   try {
     const cfg = loadCfg();
-    if (cfg && typeof cfg.tripwireMaxLines === 'number') {
-      return cfg.tripwireMaxLines;
+    if (cfg && Number.isFinite(cfg.tripwireMaxLines)) {
+      return Math.max(1, Math.floor(cfg.tripwireMaxLines));
     }
   } catch {}
   return 800;
