@@ -9,14 +9,18 @@ name: Dependabot auto-merge
 # reaches the merge step, so a human-opened PR never auto-merges.
 on: pull_request
 
+# Minimal top-level token (Scorecard Token-Permissions best practice); only the
+# merge job escalates to the write scopes `gh pr merge` needs.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   auto-merge:
     if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Fetch Dependabot metadata
         id: meta
