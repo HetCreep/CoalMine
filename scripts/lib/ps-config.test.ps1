@@ -62,6 +62,43 @@ $c6 = @"
 $r6 = (Remove-JsoncComments $c6) | ConvertFrom-Json
 Check 'mixed: // inline + // in string + block all handled'  ($r6.domain -eq 'https://api.example.com' -and $r6.count -eq 5)
 
+# ---- M1: Load-CoalmineConfig safer-value-wins guard for updateMode ----
+# No PS hook reads updateMode yet (the conductor is Node-only), but the merge
+# function itself must stay Node<->PS parity and ships real logic — tested
+# directly here since there is no PS hook to spawn it through.
+function Test-SaferMerge {
+  param($GlobalCfg, $ProjectCfg)
+  $sandbox = Join-Path ([System.IO.Path]::GetTempPath()) ('cm-psconfig-' + [guid]::NewGuid().ToString('N'))
+  $homeDir = Join-Path $sandbox 'home'
+  $proj = Join-Path $sandbox 'proj'
+  New-Item -ItemType Directory -Path (Join-Path $homeDir '.claude') -Force | Out-Null
+  New-Item -ItemType Directory -Path (Join-Path $proj '.git') -Force | Out-Null
+  if ($GlobalCfg) { ($GlobalCfg | ConvertTo-Json -Compress) | Set-Content -Path (Join-Path $homeDir '.claude\.coalmine.json') -Encoding UTF8 }
+  if ($ProjectCfg) { ($ProjectCfg | ConvertTo-Json -Compress) | Set-Content -Path (Join-Path $proj '.coalmine.json') -Encoding UTF8 }
+  $savedProfile = $env:USERPROFILE
+  Push-Location $proj
+  try {
+    $env:USERPROFILE = $homeDir
+    return Load-CoalmineConfig
+  } finally {
+    Pop-Location
+    $env:USERPROFILE = $savedProfile
+    Remove-Item $sandbox -Recurse -Force -ErrorAction SilentlyContinue
+  }
+}
+
+$sm1 = Test-SaferMerge -GlobalCfg @{ updateMode = 'off' } -ProjectCfg @{ updateMode = 'auto' }
+Check 'safer-merge: project cannot escalate explicit global off -> auto' ($sm1.updateMode -eq 'off')
+
+$sm2 = Test-SaferMerge -GlobalCfg @{ updateMode = 'auto' } -ProjectCfg @{ updateMode = 'off' }
+Check 'safer-merge: project MAY move safer (auto global -> off project)' ($sm2.updateMode -eq 'off')
+
+$sm3 = Test-SaferMerge -GlobalCfg $null -ProjectCfg @{ updateMode = 'auto' }
+Check 'safer-merge: no explicit global choice leaves the project free' ($sm3.updateMode -eq 'auto')
+
+$sm4 = Test-SaferMerge -GlobalCfg @{ updateMode = 'off' } -ProjectCfg @{ updateMode = 'off' }
+Check 'safer-merge: matching values pass through unchanged' ($sm4.updateMode -eq 'off')
+
 Write-Host ''
 Write-Host "PS results: $pass passed, $fail failed"
 if ($fail -gt 0) { exit 1 } else { exit 0 }

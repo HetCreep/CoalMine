@@ -69,6 +69,37 @@ export function checkCanaryCount(repo) {
   return out;
 }
 
+// 1e. The conductor hook's own "N quality canaries installed" string — the
+// FIRST thing injected into every session, so a drift here is the highest-
+// exposure instance of the same class as #1 above (which checks plugin.json vs
+// skills/ only). Still not every surface that states the count (~11 known,
+// per the audit) — this + #1 are the two the commit-gate can mechanically
+// reach without a browser-rendered check; the rest are markdown prose swept
+// manually on release (scripts-quality.md's per-version doc-spot checklist).
+export function checkConductorCanaryCount(repo) {
+  const out = [];
+  let actual;
+  try {
+    actual = listSkills(path.join(repo, 'skills')).length;
+  } catch (e) {
+    return [{ level: 'FAIL', msg: `consistency: cannot count skills/: ${e.message}` }];
+  }
+  const p = path.join(repo, 'hooks', 'coalmine-conductor.js');
+  let src;
+  try {
+    src = fs.readFileSync(p, 'utf8');
+  } catch (e) {
+    return [{ level: 'FAIL', msg: `consistency: hooks/coalmine-conductor.js unreadable: ${e.message}` }];
+  }
+  const m = src.match(/\[CoalMine\]\s+(\d+)\s+quality canaries installed/);
+  if (!m) {
+    out.push({ level: 'FAIL', msg: 'consistency: hooks/coalmine-conductor.js has no "<N> quality canaries installed" string to cross-check' });
+  } else if (Number(m[1]) !== actual) {
+    out.push({ level: 'FAIL', msg: `consistency: conductor hook says ${m[1]} quality canaries but skills/ has ${actual}` });
+  }
+  return out;
+}
+
 // 1b. The supported-agent count must agree between targets.mjs (the source of
 // truth for install targets) and the README's agent table. This is the
 // "badge/table still said 12 agents after a target was dropped" class,
@@ -262,10 +293,10 @@ export function checkRuleStamps(repo) {
 // Tracked-file checks safe to run in the commit gate (no machine-local rule home
 // required). Returns findings[]; empty = consistent.
 export function checkTracked(repo) {
-  return [...checkCanaryCount(repo), ...checkAgentCount(repo), ...checkVersionPins(repo), ...checkJsoncRegexSync(repo)];
+  return [...checkCanaryCount(repo), ...checkConductorCanaryCount(repo), ...checkAgentCount(repo), ...checkVersionPins(repo), ...checkJsoncRegexSync(repo)];
 }
 
 // Every check, for the on-demand consistency CLI (includes machine-local rule home).
 export function checkAll(repo) {
-  return [...checkCanaryCount(repo), ...checkAgentCount(repo), ...checkVersionPins(repo), ...checkJsoncRegexSync(repo), ...checkDoctrineMirrors(repo), ...checkRuleStamps(repo)];
+  return [...checkCanaryCount(repo), ...checkConductorCanaryCount(repo), ...checkAgentCount(repo), ...checkVersionPins(repo), ...checkJsoncRegexSync(repo), ...checkDoctrineMirrors(repo), ...checkRuleStamps(repo)];
 }

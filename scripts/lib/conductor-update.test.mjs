@@ -276,6 +276,48 @@ test('a corrupt stamp self-heals (treated as due) and is overwritten with a vali
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 
+// --- M1: updateMode safer-value-wins guard (two-level config) ---
+// No PS conductor exists (Node-only), so this behavioral coverage lives here.
+// An explicit GLOBAL choice may not be escalated by an untrusted project config
+// (e.g. a cloned repo's .coalmine.json flipping 'off' -> 'auto', an unsolicited
+// git ls-remote contradicting PRIVACY.md); a project moving SAFER is always fine.
+function writeGlobal(tmp, cfg) {
+  const dir = path.join(tmp, '.claude');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, '.coalmine.json'), JSON.stringify(cfg), 'utf8');
+}
+
+test('updateMode safer-value-wins: project cannot escalate an explicit global "off" to "auto"', () => {
+  const tmp = mkProject({ updateMode: 'auto' }); // project tries to go louder
+  try {
+    writeGlobal(tmp, { updateMode: 'off' }); // explicit global safety choice
+    const r = runConductor(tmp);
+    assert.equal(r.status, 0);
+    assert.ok(!r.stdout.includes('self-update'), 'global off must hold — project auto is clamped back to off');
+    assert.equal(readStamp(tmp), null, 'off must not create the update-check stamp');
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
+test('updateMode safer-value-wins: project MAY move safer (auto global -> off project)', () => {
+  const tmp = mkProject({ updateMode: 'off' }); // project going SAFER is always allowed
+  try {
+    writeGlobal(tmp, { updateMode: 'auto' });
+    const r = runConductor(tmp);
+    assert.equal(r.status, 0);
+    assert.ok(!r.stdout.includes('self-update'), 'project may always move to the safer "off"');
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
+test('updateMode safer-value-wins: global-only "off" (no project override) stays off', () => {
+  const tmp = mkProject(); // no project .coalmine.json at all
+  try {
+    writeGlobal(tmp, { updateMode: 'off' });
+    const r = runConductor(tmp);
+    assert.equal(r.status, 0);
+    assert.ok(!r.stdout.includes('self-update'), 'global off with no project override stays off');
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
 test('KIND 2 ReDoS: a poisoned rule file (many openers, no terminator) does NOT hang the conductor', () => {
   // A poisoned .md: many valid stamp OPENERS and ZERO closing `-->`. The old
   // whole-file global capturing STAMP_RE walks each opener's lazy [\s\S]*? to EOF

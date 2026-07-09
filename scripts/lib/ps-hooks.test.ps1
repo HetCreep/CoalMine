@@ -147,6 +147,30 @@ try {
   Check 'touch: project empty disabledCanaries WINS over global' (Test-Path (Join-Path $sb.Temp 'rot-canary-PSWIN.touched'))
 } finally { Remove-Item $sb.Root -Recurse -Force -ErrorAction SilentlyContinue }
 
+# ── M1: tempSweepStaleDays:0 must not delete THIS session's own recent marker ────
+# Before the >=1 floor, 0 pushed the sweep cutoff to "now"; the sweep runs BEFORE
+# the .touched file is read, so a marker written moments earlier (backdated a few
+# seconds here — old enough to be < "now" but nowhere near 1 day) was deleted too,
+# silently suppressing this session's own end-of-scan nudge (Node parity).
+$sb = New-Sandbox
+try {
+  '{"tempSweepStaleDays":0}' | Set-Content -Path (Join-Path $sb.Root '.coalmine.json') -Encoding UTF8
+  $realFile = Join-Path $sb.Root 'edited-a.js'
+  'x' | Set-Content -Path $realFile -Encoding UTF8
+  $base = Join-Path $sb.Temp 'rot-canary-PSSWEEP'
+  $touchedFile = "$base.touched"
+  Set-Content -Path $touchedFile -Value ($realFile + "`r`n") -Encoding UTF8
+  $recent = (Get-Date).ToUniversalTime().AddSeconds(-5)
+  [System.IO.File]::SetLastWriteTimeUtc($touchedFile, $recent)
+
+  $stdin = (@{ session_id = 'PSSWEEP'; stop_hook_active = $false } | ConvertTo-Json -Compress)
+  $r = Invoke-Hook $stop $stdin $sb
+  Check 'stop: tempSweepStaleDays:0 exits 0' ($r.ExitCode -eq 0)
+  $decisionBlocked = $false
+  try { $decisionBlocked = (($r.StdOut | ConvertFrom-Json).decision -eq 'block') } catch {}
+  Check "stop: tempSweepStaleDays:0 must not delete this session's own recent marker" $decisionBlocked
+} finally { Remove-Item $sb.Root -Recurse -Force -ErrorAction SilentlyContinue }
+
 Write-Host ''
 Write-Host "PS hook results: $pass passed, $fail failed"
 if ($fail -gt 0) { exit 1 } else { exit 0 }

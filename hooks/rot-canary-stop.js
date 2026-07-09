@@ -76,11 +76,16 @@ function readCfgFile(file) {
 // __proto__/constructor/prototype keys are dropped at merge (an untrusted
 // project config must not pollute the prototype). Cached — one disk pass per
 // invocation (Phoenix #3: budget the work, not the process).
-// NOTE: NO safer-value-wins guard here (unlike CoalWash) BY DESIGN — every
-// hook-read key is Phoenix-13 side-effect-free (report / nudge / scan, nothing
-// deleted or auto-edited), so a project override has no safety choice to weaken;
-// and the one auto-EDIT key (autoFixMode) is read by the AGENT from the raw file,
-// not by any hook via this merge, so a hook-side guard would protect nothing.
+// SAFER-VALUE-WINS GUARD (corrected 2026-07-09 — the old blanket "no guard
+// needed, unlike CoalWash" verdict was HALF-WRONG): `updateMode` IS read by a
+// hook (the conductor) and drives a real consent escalation (an 'auto' check
+// spends tokens + networks unsolicited) — an untrusted project config must not
+// be able to flip an explicit global 'off' up to 'auto'. Guarded below,
+// mirroring CoalWash's mergeSafety (config-load.mjs). `autoFixMode` is the one
+// true exception: it is read by the AGENT from the raw file, never by any hook
+// via this merge, so a hook-side guard for IT would protect nothing — that half
+// of the old verdict stands.
+const SAFER_ENUM = { updateMode: ['off', 'remind', 'ask', 'auto'] }; // index 0 = safest
 let _cfg;
 function loadCfg() {
   if (_cfg !== undefined) return _cfg;
@@ -96,6 +101,16 @@ function loadCfg() {
           if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
           merged[key] = src[key];
         }
+      }
+      // Constrain ONLY when BOTH layers set the key explicitly (global absent =
+      // project free); an unknown value on either side leaves the shallow-merge
+      // result untouched.
+      for (const [key, order] of Object.entries(SAFER_ENUM)) {
+        if (!globalCfg || !projectCfg || globalCfg[key] === undefined || projectCfg[key] === undefined) continue;
+        const gi = order.indexOf(globalCfg[key]);
+        const pi = order.indexOf(projectCfg[key]);
+        if (gi === -1 || pi === -1) continue; // unknown value: leave the shallow-merge result
+        merged[key] = pi <= gi ? projectCfg[key] : globalCfg[key]; // project may not be LOUDER than global
       }
       _cfg = merged;
     }
@@ -147,13 +162,17 @@ function cleanupSession(base) {
 function getTempSweepStaleDays() {
   try {
     const cfg = loadCfg();
-    // Clamp at read time to a non-negative integer — the schema bound (min:0) is enforced
-    // only by verify.mjs over the factory config, never at hook read time. Without this, a
-    // negative value pushes the cutoff into the future so sweepStale would delete EVERY
-    // rot-canary-* temp (incl. concurrent sessions'); a fractional value skews the cutoff.
-    // NaN/non-finite → the factory default (7), matching the schema.
+    // Clamp at read time to a positive integer (floor 1, not 0) — the schema bound
+    // (min:1) is enforced only by verify.mjs over the factory config, never at hook
+    // read time. A raw 0 pushes the cutoff to "now": sweepStale() runs BEFORE this
+    // session's own .touched/.smells/.scanned markers are read below, so a marker
+    // written earlier THIS session already has an mtime < "now" and 0 deletes it too
+    // — silently suppressing this session's own end-of-scan nudge, on top of
+    // deleting every concurrent session's fresh temp. A negative value pushes the
+    // cutoff further into the future (same bug, worse); a fractional value skews
+    // the cutoff. NaN/non-finite → the factory default (7), matching the schema.
     if (cfg && typeof cfg.tempSweepStaleDays === 'number' && Number.isFinite(cfg.tempSweepStaleDays)) {
-      return Math.max(0, Math.floor(cfg.tempSweepStaleDays));
+      return Math.max(1, Math.floor(cfg.tempSweepStaleDays));
     }
   } catch {}
   return 7;

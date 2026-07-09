@@ -75,9 +75,16 @@ function Read-CoalmineConfigFile {
 function Load-CoalmineConfig {
   # Two-level (Node twin parity): global ~/.claude/.coalmine.json overlaid per key
   # by the project <gitroot>/.coalmine.json (project wins). __proto__/constructor/
-  # prototype keys dropped at merge for parity with the Node guard. NO safer-value-wins
-  # guard (Node twin parity) — every hook-read key is Phoenix-13 side-effect-free, so a
-  # project override has no safety choice to weaken.
+  # prototype keys dropped at merge for parity with the Node guard.
+  # SAFER-VALUE-WINS GUARD (corrected 2026-07-09 — the old blanket "no guard
+  # needed" verdict was HALF-WRONG): `updateMode` IS read by a hook (the Node
+  # conductor) and drives a real consent escalation (an 'auto' check spends
+  # tokens + networks unsolicited) — an untrusted project config must not flip
+  # an explicit global 'off' up to 'auto'. Guarded below (Node≡PS parity),
+  # mirroring CoalWash's mergeSafety. `autoFixMode` is the one true exception:
+  # read by the AGENT from the raw file, never by any hook via this merge, so a
+  # hook-side guard for IT would protect nothing — that half of the old verdict
+  # stands.
   $globalCfg = Read-CoalmineConfigFile (Join-Path (Join-Path $env:USERPROFILE '.claude') '.coalmine.json')
   $projectCfg = Read-CoalmineConfigFile (Join-Path (Find-GitRoot) '.coalmine.json')
   if (-not $globalCfg) { return $projectCfg }
@@ -88,6 +95,17 @@ function Load-CoalmineConfig {
       if ($prop.Name -in @('__proto__', 'constructor', 'prototype')) { continue }
       $merged[$prop.Name] = $prop.Value
     }
+  }
+  # Constrain ONLY when BOTH layers set the key explicitly (global-absent already
+  # returned above); an unknown value on either side leaves the merge untouched.
+  $saferEnum = @{ updateMode = @('off', 'remind', 'ask', 'auto') } # index 0 = safest
+  foreach ($key in $saferEnum.Keys) {
+    if ($null -eq $globalCfg.$key -or $null -eq $projectCfg.$key) { continue }
+    $order = $saferEnum[$key]
+    $gi = [array]::IndexOf($order, $globalCfg.$key)
+    $pi = [array]::IndexOf($order, $projectCfg.$key)
+    if ($gi -eq -1 -or $pi -eq -1) { continue } # unknown value: leave the shallow-merge result
+    $merged[$key] = if ($pi -le $gi) { $projectCfg.$key } else { $globalCfg.$key } # project may not be LOUDER than global
   }
   return [PSCustomObject]$merged
 }
@@ -113,12 +131,16 @@ try {
     if ($disabledArr -contains 'rot-canary' -or $disabledArr -contains 'all') { exit 0 }
     $rcCfgMode = if ($null -ne $cfg.rotCanaryMode) { $cfg.rotCanaryMode } else { $cfg.mode } # legacy key honored
     if ($rcCfgMode -eq 'off' -or $rcCfgMode -eq 'manual') { exit 0 }
-    # Clamp at read time to a non-negative integer (Node≡PS parity) — the schema bound
-    # (min:0) is enforced only by verify.mjs, never at hook read time. Without this, a
-    # negative value pushes the cutoff into the future so the sweep deletes EVERY
-    # rot-canary-* temp (incl. concurrent sessions'); a non-numeric value → the default 7.
+    # Clamp at read time to a positive integer (floor 1, not 0; Node≡PS parity) — the
+    # schema bound (min:1) is enforced only by verify.mjs, never at hook read time. A
+    # raw 0 pushes the cutoff to "now": the sweep below runs BEFORE this session's own
+    # .touched/.smells/.scanned markers are read, so a marker written earlier THIS
+    # session already has a write-time < "now" and 0 deletes it too — silently
+    # suppressing this session's own end-of-scan nudge, on top of deleting every
+    # concurrent session's fresh temp. A negative value pushes the cutoff further into
+    # the future (same bug, worse); a non-numeric value → the default 7.
     $tsd = $cfg.tempSweepStaleDays -as [double]
-    if ($null -ne $tsd) { $staleDays = [Math]::Max(0, [int][Math]::Floor($tsd)) }
+    if ($null -ne $tsd) { $staleDays = [Math]::Max(1, [int][Math]::Floor($tsd)) }
   }
   if ((Get-RcMode) -ne 'auto') { exit 0 }
 

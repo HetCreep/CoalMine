@@ -53,7 +53,7 @@
   "tripwireMaxLines": 800,
 
   // ## Number of days before temporary session files in the OS temp directory are flagged as stale and swept.
-  // # Setting type: Int32
+  // # Setting type: Int32 (minimum 1 — 0 would sweep every temp incl. the current session's own marker)
   // # Default value: 7
   "tempSweepStaleDays": 7,
 
@@ -80,22 +80,22 @@
   // # Default value: 14
   "updateCheckDays": 14,
 
-  // ## Number of days before stable engineering/general rules are flagged as stale and require re-validation.
+  // ## Number of days before stable engineering/general rules are flagged as stale and require re-validation. Consumed by BOTH surfaces: the session-start auto-nudge (as its only fallback, used when a stamp omits its own "revalidate Nd") and the manual /coalmine:stats report (as the threshold for revalidate-90d-class stamps).
   // # Setting type: Int32
   // # Default value: 90
   "ruleRevalidateDays": 90,
 
-  // ## Number of days before fast-moving platform/model rules are flagged as stale and require re-validation.
+  // ## Number of days before fast-moving platform/model rules are flagged as stale and require re-validation. /coalmine:stats-ONLY (the threshold for revalidate-30d-class stamps) — the session-start auto-nudge does not read this key; it always uses each stamp's own literal "revalidate Nd" instead.
   // # Setting type: Int32
   // # Default value: 30
   "platformRuleRevalidateDays": 30,
 
-  // ## Number of days before general reference definitions (antivirus patterns) are flagged as stale.
+  // ## Number of days before general reference definitions (antivirus patterns) are flagged as stale. /coalmine:stats-ONLY — governs the installed skills' references/*.md files, a corpus the session-start auto-nudge never scans.
   // # Setting type: Int32
   // # Default value: 90
   "definitionRevalidateDays": 90,
 
-  // ## Number of days before fast-moving platform definitions are flagged as stale.
+  // ## Number of days before fast-moving platform definitions are flagged as stale. /coalmine:stats-ONLY — same scope as definitionRevalidateDays (installed skills' references/*.md, not scanned by the auto-nudge).
   // # Setting type: Int32
   // # Default value: 30
   "platformDefinitionRevalidateDays": 30,

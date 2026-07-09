@@ -451,6 +451,34 @@ test('stop hook clamps tempSweepStaleDays:-30 → does NOT delete a future-dated
   }
 });
 
+test("stop hook floors tempSweepStaleDays:0 to >=1 — must not delete this session's own recent marker (M1)", () => {
+  // Before the >=1 floor, tempSweepStaleDays:0 pushed the sweep cutoff to "now".
+  // sweepStale() runs BEFORE this session's own .touched is read below, so a
+  // marker written moments earlier in the SAME session (already older than "now"
+  // by the time the sweep runs) was deleted too — silently suppressing this
+  // session's own end-of-scan nudge. Backdating by a few seconds (not a full day)
+  // reproduces "recent but strictly before now" deterministically without relying
+  // on process-spawn timing jitter.
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ tempSweepStaleDays: 0 }), 'utf8');
+    const real = path.join(tmp, 'edited-a.js');
+    fs.writeFileSync(real, 'x');
+    const base = path.join(tmp, 'rot-canary-S7');
+    fs.writeFileSync(base + '.touched', real + '\n');
+    const recent = Date.now() - 5000;
+    fs.utimesSync(base + '.touched', new Date(recent), new Date(recent));
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'S7', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.decision, 'block', 'tempSweepStaleDays:0 must not sweep away this session\'s own few-seconds-old marker');
+    assert.ok(out.reason.includes('edited-a.js'), 'the nudge still lists the touched file');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 // --- Two-level config (v3.9.0): global ~/.claude/.coalmine.json + project git-root file ---
 // The sandbox maps USERPROFILE/HOME to tmp, so the global layer is <tmp>/.claude/.coalmine.json
 // and the project layer is <tmp>/.coalmine.json (cwd = tmp, no .git → findGitRoot returns tmp).

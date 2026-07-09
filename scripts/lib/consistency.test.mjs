@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { checkCanaryCount, checkAgentCount, checkVersionPins, checkDoctrineMirrors, checkRuleStamps } from './consistency.mjs';
+import { checkCanaryCount, checkConductorCanaryCount, checkAgentCount, checkVersionPins, checkDoctrineMirrors, checkRuleStamps } from './consistency.mjs';
 import { hashInstalledTree, verifyAgainstManifest, MANIFEST_NAME } from './manifest.mjs';
 
 function mkRepo() {
@@ -32,6 +32,36 @@ test('canary count: passes when plugin.json matches skills/, fails on drift', ()
     const drift = checkCanaryCount(dir);
     assert.equal(drift.length, 1);
     assert.match(drift[0].msg, /says 5 .* skills\/ has 2/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('conductor canary count: passes when hooks/coalmine-conductor.js matches skills/, fails on drift', () => {
+  const dir = mkRepo();
+  try {
+    fs.mkdirSync(path.join(dir, 'hooks'), { recursive: true });
+    const mkConductor = (n) => fs.writeFileSync(
+      path.join(dir, 'hooks', 'coalmine-conductor.js'),
+      `const CONDUCTOR_HEAD = [\n  '[CoalMine] ${n} quality canaries installed. Conduct them:',\n];\n`,
+    );
+
+    mkConductor(2); // mkRepo() ships 2 skills (alpha-canary, beta-canary)
+    assert.deepEqual(checkConductorCanaryCount(dir), [], 'matching count is clean');
+
+    mkConductor(9);
+    const drift = checkConductorCanaryCount(dir);
+    assert.equal(drift.length, 1);
+    assert.match(drift[0].msg, /conductor hook says 9 .* skills\/ has 2/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('conductor canary count: missing string fails loud instead of silently passing', () => {
+  const dir = mkRepo();
+  try {
+    fs.mkdirSync(path.join(dir, 'hooks'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'hooks', 'coalmine-conductor.js'), '// no canary-count string here\n');
+    const f = checkConductorCanaryCount(dir);
+    assert.equal(f.length, 1);
+    assert.match(f[0].msg, /no "<N> quality canaries installed" string/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
