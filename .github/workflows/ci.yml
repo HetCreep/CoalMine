@@ -56,3 +56,20 @@ jobs:
           else
             echo "pwsh not found — skipping PS parity tests"
           fi
+
+
+  # A single STABLE required-check context (the matrix names drift; this does not).
+  # Succeeds iff every matrix gate passed or was legitimately skipped; fails if any
+  # gate failed. Rulesets require `all-green`, never the per-matrix names.
+  all-green:
+    name: all-green
+    needs: gate
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: gate result
+        run: |
+          case "${{ needs.gate.result }}" in
+            success|skipped) echo "gate ${{ needs.gate.result }}"; exit 0 ;;
+            *) echo "gate ${{ needs.gate.result }}"; exit 1 ;;
+          esac
