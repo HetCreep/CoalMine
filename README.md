@@ -11,8 +11,15 @@
 ![status](https://img.shields.io/badge/status-live-brightgreen)
 ![SKILL.md](https://img.shields.io/badge/SKILL.md-open_standard_·_major_agents-success)
 ![skills](https://img.shields.io/badge/skills-9-success)
-![Claude Code](https://img.shields.io/badge/Claude_Code-validated-success)
-![agents](https://img.shields.io/badge/works_with-Claude_·_Antigravity_·_Cursor_·_Devin-informational)
+
+![Claude Code](https://img.shields.io/badge/Claude_Code-validated-brightgreen)
+![Antigravity](https://img.shields.io/badge/Antigravity-validated-brightgreen)
+![Cursor](https://img.shields.io/badge/Cursor-works_with-blue)
+![Codex](https://img.shields.io/badge/Codex-works_with-blue)
+![Gemini CLI](https://img.shields.io/badge/Gemini_CLI-works_with-blue)
+![Cline](https://img.shields.io/badge/Cline-works_with-blue)
+![Copilot](https://img.shields.io/badge/Copilot-works_with-blue)
+![claude.ai](https://img.shields.io/badge/claude.ai-works_with-blue)
 
 [Design Principles](https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md) · [Benchmark](https://github.com/TheColliery/.github/tree/main/benchmarks/CoalMine) · [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Privacy](PRIVACY.md) · [Releases](https://github.com/HetCreep/CoalMine/releases)
 
@@ -80,6 +87,15 @@
 ---
 
 ## 🚀 Install
+
+**Per-platform, at a glance** — every canary is a read/analyze skill, so it runs wherever a `SKILL.md` loads; only the `rot-canary` auto-cadence hook is host-dependent (Claude Code auto-wires it; a manual snippet covers other hook-capable hosts).
+
+| Platform | Tier | Install |
+|---|---|---|
+| **Claude Code** | validated | `/plugin marketplace add HetCreep/CoalMine` → `/plugin install coalmine@coalmine` (Option A) — auto-wires the `rot-canary` Stop-hook |
+| **Antigravity** | validated | file-copy the skills to the global `~/.gemini/config/skills/` **or** per-project `<workspace>/.agents/skills/` (`node scripts/install.mjs antigravity`); canaries run validated, but the auto-cadence hook is manual here — snippet in [`platform-configs/hooks/`](platform-configs/hooks/) |
+| **Cursor · Codex · Cline · Copilot · Gemini CLI · …** | works with | `node scripts/install.mjs <agent>` — file-copy into the agent's skills folder (targets in [Universal Agent Support](#-universal-agent-support)) |
+| **claude.ai** (web / app) | works with | ZIP-upload a canary folder from `skills/` as a custom skill (Option A3) — read/analyze skills only, manual invocation, no hooks |
 
 ### Option A — Claude Code Plugin (No clone needed)
 ```text
