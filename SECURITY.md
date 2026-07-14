@@ -54,3 +54,5 @@ CoalMine is evaluated against [NVIDIA SkillSpector](https://github.com/NVIDIA/sk
 ## 🛡️ Structural Safety (Phoenix-13)
 
 Security is built structurally. Every hook obeys the [Phoenix-13 rules](https://github.com/TheColliery/.github/blob/main/hooks-safety.md) (zero-dependency, no network, no child processes, fail-silent, session cleanup). No data-exfiltration path exists.
+
+The same three Node hooks also carry an **Antigravity mode** (selected by the event-name argument wired in [`platform-configs/hooks/antigravity-hooks.json`](platform-configs/hooks/antigravity-hooks.json)): identical Phoenix-13 posture, output restricted to a single `additionalContext` JSON line, and CoalMine never blocks on Antigravity.

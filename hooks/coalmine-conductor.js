@@ -253,6 +253,59 @@ function pastDueDirective(n) {
   return `- CoalMine rule freshness: ${n} gold-standard rule(s) are past their revalidate date — OFFER /gold-standard RE-VALIDATE via your question tool (Run now / Queue / Skip), in the user's language. Local check only; the user runs it.`;
 }
 
+// The KIND 2 scan roots for a project root (shared by the CC and AG paths).
+function ruleRoots(root) {
+  return [
+    path.join(root, '.claude', 'rules'),
+    path.join(root, '.agents', 'rules'),
+    path.join(root, 'AGENTS.md'),
+  ];
+}
+
+// --- Antigravity adapter -----------------------------------------------------
+// AG mode = an event-name argv (the AG hooks.json template runs
+// `node <this file> PreInvocation`; Claude Code invokes with no argv).
+// Antigravity never fires SessionStart, and PreInvocation fires on EVERY model
+// call — so the injection is guarded to ONCE per session by a marker in
+// os.tmpdir() keyed by the payload's session (Phoenix #10 sandbox; the marker
+// carries the coalmine-conductor- prefix so rot-canary-stop's stale sweep
+// collects it, Phoenix #1). Emit = the sanctioned single-line
+// {"additionalContext": ...} JSON, camelCase key. KIND 1 (self-update) is
+// deliberately NOT injected on AG: its directives drive `claude plugin update` /
+// configure.mjs — Claude Code plugin machinery; AG installs by file-copy, and
+// firing here would also consume the CC-side once-per-window stamp. KIND 2
+// (rule freshness) is local + platform-neutral and rides the one guarded
+// injection.
+function djb2(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
+function agMain(lines, cfg, updateMode) {
+  let input = null;
+  try { input = JSON.parse(fs.readFileSync(0, 'utf8').trim()); } catch {}
+  if (!input || typeof input !== 'object') return; // no payload → no session key → skip silently (Phoenix #12)
+  const key = [input.session_id, input.sessionId, input.transcript_path, input.transcriptPath]
+    .find((v) => typeof v === 'string' && v);
+  if (!key) return; // un-keyable session: an injection would repeat per model call — skip (fail-closed on spend)
+  const marker = path.join(os.tmpdir(), `coalmine-conductor-${djb2(key)}.marker`);
+  try {
+    if (fs.existsSync(marker)) return; // already injected this session
+    // Marker BEFORE emit; a failed write skips the emit entirely — an unguarded
+    // injection would repeat on EVERY model call (token burn > one missed nudge).
+    fs.writeFileSync(marker, '');
+  } catch { return; }
+  if (updateMode !== 'off') {
+    try {
+      const base = (typeof input.cwd === 'string' && input.cwd) || process.cwd();
+      const n = countPastDueStamps(ruleRoots(findGitRoot(base)), todayISO(Date.now()), cfg);
+      if (n > 0) lines.push(pastDueDirective(n));
+    } catch {}
+  }
+  process.stdout.write(JSON.stringify({ additionalContext: lines.join('\n') }) + '\n');
+}
+
 function main() {
   let skipOnboarding = false;
   let updateMode = 'ask';
@@ -275,6 +328,10 @@ function main() {
 
   const lines = skipOnboarding ? [...CONDUCTOR_HEAD, ...CONDUCTOR_TAIL] : [...CONDUCTOR_HEAD, ONBOARDING, ...CONDUCTOR_TAIL];
 
+  // AG mode: hand off to the Antigravity adapter (once-per-session marker guard
+  // + additionalContext emit). The config gates above already ran.
+  if (process.argv[2]) { agMain(lines, cfg, updateMode); return; }
+
   // KIND 1 — skill version. Throttled by the persistent stamp: fires at most once
   // per updateCheckDays. 'off' emits nothing and skips the stamp entirely.
   if (updateMode !== 'off') {
@@ -292,12 +349,7 @@ function main() {
   // (not the update stamp): runs every session start like the onboarding offer.
   if (updateMode !== 'off') {
     try {
-      const root = findGitRoot(process.cwd());
-      const roots = [
-        path.join(root, '.claude', 'rules'),
-        path.join(root, '.agents', 'rules'),
-        path.join(root, 'AGENTS.md'),
-      ];
+      const roots = ruleRoots(findGitRoot(process.cwd()));
       const today = todayISO(Date.now());
       const n = countPastDueStamps(roots, today, cfg);
       if (n > 0) lines.push(pastDueDirective(n));

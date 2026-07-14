@@ -1,16 +1,19 @@
 {
-  "$comment": "Google Antigravity hooks — merge into your Antigravity hooks config (workspace JSON takes precedence over global; CLI settings live under ~/.gemini/antigravity-cli/). Schema from official docs (Jun 2026, JS-rendered pages) — verify event names in your install before relying on it. PostToolUse records edited files; the stop-condition hook nudges the QUICK scan. Adjust the CoalMine path.",
-  "hooks": {
+  "$comment": "Antigravity 2.0 hooks — full CoalMine auto-cadence (conductor + rot-canary). Copy into <workspace>/.agents/hooks.json (project) or ~/.gemini/config/hooks.json (global); both load. Replace C:/path/to/CoalMine with your clone (or the ~/.gemini/config/skills install) path. Shape rules (empirically verified 2026-07-12 + antigravity.google/docs/hooks): the top-level NAMED GROUP wrapper is required (events at top level fail to load); commands must run an EXTERNAL script — never inline node -e; PreToolUse/PostToolUse take the nested matcher shape, simple events (PreInvocation/Stop) take a flat handler array. The trailing event-name argument switches the CoalMine hooks to AG mode (once-per-session conductor guard on PreInvocation, additionalContext emit) — keep it. AG never fires SessionStart, so the conductor rides the first PreInvocation. Tool names in the PostToolUse matcher are best-effort — verify against your install's tool list; a wrong name just means no recording (safe degrade). Delivery of additionalContext to the agent is emit-per-spec, not validated end-to-end.",
+  "coalmine": {
+    "PreInvocation": [
+      { "type": "command", "command": "node \"C:/path/to/CoalMine/hooks/coalmine-conductor.js\" PreInvocation", "timeout": 30 }
+    ],
     "PostToolUse": [
       {
-        "matcher": "write_file|replace|edit",
-        "hooks": [{ "type": "command", "command": "node \"C:/path/to/CoalMine/hooks/rot-canary-touch.js\"" }]
+        "matcher": "write_to_file|write_file|replace_file_content|replace|edit_file|edit|multi_edit",
+        "hooks": [
+          { "type": "command", "command": "node \"C:/path/to/CoalMine/hooks/rot-canary-touch.js\" PostToolUse", "timeout": 30 }
+        ]
       }
     ],
     "Stop": [
-      {
-        "hooks": [{ "type": "command", "command": "node \"C:/path/to/CoalMine/hooks/rot-canary-stop.js\"" }]
-      }
+      { "type": "command", "command": "node \"C:/path/to/CoalMine/hooks/rot-canary-stop.js\" Stop", "timeout": 30 }
     ]
   }
 }

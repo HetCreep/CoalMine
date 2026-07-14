@@ -192,7 +192,10 @@ function sweepStale() {
     const staleDays = getTempSweepStaleDays();
     const cutoff = Date.now() - (staleDays * 24 * 60 * 60 * 1000);
     for (const f of fs.readdirSync(tmp)) {
-      if (!f.startsWith('rot-canary-') && !f.startsWith('rotcanary-')) continue; // sweep legacy prefix too
+      // sweep the legacy prefix + the AG conductor's once-per-session markers too
+      // (named divergence from the PS twin: the AG adapter requires node, so a
+      // no-Node box can never have coalmine-conductor-* markers to sweep).
+      if (!f.startsWith('rot-canary-') && !f.startsWith('rotcanary-') && !f.startsWith('coalmine-conductor-')) continue;
       if (f === 'rot-canary-sweep.marker') continue; // the throttle gate itself
       const p = path.join(tmp, f);
       try { if (fs.statSync(p).mtimeMs < cutoff) fs.unlinkSync(p); } catch {}
@@ -281,9 +284,13 @@ function main() {
   try { input = JSON.parse(raw.trim()); } catch { return; }
   if (!input || input.stop_hook_active) return;
 
-  const sid = input.session_id;
+  // camelCase variant accepted defensively (the AG payload shape is not fully recorded).
+  const sid = input.session_id || input.sessionId;
   // Phoenix #10 (sandbox): allowlist the session_id so a traversal-shaped sid cannot
   // escape os.tmpdir() via path.join. Non-conforming -> bail (fail-silent, Phoenix #4).
+  // AG constraint: Antigravity's session_id format is undocumented — a sid outside this
+  // allowlist nudges nothing there (safe degrade; fail-closed over widening without
+  // evidence. The 2026-07-12 AG pilot's cadence DID fire, so real AG sids passed it).
   if (!sid || typeof sid !== 'string' || !/^[A-Za-z0-9_-]+$/.test(sid)) return;
 
   const base = path.join(os.tmpdir(), `rot-canary-${sid}`);
@@ -365,7 +372,13 @@ function main() {
   const list = files.map((x) => '  - ' + x).join('\n');
   const reason = t.reason(list, smellText) + capNoticeText;
 
-  process.stdout.write(JSON.stringify({ decision: 'block', reason }));
+  // AG mode (an event-name argv, per the AG hooks.json template `node <file> <Event>`;
+  // Claude Code invokes with no argv): Antigravity's Stop matches CC Stop semantics
+  // but not CC's decision protocol — emit the sanctioned single-line
+  // {"additionalContext": ...} JSON (camelCase key) instead. CoalMine never blocks.
+  process.stdout.write(process.argv[2]
+    ? JSON.stringify({ additionalContext: reason }) + '\n'
+    : JSON.stringify({ decision: 'block', reason }));
 }
 
 try { main(); } catch {}

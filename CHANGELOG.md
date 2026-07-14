@@ -2,6 +2,20 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [3.10.0] - 2026-07-14
+
+**MINOR** — the full auto-cadence (conductor + rot-canary) runs on Antigravity 2.0's real hook engine (`hooks.json`; empirical pilot 2026-07-12 — which fired CoalMine's Stop cadence live on AG — corroborated against the official docs 2026-07-13). Honest scope: the Stop-hook FIRE is pilot-proven on AG; delivery of the injected context into the agent is emitted per spec, NOT yet validated end-to-end — the README tier is **wired**, not validated, until a real AG session confirms it.
+
+### Added
+- **The 3 Node hooks are dual-mode via an event-name argument** (the AG template runs `node <hook> <Event>`; Claude Code invokes with no argument — zero CC behavior change): the conductor rides the FIRST `PreInvocation` of a session (AG never fires `SessionStart`), guarded once-per-session by a tmp marker written BEFORE the emit (write-fail → no emit — an unguarded injection would repeat per MODEL call); the markers are swept by rot-canary-stop's stale sweep (a named Node-vs-PowerShell divergence). The stop hook emits `{"additionalContext"}` on AG (never `decision: block`); the touch hook reads AG payload shapes defensively (`tool_input`/`toolInput`/`toolCall.args` + path-key variants, resolved against the payload cwd — an unmapped shape is a no-op, never a wrong record).
+- **KIND 1 self-update is deliberately NOT injected on AG** (`claude plugin update`/`configure.mjs` are CC plugin machinery, and an AG-side check would consume the CC throttle stamp — the CoalHearth precedent); the KIND 2 rule-freshness nudge rides along.
+- `platform-configs/hooks/antigravity-hooks.json` rewritten to the verified AG spec (named-group wrapper, external-script commands, flat simple events / nested PostToolUse matcher, both install locations); the `platform-configs/hooks/README.md` Antigravity row updated to match.
+- The session-id allowlist (`[A-Za-z0-9_-]+`) is unchanged for AG — the AG sid format is undocumented, so it stays fail-closed (a non-matching sid = a safe no-op; the 2026-07-12 pilot's live fire proves real AG sids pass).
+- +6 hermetic AG spawn tests → 92 total.
+
+### Fixed
+- `skills/rot-canary/references/cadence.md` carried a stale pre-2.0 Antigravity line ("`PostToolUse`/stop-condition hooks") — now states the real AG story: the `hooks.json` engine, `PreInvocation` (once-per-session conductor guard) / `PostToolUse` / `Stop`, and the dual-mode event-name argument.
+
 ## [3.9.3] - 2026-07-09
 
 **PATCH** — board-audit fixes (the user's CoalBoard nasa audit, 2026-07-09): a real consent-escalation gap the v3.9.1 "monotonic config = FP" verdict wrongly cleared, plus a same-class config-floor miss and a conductor/doc drift gate.

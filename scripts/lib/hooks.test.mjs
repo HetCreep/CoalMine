@@ -17,10 +17,11 @@ const TOUCH = path.join(repo, 'hooks', 'rot-canary-touch.js');
 const STOP = path.join(repo, 'hooks', 'rot-canary-stop.js');
 const CONDUCTOR = path.join(repo, 'hooks', 'coalmine-conductor.js');
 
-function runHook(script, input, tmp) {
+function runHook(script, input, tmp, args = []) {
   // TEMP/TMP/TMPDIR → sandbox os.tmpdir(); USERPROFILE/HOME → sandbox os.homedir()
   // so the real ~/.claude/.rot-canary-mode can never affect the test (mode = auto default).
-  return spawnSync(process.execPath, [script], {
+  // args: the AG hooks.json template passes the event name as argv (AG mode); CC passes none.
+  return spawnSync(process.execPath, [script, ...args], {
     input,
     encoding: 'utf8',
     cwd: tmp,
@@ -522,6 +523,126 @@ test('merge drops __proto__/constructor/prototype keys (pollution cannot ride th
     assert.equal(r.status, 0);
     assert.ok(r.stdout.includes('[CoalMine]'), 'proto-shaped keys must be dropped at merge, never honored');
     assert.ok(!r.stdout.includes('offer /gold-standard ONCE'), 'the global layer keys still apply through the merge');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// --- Antigravity adapter (AG mode = event-name argv, per platform-configs/hooks/
+// antigravity-hooks.json). Same real hooks, spawned hermetically with AG-shaped
+// fixture stdin in both casing variants (snake_case core / camelCase toolCall).
+
+test('AG conductor: first PreInvocation injects additionalContext ONCE; repeats are silent (marker throttle)', () => {
+  const tmp = mkTmp();
+  try {
+    fs.mkdirSync(path.join(tmp, '.git')); // anchor findGitRoot inside the sandbox
+    const stdin = JSON.stringify({ session_id: 'AGC1', cwd: tmp, hook_event_name: 'PreInvocation' });
+    const first = runHook(CONDUCTOR, stdin, tmp, ['PreInvocation']);
+    assert.equal(first.status, 0);
+    assert.equal(first.stderr, '', 'no stderr (Phoenix #13)');
+    const out = JSON.parse(first.stdout);
+    assert.ok(out.additionalContext.includes('[CoalMine]'), 'AG emit is the sanctioned additionalContext JSON');
+    assert.ok(!('decision' in out), 'never the CC decision protocol on AG');
+    assert.ok(!out.additionalContext.includes('self-update'), 'KIND 1 (CC plugin machinery) is skipped on AG');
+    assert.ok(!fs.existsSync(path.join(tmp, '.claude', '.coalmine-update-check')), 'AG must not consume the CC update stamp');
+    assert.ok(
+      fs.readdirSync(tmp).some((f) => f.startsWith('coalmine-conductor-') && f.endsWith('.marker')),
+      'once-per-session marker written to the sandbox tmpdir',
+    );
+
+    const second = runHook(CONDUCTOR, stdin, tmp, ['PreInvocation']);
+    assert.equal(second.status, 0);
+    assert.equal(second.stdout, '', 'PreInvocation fires per model call — the marker must silence every repeat');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('AG conductor: transcript_path keys the session when session_id is absent; no key / garbage → silent', () => {
+  const tmp = mkTmp();
+  try {
+    const byTranscript = runHook(CONDUCTOR, JSON.stringify({ transcript_path: 'C:/x/t.jsonl' }), tmp, ['PreInvocation']);
+    assert.equal(byTranscript.status, 0);
+    assert.ok(JSON.parse(byTranscript.stdout).additionalContext.includes('[CoalMine]'), 'transcript_path works as the fallback key');
+
+    for (const stdin of [JSON.stringify({}), 'not json {{{', '']) {
+      const r = runHook(CONDUCTOR, stdin, tmp, ['PreInvocation']);
+      assert.equal(r.status, 0);
+      assert.equal(r.stdout, '', 'un-keyable payload → no emit (an unguarded injection would repeat per model call)');
+    }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('AG conductor: KIND 2 past-due rule nudge rides the guarded injection; enableConductor:false silences AG too', () => {
+  const tmp = mkTmp();
+  try {
+    fs.mkdirSync(path.join(tmp, '.git'));
+    const rulesDir = path.join(tmp, '.claude', 'rules');
+    fs.mkdirSync(rulesDir, { recursive: true });
+    const old = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    fs.writeFileSync(path.join(rulesDir, 'a.md'), `<!-- coalmine: verified ${old} · exemplar X · revalidate 30d -->\n`, 'utf8');
+    const r = runHook(CONDUCTOR, JSON.stringify({ sessionId: 'AGC2', cwd: tmp }), tmp, ['PreInvocation']);
+    assert.equal(r.status, 0);
+    assert.ok(JSON.parse(r.stdout).additionalContext.includes('past their revalidate date'), 'KIND 2 detected via the camelCase sessionId variant');
+
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ enableConductor: false }), 'utf8');
+    const off = runHook(CONDUCTOR, JSON.stringify({ session_id: 'AGC3', cwd: tmp }), tmp, ['PreInvocation']);
+    assert.equal(off.status, 0);
+    assert.equal(off.stdout, '', 'the config gate silences the AG path too');
+    assert.ok(
+      !fs.readdirSync(tmp).some((f) => f.startsWith('coalmine-conductor-') && f.includes('AGC3')),
+      'a silenced conductor writes no marker',
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('AG touch: toolCall.args payload (camelCase) records the edited file', () => {
+  const tmp = mkTmp();
+  try {
+    const real = path.join(tmp, 'edited-b.js');
+    fs.writeFileSync(real, 'x');
+    const stdin = JSON.stringify({ session_id: 'AGT1', cwd: tmp, toolCall: { name: 'write_to_file', args: { filePath: real } } });
+    const r = runHook(TOUCH, stdin, tmp, ['PostToolUse']);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '', 'touch stays silent');
+    const touched = path.join(tmp, 'rot-canary-AGT1.touched');
+    assert.ok(fs.existsSync(touched), '.touched recorded from the AG toolCall.args shape');
+    assert.ok(fs.readFileSync(touched, 'utf8').includes('edited-b.js'));
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('AG stop: emits additionalContext (never decision:block) listing touched files', () => {
+  const tmp = mkTmp();
+  try {
+    const real = path.join(tmp, 'edited-c.js');
+    fs.writeFileSync(real, 'x');
+    fs.writeFileSync(path.join(tmp, 'rot-canary-AGS1.touched'), real + '\n');
+    const r = runHook(STOP, JSON.stringify({ session_id: 'AGS1' }), tmp, ['Stop']);
+    assert.equal(r.status, 0);
+    const out = JSON.parse(r.stdout);
+    assert.ok(out.additionalContext.includes('edited-c.js'), 'AG nudge lists the touched file');
+    assert.ok(!('decision' in out), 'the CC decision protocol never leaves the hook in AG mode');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('stop sweep collects stale AG conductor markers (Phoenix #1)', () => {
+  const tmp = mkTmp();
+  try {
+    const stale = path.join(tmp, 'coalmine-conductor-zzz.marker');
+    fs.writeFileSync(stale, '');
+    const old = Date.now() - 99 * 24 * 60 * 60 * 1000;
+    fs.utimesSync(stale, new Date(old), new Date(old));
+    const r = runHook(STOP, JSON.stringify({ session_id: 'SWP', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.ok(!fs.existsSync(stale), 'a stale AG conductor marker is swept with the rot-canary temp');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

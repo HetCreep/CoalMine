@@ -101,6 +101,28 @@ function loadCfg() {
 }
 // </coalmine-shared: node-config>
 
+// Defensive edited-file-path extraction across hook payload shapes so the SAME
+// hook serves both Claude Code and Antigravity (one core, no fork):
+//   Claude Code:  input.tool_input.file_path
+//   Antigravity:  input.toolCall.args.<name> (camelCase toolCall) — the AG
+//                 PostToolUse payload is not fully documented, so try the common
+//                 field names and skip silently when none is present (Phoenix #12).
+// The AG PostToolUse matcher gates on edit tools (like CC's Write|Edit|MultiEdit),
+// so a read tool's path arg does not reach here in practice; CC shape is tried
+// first, keeping CC behavior byte-identical.
+function extractEditedPath(input) {
+  if (!input || typeof input !== 'object') return null;
+  const bags = [input.tool_input, input.toolInput, input.toolCall && input.toolCall.args];
+  for (const bag of bags) {
+    if (bag && typeof bag === 'object') {
+      for (const k of ['file_path', 'filePath', 'path', 'filename', 'file']) {
+        if (typeof bag[k] === 'string' && bag[k]) return bag[k];
+      }
+    }
+  }
+  return null;
+}
+
 // Per-project calibration: .coalmine.json at root may disable this canary or
 // override the mode for the project (principle 9 - calibrate, never assume).
 function projectOverride() {
@@ -160,17 +182,25 @@ function main() {
   // trim() also strips a leading BOM some shells prepend when piping stdin.
   try { input = JSON.parse(raw.trim()); } catch { return; }
 
-  const f = input && input.tool_input && input.tool_input.file_path;
+  const f = extractEditedPath(input);
   if (!f) return;
-  // Convert to absolute normalized path to prevent subdirectory bugs
-  const normF = path.resolve(process.cwd(), f);
+  // Resolve a relative path against the payload's cwd when provided (AG launches
+  // the hook with its own cwd; CC's payload cwd equals process.cwd(), so this is a
+  // no-op on CC — an absolute file_path ignores the base either way).
+  const baseDir = (typeof input.cwd === 'string' && input.cwd) ? input.cwd : process.cwd();
+  const normF = path.resolve(baseDir, f);
   const watchedExts = getWatchedExtensions();
   if (!watchedExts.has(path.extname(normF).toLowerCase())) return;
 
   // No session id → no consumer (the stop hook bails without one). Record nothing.
-  const sid = input.session_id;
+  // session_id is the documented core field on both platforms; the camelCase
+  // variant is accepted defensively (the AG payload shape is not fully recorded).
+  const sid = input.session_id || input.sessionId;
   // Phoenix #10 (sandbox): allowlist the session_id so a traversal-shaped sid (e.g.
   // ../../etc/x) cannot escape os.tmpdir() via path.join. Non-conforming -> bail (fail-silent).
+  // AG constraint: Antigravity's session_id format is undocumented — a sid outside this
+  // allowlist records nothing there (safe degrade; fail-closed over widening without
+  // evidence. The 2026-07-12 AG pilot's cadence DID fire, so real AG sids passed it).
   if (!sid || typeof sid !== 'string' || !/^[A-Za-z0-9_-]+$/.test(sid)) return;
   const base = path.join(os.tmpdir(), `rot-canary-${sid}`);
   const touched = base + '.touched';

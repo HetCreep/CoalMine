@@ -80,7 +80,7 @@
 | The 9 skills (the audits) | ✅ All targets natively via Agent Skills spec |
 | Interactive choice menus (`ask_question`) | ✅ Native question tools on most agents; text fallback on Goose/Amp/Junie |
 | Sub-agent fan-out + tiers | ✅ Supported if host has sub-agent system; inline fallback |
-| rot-canary **auto-cadence** | ✅ Auto-wired on Claude Code; 🔧 manual snippets in [`platform-configs/hooks/`](platform-configs/hooks/) for other major agents; ⛔ unsupported on Cline/Junie |
+| rot-canary **auto-cadence** | ✅ Auto-wired on Claude Code; 🔧 wired on Antigravity 2.0 via a one-time `hooks.json` copy (see Install) + manual snippets in [`platform-configs/hooks/`](platform-configs/hooks/) for other hook-capable agents; ⛔ unsupported on Cline/Junie |
 
 **Manual Fallback:** Copy conformed skill body from [`plugin/skills/<name>/SKILL.md`](plugin/skills/) (strip YAML frontmatter) into `AGENTS.md` / rules file.
 
@@ -93,9 +93,11 @@
 | Platform | Tier | Install |
 |---|---|---|
 | **Claude Code** | validated | `/plugin marketplace add HetCreep/CoalMine` → `/plugin install coalmine@coalmine` (Option A) — auto-wires the `rot-canary` Stop-hook |
-| **Antigravity** | validated | file-copy the skills to the global `~/.gemini/config/skills/` **or** per-project `<workspace>/.agents/skills/` (`node scripts/install.mjs antigravity`); canaries run validated, but the auto-cadence hook is manual here — snippet in [`platform-configs/hooks/`](platform-configs/hooks/) |
+| **Antigravity** | validated (canaries) · **wired** (auto-cadence) | file-copy the skills to the global `~/.gemini/config/skills/` **or** per-project `<workspace>/.agents/skills/` (`node scripts/install.mjs antigravity`); for the full auto-cadence (conductor + rot-canary) on AG 2.0's hook engine, copy [`platform-configs/hooks/antigravity-hooks.json`](platform-configs/hooks/antigravity-hooks.json) to `<workspace>/.agents/hooks.json` or `~/.gemini/config/hooks.json` and adjust the CoalMine path |
 | **Cursor · Codex · Cline · Copilot · Gemini CLI · …** | works with | `node scripts/install.mjs <agent>` — file-copy into the agent's skills folder (targets in [Universal Agent Support](#-universal-agent-support)) |
 | **claude.ai** (web / app) | works with | ZIP-upload a canary folder from `skills/` as a custom skill (Option A3) — read/analyze skills only, manual invocation, no hooks |
+
+**wired** (the Antigravity auto-cadence tier) = built + hermetically tested against the empirically-verified AG 2.0 hook spec (pilot 2026-07-12 — which did fire CoalMine's Stop cadence live on AG; corroborated against the official docs 2026-07-13). Delivery of the injected context into the agent is emitted per spec but not yet validated end-to-end — one real AG session run flips it to validated. The 9 canaries themselves are already validated on AG.
 
 ### Option A — Claude Code Plugin (No clone needed)
 ```text
