@@ -1,0 +1,45 @@
+# Event-driven red-alert net (USER 2026-07-16): nobody polls after a push —
+# a failed CI/CodeQL run on main opens (or comments on) ONE open `ci-red`
+# issue; the assignee's GitHub notification is the alarm. Zero third-party
+# actions (nothing to SHA-pin). PR reds are NOT alerted here — a red PR
+# already notifies via the PR itself (the Dependabot merge-after-green net).
+name: alert-on-red
+
+on:
+  workflow_run:
+    workflows: ["CI", "CodeQL"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  alert:
+    if: >-
+      github.event.workflow_run.head_branch == 'main' &&
+      contains(fromJSON('["failure","timed_out","startup_failure"]'),
+               github.event.workflow_run.conclusion)
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: open or update the ci-red issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WF: ${{ github.event.workflow_run.name }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          gh label create ci-red --repo "$GITHUB_REPOSITORY" \
+            --description "a main-branch CI/CodeQL run went red" --color B60205 2>/dev/null || true
+          body="**${WF}** went **${CONCLUSION}** on \`${SHA:0:7}\` (main): ${RUN_URL}"
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --label ci-red --state open \
+            --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "CI RED: ${WF} ${CONCLUSION} on main" \
+              --body "$body" --label ci-red --assignee HetCreep
+          fi

@@ -32,3 +32,24 @@ jobs:
           languages: javascript-typescript
           queries: security-and-quality
       - uses: github/codeql-action/analyze@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4
+      # Alert-on-error net, code-scanning half (USER 2026-07-16): a NEW alert does
+      # NOT fail a CodeQL run by default — it hides behind green. This step turns
+      # any open default-branch alert into a RED run, which alert-on-red.yml then
+      # raises as a ci-red issue. Side effect (intended): an open alert also blocks
+      # Dependabot auto-merge via the required check until fixed/dismissed.
+      # Graceful skip when the token can't read alerts (e.g. a Dependabot-triggered
+      # PR run gets a restricted token) — fail ONLY on confirmed open alerts.
+      # Known small race: SARIF processing is async, so an alert born from THIS
+      # run's upload may be missed here; the next push/scheduled run catches it.
+      - name: fail on open code-scanning alerts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(gh api "repos/$GITHUB_REPOSITORY/code-scanning/alerts?state=open&per_page=100" --jq 'length' 2>/dev/null) \
+            || { echo "::notice::code-scanning alerts API unavailable in this context — check skipped"; exit 0; }
+          if [ "$n" -gt 0 ]; then
+            gh api "repos/$GITHUB_REPOSITORY/code-scanning/alerts?state=open&per_page=100" \
+              --jq '.[] | "\(.rule.id)  \(.html_url)"'
+            echo "::error::$n open code-scanning alert(s) — fix or dismiss-with-reason"
+            exit 1
+          fi
