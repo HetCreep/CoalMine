@@ -30,6 +30,7 @@ const TESTS = [
   'scripts/lib/consistency.test.mjs',
   'scripts/lib/jsonc.test.mjs',
   'scripts/lib/conductor-update.test.mjs',
+  'scripts/lib/desc-cap.test.mjs',
 ];
 
 const missing = TESTS.filter((t) => !fs.existsSync(path.join(repo, t)));

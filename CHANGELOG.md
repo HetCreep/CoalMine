@@ -2,6 +2,12 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [3.11.2] - 2026-07-16
+
+### Changed
+- **HOOK-LEAN — the onboarding offer self-silences on a worked repo.** The conductor auto-suppresses its onboarding line once ANY verified gold-standard stamp exists in the repo's rule roots (`hasVerifiedStamp` — a cheap first-hit existence scan; `skipOnboarding: true` still forces it off). Suppression is decided against the SAME cwd each mode's own revalidate scan already uses — payload `cwd` on AG/Gemini (whose hook process may start off-workspace), `process.cwd()` on CC/file-copy — via a shared `buildLines` helper (a wrong-cwd check could keep re-offering onboarding on an already-verified repo). CC output byte-identical for un-stamped repos; +1 hermetic regression test (payload-cwd suppression), 41 hook tests.
+- `verify.mjs` gains the flock `DESC_CAP` gate: every `skills/*/SKILL.md` + `commands/*.md` frontmatter `description` (+ `when_to_use`) ≤ 1024 chars — cross-platform-safe cap (agentskills.io); CC's own listing truncation is 1536 combined (verified 2026-07-16). New `scripts/lib/desc-cap.mjs` + 7 unit cases (incl. the >1024 negative path), registered in `test.mjs`. USER lock, past/present/future — one flock with CT v1.2.3 / CB v1.7.5.
+
 ## [3.11.1] - 2026-07-15
 
 **PATCH** — security hardening follow-up to v3.11.0: closes the dir-symlink residual on the AG conductor's tmp marker.

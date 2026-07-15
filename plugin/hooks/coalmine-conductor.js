@@ -262,6 +262,48 @@ function ruleRoots(root) {
   ];
 }
 
+// Cheap existence check (HOOK-LEAN, 2026-07-15): unlike countPastDueStamps this needs no date
+// math or window-bounded capture -- it only asks "is there a stamp at all", so it can
+// short-circuit on the very first hit. Used to auto-suppress the onboarding offer once the repo
+// has been gold-standard'd at least once (no need to keep suggesting a first run every session).
+function hasVerifiedStamp(roots) {
+  const fileHasStamp = (p) => {
+    let body;
+    try { body = fs.readFileSync(p, 'utf8'); } catch { return false; }
+    STAMP_OPEN.lastIndex = 0;
+    return STAMP_OPEN.test(body);
+  };
+  const dirHasStamp = (dir) => {
+    let entries = [];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return false; }
+    for (const e of entries) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory() ? dirHasStamp(p) : (e.name.endsWith('.md') && fileHasStamp(p))) return true;
+    }
+    return false;
+  };
+  for (const r of roots) {
+    let st;
+    try { st = fs.statSync(r); } catch { continue; }
+    if (st.isDirectory() ? dirHasStamp(r) : fileHasStamp(r)) return true;
+  }
+  return false;
+}
+
+// Builds the head+onboarding+tail scaffold, deciding onboarding suppression against the given
+// BASE cwd (skipOnboarding config flag, or a verified stamp ANYWHERE in that base's rule roots —
+// either silences it). `base` MUST be the same cwd source the caller's own KIND-2 revalidate
+// scan resolves: CC/FileCopy pass process.cwd() (the hook process IS the workspace there);
+// AG/Gemini pass their payload-resolved cwd (the hook process may start elsewhere on those
+// platforms) — else a verified-stamp repo can still draw a redundant onboarding offer because
+// the check looked in the wrong directory. Self-contained fail-safe (never throws, defaults to
+// NOT suppressing on any internal error, same as the pre-carve default).
+function buildLines(cfg, base) {
+  let skipOnboarding = false;
+  try { skipOnboarding = !!(cfg && cfg.skipOnboarding === true) || hasVerifiedStamp(ruleRoots(findGitRoot(base))); } catch {}
+  return skipOnboarding ? [...CONDUCTOR_HEAD, ...CONDUCTOR_TAIL] : [...CONDUCTOR_HEAD, ONBOARDING, ...CONDUCTOR_TAIL];
+}
+
 // --- Antigravity adapter -----------------------------------------------------
 // AG mode = an event-name argv (the AG hooks.json template runs
 // `node <this file> PreInvocation`; Claude Code invokes with no argv; Gemini's
@@ -285,7 +327,7 @@ function djb2(s) {
   return h.toString(36);
 }
 
-function agMain(lines, cfg, updateMode) {
+function agMain(cfg, updateMode) {
   let input = null;
   try { input = JSON.parse(fs.readFileSync(0, 'utf8').trim()); } catch {}
   if (!input || typeof input !== 'object') return; // no payload → no session key → skip silently (Phoenix #12)
@@ -320,9 +362,13 @@ function agMain(lines, cfg, updateMode) {
     if (fs.lstatSync(markerDir).isSymbolicLink()) return; // dir-symlink residual -> fail-closed (see above)
     fs.writeFileSync(marker, '', { flag: 'wx' });
   } catch { return; } // EEXIST (already ran) OR any write failure -> fail-closed, no emit
+  // Resolved ONCE, shared by the onboarding check (buildLines) and KIND 2 below — the payload's
+  // cwd is authoritative when present (the hook process's own cwd is not guaranteed to be the
+  // workspace on AG).
+  const base = (typeof input.cwd === 'string' && input.cwd) || process.cwd();
+  const lines = buildLines(cfg, base);
   if (updateMode !== 'off') {
     try {
-      const base = (typeof input.cwd === 'string' && input.cwd) || process.cwd();
       const n = countPastDueStamps(ruleRoots(findGitRoot(base)), todayISO(Date.now()), cfg);
       if (n > 0) lines.push(pastDueDirective(n));
     } catch {}
@@ -348,16 +394,18 @@ function agMain(lines, cfg, updateMode) {
 // 2026-07-15) — distinct from AG's flat {"additionalContext": ...}: the bug
 // this adapter fixes, since the old code routed Gemini through agMain, whose
 // flat shape Gemini's SessionStart hook silently drops.
-function geminiMain(lines, cfg, updateMode) {
+function geminiMain(cfg, updateMode) {
   // Honor the payload's cwd exactly like agMain (one-flock): the hook process's
   // own cwd is not guaranteed to be the workspace; a stdin payload cwd is
   // authoritative when present. Absent/garbage stdin → fall back to
-  // process.cwd() (a no-op when Gemini supplies no cwd).
+  // process.cwd() (a no-op when Gemini supplies no cwd). Resolved ONCE, shared
+  // by the onboarding check (buildLines) and KIND 2 below.
   let input = null;
   try { input = JSON.parse(fs.readFileSync(0, 'utf8').trim()); } catch {}
+  const base = (input && typeof input.cwd === 'string' && input.cwd) || process.cwd();
+  const lines = buildLines(cfg, base);
   if (updateMode !== 'off') {
     try {
-      const base = (input && typeof input.cwd === 'string' && input.cwd) || process.cwd();
       const n = countPastDueStamps(ruleRoots(findGitRoot(base)), todayISO(Date.now()), cfg);
       if (n > 0) lines.push(pastDueDirective(n));
     } catch {}
@@ -366,7 +414,6 @@ function geminiMain(lines, cfg, updateMode) {
 }
 
 function main() {
-  let skipOnboarding = false;
   let updateMode = 'ask';
   let updateCheckDays = 14;
   let cfg = null;
@@ -375,7 +422,6 @@ function main() {
     if (cfg && (cfg.enableConductor === false || cfg.conductor === false)) return; // legacy key honored
     const disabled = cfg && (cfg.disabledCanaries !== undefined ? cfg.disabledCanaries : cfg.disable); // legacy key honored
     if (Array.isArray(disabled) && (disabled.includes('conductor') || disabled.includes('all'))) return;
-    skipOnboarding = !!(cfg && cfg.skipOnboarding === true); // gate the onboarding offer only
     if (cfg && typeof cfg.updateMode === 'string') {
       const v = cfg.updateMode.toLowerCase();
       if (v === 'ask' || v === 'auto' || v === 'remind' || v === 'off') updateMode = v;
@@ -385,11 +431,9 @@ function main() {
     }
   } catch {}
 
-  const lines = skipOnboarding ? [...CONDUCTOR_HEAD, ...CONDUCTOR_TAIL] : [...CONDUCTOR_HEAD, ONBOARDING, ...CONDUCTOR_TAIL];
-
   // Gemini mode (argv === 'SessionStart', see the Gemini adapter above) —
   // checked FIRST, before the generic-truthy AG branch below.
-  if (process.argv[2] === 'SessionStart') { geminiMain(lines, cfg, updateMode); return; }
+  if (process.argv[2] === 'SessionStart') { geminiMain(cfg, updateMode); return; }
 
   // File-copy mode (argv === 'FileCopy' — the platform-configs for Copilot CLI /
   // Kiro / Augment / Devin CLI / Junie): platforms whose hook OUTPUT contract is
@@ -408,7 +452,12 @@ function main() {
   // AG mode: any OTHER truthy argv → the Antigravity adapter (once-per-session
   // marker guard + additionalContext emit). The config gates above already ran.
   // Never 'SessionStart' or 'FileCopy' — those argv values are claimed above.
-  if (process.argv[2] && !fileCopy) { agMain(lines, cfg, updateMode); return; }
+  if (process.argv[2] && !fileCopy) { agMain(cfg, updateMode); return; }
+
+  // CC / file-copy path: process.cwd() IS the workspace here (unlike AG/Gemini, whose hook
+  // process may start elsewhere) — the onboarding check reads it directly, same cwd source
+  // this same path's own KIND 2 below uses.
+  const lines = buildLines(cfg, process.cwd());
 
   // KIND 1 — skill version. Throttled by the persistent stamp: fires at most once
   // per updateCheckDays. 'off' emits nothing and skips the stamp entirely.

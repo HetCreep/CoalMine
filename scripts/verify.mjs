@@ -17,6 +17,7 @@ import { stripJsonc } from './lib/jsonc.mjs';
 import { REGION_TARGETS, extractRegion } from './lib/shared-regions.mjs';
 import { checkTracked } from './lib/consistency.mjs';
 import { verifyAgainstManifest } from './lib/manifest.mjs';
+import { descriptionCapCheck, DESC_CAP } from './lib/desc-cap.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let ok = true;
@@ -52,6 +53,33 @@ for (const s of skills) {
   }
 }
 if (skills.length !== 9) fail(`expected 9 skills, found ${skills.length}`);
+
+// 1.5 description/when_to_use length cap (skill + command listings) — dynamic scan
+// (skills/*/SKILL.md for any dir that has one, e.g. skips skills/_shared/) so a
+// new skill/command is covered without editing this gate.
+console.log('description length cap (skills + commands):');
+const descTargets = [];
+if (fs.existsSync(skillsSrc)) {
+  for (const d of fs.readdirSync(skillsSrc, { withFileTypes: true })) {
+    if (!d.isDirectory()) continue;
+    const md = path.join(skillsSrc, d.name, 'SKILL.md');
+    if (fs.existsSync(md)) descTargets.push([`skills/${d.name}/SKILL.md`, md, true]);
+  }
+}
+const commandsDir = path.join(repo, 'commands');
+if (fs.existsSync(commandsDir)) {
+  for (const f of fs.readdirSync(commandsDir)) {
+    if (f.endsWith('.md')) descTargets.push([`commands/${f}`, path.join(commandsDir, f), false]);
+  }
+}
+for (const [label, p, isSkill] of descTargets) {
+  try {
+    const { len, over } = descriptionCapCheck(fs.readFileSync(p, 'utf8'));
+    if (isSkill && len === 0) fail(`${label}: frontmatter description missing/unparsed`);
+    else if (over) fail(`${label}: description+when_to_use ${len} chars exceeds the ${DESC_CAP}-char cap`);
+    else pass(`${label}: ${len} chars (cap ${DESC_CAP})`);
+  } catch (e) { fail(`${label} description check: ${e.message}`); }
+}
 
 // 2. manifests (valid JSON)
 console.log('manifests:');

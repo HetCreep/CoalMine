@@ -75,6 +75,22 @@ test('conductor drops only the onboarding line when skipOnboarding is set', () =
   }
 });
 
+test('conductor auto-suppresses onboarding once a coalmine: verified stamp exists anywhere in the rule roots (HOOK-LEAN, no manual skipOnboarding needed)', () => {
+  const tmp = mkTmp();
+  try {
+    const rulesDir = path.join(tmp, '.claude', 'rules');
+    fs.mkdirSync(rulesDir, { recursive: true });
+    fs.writeFileSync(path.join(rulesDir, 'gold-standard.md'), '<!-- coalmine: verified 2026-07-01 revalidate 90d -->\n', 'utf8');
+    const r = runHook(CONDUCTOR, '', tmp);
+    assert.equal(r.status, 0);
+    assert.ok(r.stdout.includes('[CoalMine]'), 'rest of the conductor still injects');
+    assert.ok(r.stdout.includes('Specialists'), 'specialist offers still present');
+    assert.ok(!r.stdout.includes('offer /gold-standard ONCE'), 'a verified stamp anywhere auto-suppresses the onboarding offer');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('project .coalmine.json can disable the canary', () => {
   const tmp = mkTmp();
   try {
@@ -684,6 +700,28 @@ test('AG conductor: KIND 2 past-due rule nudge rides the guarded injection; enab
     );
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('AG conductor: onboarding suppression follows the PAYLOAD cwd, not the hook process cwd (redundant-offer fix)', () => {
+  const spawnDir = mkTmp(); // the hook PROCESS's own cwd -- NOT the workspace on AG, holds no stamp
+  const workDir = mkTmp();  // the payload's cwd -- the real workspace, holds the verified stamp
+  try {
+    fs.mkdirSync(path.join(workDir, '.git')); // anchor findGitRoot(workDir) at workDir, not further up
+    const rulesDir = path.join(workDir, '.claude', 'rules');
+    fs.mkdirSync(rulesDir, { recursive: true });
+    fs.writeFileSync(path.join(rulesDir, 'gold-standard.md'), '<!-- coalmine: verified 2026-07-01 revalidate 90d -->\n', 'utf8');
+    const stdin = JSON.stringify({ session_id: 'AGCWD1', cwd: workDir, hook_event_name: 'PreInvocation' });
+    const r = runHook(CONDUCTOR, stdin, spawnDir, ['PreInvocation']);
+    assert.equal(r.status, 0);
+    const out = JSON.parse(r.stdout);
+    assert.ok(
+      !out.additionalContext.includes('offer /gold-standard ONCE'),
+      'a verified stamp at the PAYLOAD cwd must suppress onboarding even though the hook process cwd (spawnDir) has none -- proves the check follows input.cwd, not process.cwd()',
+    );
+  } finally {
+    fs.rmSync(spawnDir, { recursive: true, force: true });
+    fs.rmSync(workDir, { recursive: true, force: true });
   }
 });
 
