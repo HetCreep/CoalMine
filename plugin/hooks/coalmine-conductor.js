@@ -301,6 +301,11 @@ function agMain(lines, cfg, updateMode) {
   // file/symlink) — that EEXIST IS the "already injected this session" signal,
   // killing the old check-then-write TOCTOU race AND refusing to write through
   // a symlink target in one syscall.
+  // The wx flag guards the marker FILE; the subdir needs its own guard: mkdirSync(recursive)
+  // SILENTLY succeeds on a PRE-PLANTED symlink at markerDir (following it, the 0o700 mode NOT
+  // applied), so the wx marker would then write THROUGH it into an attacker's dir. lstatSync
+  // (does NOT follow the link) rejects a symlink subdir before the write — routed to the SAME
+  // per-repo branch as a marker-write failure (CF/CM fail-closed skip; CH emits with the note).
   // FAIL-CLOSED (named divergence from CoalHearth's AG shim, which emits + a
   // "may repeat" note on a write failure): CH's payload is a RECOVERY block —
   // losing it risks losing work, so repeating is the lesser evil. This
@@ -312,6 +317,7 @@ function agMain(lines, cfg, updateMode) {
   const marker = path.join(markerDir, `ag-conductor-${djb2(key)}.marker`);
   try {
     fs.mkdirSync(markerDir, { recursive: true, mode: 0o700 });
+    if (fs.lstatSync(markerDir).isSymbolicLink()) return; // dir-symlink residual -> fail-closed (see above)
     fs.writeFileSync(marker, '', { flag: 'wx' });
   } catch { return; } // EEXIST (already ran) OR any write failure -> fail-closed, no emit
   if (updateMode !== 'off') {

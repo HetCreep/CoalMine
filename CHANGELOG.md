@@ -2,6 +2,13 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [3.11.1] - 2026-07-15
+
+**PATCH** — security hardening follow-up to v3.11.0: closes the dir-symlink residual on the AG conductor's tmp marker.
+
+### Security
+- **Marker subdir hardened against a pre-planted symlink** (`hooks/coalmine-conductor.js`): `mkdirSync(recursive)` silently follows a symlink pre-planted at the marker subdir (the `0o700` mode is not applied to a pre-existing dir), so the `wx` marker could write through it into an attacker-controlled location. An `lstatSync` no-follow check now rejects a symlink subdir and fail-closes (skips the emit) — one-flock with CoalHearth v1.3.2 and CoalFace v0.3.2. Completes the CodeQL `js/insecure-temporary-file` mitigation the v3.11.0 wx-latch began. Tests 39/39.
+
 ## [3.11.0] - 2026-07-15
 
 **MINOR** — five more platforms gain hook-configs (GitHub Copilot CLI, Kiro, Augment, Devin CLI, JetBrains Junie), Gemini CLI reaches full SessionStart-driven auto-cadence, and file-copy installs get an honest `FileCopy` conductor mode.

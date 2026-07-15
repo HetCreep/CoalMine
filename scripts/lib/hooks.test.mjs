@@ -613,6 +613,33 @@ test('AG conductor: unwritable tmp (TEMP/TMP/TMPDIR point at a FILE, ENOTDIR) fa
   }
 });
 
+test('AG conductor: a pre-planted SYMLINK at the marker subdir is refused — no marker in the target, no emit (dir-symlink close)', (t) => {
+  const tmp = mkTmp();
+  const target = mkTmp(); // attacker-controlled dir the planted symlink points at
+  try {
+    fs.mkdirSync(path.join(tmp, '.git'));
+    // mkdirSync(recursive) FOLLOWS a pre-planted symlink at os.tmpdir()/coalmine (silently
+    // succeeding, 0o700 unapplied); without the lstat guard the wx marker writes THROUGH into
+    // `target`. The guard must lstat (no-follow) + fail-closed (skip the emit), the advisory class.
+    const markerDir = path.join(tmp, 'coalmine');
+    try {
+      fs.symlinkSync(target, markerDir, process.platform === 'win32' ? 'junction' : 'dir');
+    } catch {
+      t.skip('symlink/junction unavailable (needs privilege) — cannot exercise the dir-symlink guard');
+      return; // t.skip does not stop the body; return so the case is skipped, never a vacuous pass
+    }
+    const stdin = JSON.stringify({ session_id: 'AGSYM', cwd: tmp, hook_event_name: 'PreInvocation' });
+    const r = runHook(CONDUCTOR, stdin, tmp, ['PreInvocation']);
+    assert.equal(r.status, 0, 'fail-closed still exits 0 (Phoenix #4)');
+    assert.equal(r.stdout, '', 'a symlinked marker subdir must skip the emit entirely (fail-closed)');
+    assert.equal(r.stderr, '', 'no stderr (Phoenix #13)');
+    assert.equal(fs.readdirSync(target).length, 0, 'no marker written THROUGH the symlink into the attacker dir');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(target, { recursive: true, force: true });
+  }
+});
+
 test('AG conductor: transcript_path keys the session when session_id is absent; no key / garbage → silent', () => {
   const tmp = mkTmp();
   try {
