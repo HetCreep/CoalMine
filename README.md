@@ -157,7 +157,7 @@ Installing is the power button. The agent conducts the canaries and asks for con
 
 ## ⚙️ Configure (.coalmine.json)
 
-Zero-config to start — and two config levels when you want them: a global `~/.claude/.coalmine.json` overlaid per key by the project `<gitroot>/.coalmine.json` (project wins), so you can tune or **shut off a globally-tuned CoalMine per project** (`enableConductor: false`; `disabledCanaries: ["all"]` disables just the canary offers). The installer generates the per-project file; write the global layer with `node scripts/configure.mjs --global <flags>`. The high-impact keys:
+Zero-config to start — and two config levels when you want them: a global `~/.claude/.coalmine.json` overlaid per key by the project `<gitroot>/.coalmine.json` (project wins), so a globally-installed CoalMine can be tuned or **shut off per project** — a project that doesn't need it stops loading (and burning tokens) there (`disabledCanaries: ["all"]` is the full off-switch; `enableConductor: false` silences only the session-start conductor, leaving rot-canary's auto-scan running). The installer generates the per-project file; write the global layer with `node scripts/configure.mjs --global <flags>`. The high-impact keys:
 
 | Key | Default | What it does |
 |---|---|---|
