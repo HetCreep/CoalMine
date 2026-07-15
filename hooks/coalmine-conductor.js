@@ -264,12 +264,15 @@ function ruleRoots(root) {
 
 // --- Antigravity adapter -----------------------------------------------------
 // AG mode = an event-name argv (the AG hooks.json template runs
-// `node <this file> PreInvocation`; Claude Code invokes with no argv).
+// `node <this file> PreInvocation`; Claude Code invokes with no argv; Gemini's
+// own 'SessionStart' argv and the file-copy platforms' 'FileCopy' argv are
+// claimed by their own branches in main() and never reach this adapter — see
+// the argv table in main()).
 // Antigravity never fires SessionStart, and PreInvocation fires on EVERY model
-// call — so the injection is guarded to ONCE per session by a marker in
-// os.tmpdir() keyed by the payload's session (Phoenix #10 sandbox; the marker
-// carries the coalmine-conductor- prefix so rot-canary-stop's stale sweep
-// collects it, Phoenix #1). Emit = the sanctioned single-line
+// call — so the injection is guarded to ONCE per session by an atomic marker
+// keyed by the payload's session, in a private coalmine/ subdir of os.tmpdir()
+// (Phoenix #10 sandbox; rot-canary-stop's stale sweep collects it, Phoenix #1 —
+// see the coalmine/ pass in sweepStale()). Emit = the sanctioned single-line
 // {"additionalContext": ...} JSON, camelCase key. KIND 1 (self-update) is
 // deliberately NOT injected on AG: its directives drive `claude plugin update` /
 // configure.mjs — Claude Code plugin machinery; AG installs by file-copy, and
@@ -289,13 +292,28 @@ function agMain(lines, cfg, updateMode) {
   const key = [input.session_id, input.sessionId, input.transcript_path, input.transcriptPath]
     .find((v) => typeof v === 'string' && v);
   if (!key) return; // un-keyable session: an injection would repeat per model call — skip (fail-closed on spend)
-  const marker = path.join(os.tmpdir(), `coalmine-conductor-${djb2(key)}.marker`);
+  // Atomic once-per-session latch (CodeQL js/insecure-temporary-file +
+  // js/file-system-race — one-flock fix with CoalHearth/CoalFace). The marker
+  // lives in a private per-tool subdir (mode 0o700 — closes the shared-/tmp
+  // exposure on Unix, a no-op on Windows) and is created with the `wx` flag
+  // (O_CREAT|O_EXCL): the write atomically FAILS with EEXIST if the path
+  // already exists in ANY form (a prior model call's marker, or a planted
+  // file/symlink) — that EEXIST IS the "already injected this session" signal,
+  // killing the old check-then-write TOCTOU race AND refusing to write through
+  // a symlink target in one syscall.
+  // FAIL-CLOSED (named divergence from CoalHearth's AG shim, which emits + a
+  // "may repeat" note on a write failure): CH's payload is a RECOVERY block —
+  // losing it risks losing work, so repeating is the lesser evil. This
+  // conductor's payload is ADVISORY, like CoalFace's — repeating it on every
+  // model call IS the spam this guard exists to prevent — so ANY create
+  // failure (EEXIST, or an unwritable tmp) skips the emit entirely (token
+  // burn > one missed nudge).
+  const markerDir = path.join(os.tmpdir(), 'coalmine');
+  const marker = path.join(markerDir, `ag-conductor-${djb2(key)}.marker`);
   try {
-    if (fs.existsSync(marker)) return; // already injected this session
-    // Marker BEFORE emit; a failed write skips the emit entirely — an unguarded
-    // injection would repeat on EVERY model call (token burn > one missed nudge).
-    fs.writeFileSync(marker, '');
-  } catch { return; }
+    fs.mkdirSync(markerDir, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(marker, '', { flag: 'wx' });
+  } catch { return; } // EEXIST (already ran) OR any write failure -> fail-closed, no emit
   if (updateMode !== 'off') {
     try {
       const base = (typeof input.cwd === 'string' && input.cwd) || process.cwd();
@@ -304,6 +322,41 @@ function agMain(lines, cfg, updateMode) {
     } catch {}
   }
   process.stdout.write(JSON.stringify({ additionalContext: lines.join('\n') }) + '\n');
+}
+
+// --- Gemini CLI adapter -------------------------------------------------------
+// Gemini mode = the literal argv 'SessionStart' (the gemini-settings-hooks.json
+// template runs `node <this file> SessionStart`) — disjoint from AG's argv
+// values (PreInvocation) and from CC's no-argv invocation, so the three never
+// collide (checked by exact match in main(), BEFORE the AG truthy check).
+// Unlike AG's PreInvocation (fires on EVERY model call, needing the marker
+// guard above), Gemini's SessionStart genuinely fires once per session — no
+// marker/session-key machinery needed, fire as-is. Content mirrors the AG
+// path: KIND 1 (self-update) stays excluded (its directives drive
+// `claude plugin update` / configure.mjs — Claude Code plugin machinery;
+// Gemini installs by file-copy like AG, and firing here would also consume
+// the shared CC-side update stamp); KIND 2 (rule freshness) is local +
+// platform-neutral and always runs. Output is the NESTED
+// {"hookSpecificOutput":{"additionalContext": ...}} shape
+// geminicli.com/docs/hooks/reference documents for SessionStart (verified
+// 2026-07-15) — distinct from AG's flat {"additionalContext": ...}: the bug
+// this adapter fixes, since the old code routed Gemini through agMain, whose
+// flat shape Gemini's SessionStart hook silently drops.
+function geminiMain(lines, cfg, updateMode) {
+  // Honor the payload's cwd exactly like agMain (one-flock): the hook process's
+  // own cwd is not guaranteed to be the workspace; a stdin payload cwd is
+  // authoritative when present. Absent/garbage stdin → fall back to
+  // process.cwd() (a no-op when Gemini supplies no cwd).
+  let input = null;
+  try { input = JSON.parse(fs.readFileSync(0, 'utf8').trim()); } catch {}
+  if (updateMode !== 'off') {
+    try {
+      const base = (input && typeof input.cwd === 'string' && input.cwd) || process.cwd();
+      const n = countPastDueStamps(ruleRoots(findGitRoot(base)), todayISO(Date.now()), cfg);
+      if (n > 0) lines.push(pastDueDirective(n));
+    } catch {}
+  }
+  process.stdout.write(JSON.stringify({ hookSpecificOutput: { additionalContext: lines.join('\n') } }) + '\n');
 }
 
 function main() {
@@ -328,13 +381,33 @@ function main() {
 
   const lines = skipOnboarding ? [...CONDUCTOR_HEAD, ...CONDUCTOR_TAIL] : [...CONDUCTOR_HEAD, ONBOARDING, ...CONDUCTOR_TAIL];
 
-  // AG mode: hand off to the Antigravity adapter (once-per-session marker guard
-  // + additionalContext emit). The config gates above already ran.
-  if (process.argv[2]) { agMain(lines, cfg, updateMode); return; }
+  // Gemini mode (argv === 'SessionStart', see the Gemini adapter above) —
+  // checked FIRST, before the generic-truthy AG branch below.
+  if (process.argv[2] === 'SessionStart') { geminiMain(lines, cfg, updateMode); return; }
+
+  // File-copy mode (argv === 'FileCopy' — the platform-configs for Copilot CLI /
+  // Kiro / Augment / Devin CLI / Junie): platforms whose hook OUTPUT contract is
+  // (best-guess) the plain CC stdout shape, but whose INSTALL is a file-copy,
+  // not the CC plugin. Identical to the CC path below EXCEPT KIND 1
+  // (self-update) is skipped, stamp write included: its directives drive
+  // `claude plugin update` / configure.mjs — CC plugin machinery, a wrong
+  // instruction on a file-copy install — and firing would consume the shared
+  // ~/.claude/.coalmine-update-check stamp, throttling a co-installed real CC's
+  // own nudge for ~updateCheckDays (the same exclusion AG and Gemini already
+  // make). KIND 2 (local, platform-neutral) still rides. Exact-match BEFORE the
+  // generic-truthy AG branch, same ordering rule as Gemini: a named mode must
+  // never fall through into the AG shape.
+  const fileCopy = process.argv[2] === 'FileCopy';
+
+  // AG mode: any OTHER truthy argv → the Antigravity adapter (once-per-session
+  // marker guard + additionalContext emit). The config gates above already ran.
+  // Never 'SessionStart' or 'FileCopy' — those argv values are claimed above.
+  if (process.argv[2] && !fileCopy) { agMain(lines, cfg, updateMode); return; }
 
   // KIND 1 — skill version. Throttled by the persistent stamp: fires at most once
   // per updateCheckDays. 'off' emits nothing and skips the stamp entirely.
-  if (updateMode !== 'off') {
+  // File-copy mode skips ALL of it, stamp included (see the FileCopy note above).
+  if (!fileCopy && updateMode !== 'off') {
     try {
       const today = todayISO(Date.now());
       if (updateDue(readUpdateStamp(), today, updateCheckDays)) {

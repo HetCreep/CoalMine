@@ -3,6 +3,8 @@
 // Spawns the real hooks with fixture stdin and a sandboxed TEMP so no real
 // session state is touched. Covers: touch record + case-insensitive dedup,
 // fail-silent on garbage, stop nudge emit, acknowledged-batch cleanup.
+// waiver: intentional single hermetic spawn-suite >800 lines — split only if it
+// keeps growing; the gate (scripts/test.mjs) enumerates explicit files.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,6 +33,15 @@ function runHook(script, input, tmp, args = []) {
 
 function mkTmp() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'cm-hooktest-'));
+}
+
+// Mirrors hooks/coalmine-conductor.js's djb2 (test-local — the hook doesn't
+// export it). Lets a test plant the EXACT marker path the hook would compute
+// for a given session key, to test the EEXIST branch directly.
+function djb2(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(36);
 }
 
 test('conductor injects offer rules, and .coalmine.json can silence it', () => {
@@ -546,13 +557,57 @@ test('AG conductor: first PreInvocation injects additionalContext ONCE; repeats 
     assert.ok(!out.additionalContext.includes('self-update'), 'KIND 1 (CC plugin machinery) is skipped on AG');
     assert.ok(!fs.existsSync(path.join(tmp, '.claude', '.coalmine-update-check')), 'AG must not consume the CC update stamp');
     assert.ok(
-      fs.readdirSync(tmp).some((f) => f.startsWith('coalmine-conductor-') && f.endsWith('.marker')),
-      'once-per-session marker written to the sandbox tmpdir',
+      fs.readdirSync(path.join(tmp, 'coalmine')).some((f) => f.startsWith('ag-conductor-') && f.endsWith('.marker')),
+      'once-per-session marker written to the private coalmine/ subdir (CodeQL js/insecure-temporary-file fix)',
     );
 
     const second = runHook(CONDUCTOR, stdin, tmp, ['PreInvocation']);
     assert.equal(second.status, 0);
     assert.equal(second.stdout, '', 'PreInvocation fires per model call — the marker must silence every repeat');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('AG conductor: a pre-existing marker (EEXIST on the wx create) causes a silent skip — exit 0, no output', () => {
+  const tmp = mkTmp();
+  try {
+    fs.mkdirSync(path.join(tmp, '.git'));
+    const markerDir = path.join(tmp, 'coalmine');
+    fs.mkdirSync(markerDir, { recursive: true, mode: 0o700 });
+    const key = 'AGPLANTED';
+    // Plant the exact marker the conductor would compute for this session key
+    // BEFORE the hook ever runs — proves the wx create genuinely hits EEXIST
+    // against the SAME path, not merely "some file already in the dir".
+    fs.writeFileSync(path.join(markerDir, `ag-conductor-${djb2(key)}.marker`), '');
+    const stdin = JSON.stringify({ session_id: key, cwd: tmp, hook_event_name: 'PreInvocation' });
+    const r = runHook(CONDUCTOR, stdin, tmp, ['PreInvocation']);
+    assert.equal(r.status, 0, 'EEXIST is caught and treated as fail-silent (Phoenix #4)');
+    assert.equal(r.stdout, '', 'a pre-existing marker must skip the emit entirely');
+    assert.equal(r.stderr, '', 'no stderr (Phoenix #13)');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('AG conductor: unwritable tmp (TEMP/TMP/TMPDIR point at a FILE, ENOTDIR) fails closed — no emit, exit 0', () => {
+  const tmp = mkTmp();
+  const fakeTmpFile = path.join(tmp, 'not-a-dir'); // a FILE standing in for os.tmpdir()
+  fs.writeFileSync(fakeTmpFile, '');
+  try {
+    const stdin = JSON.stringify({ session_id: 'AGUNWRITABLE', cwd: tmp, hook_event_name: 'PreInvocation' });
+    // A merely-nonexistent TMPDIR would NOT reproduce this: mkdirSync({recursive:true})
+    // just creates it. Pointing at an existing FILE makes the coalmine/ subdir
+    // create fail with ENOTDIR — the real "can't write" case.
+    const r = spawnSync(process.execPath, [CONDUCTOR, 'PreInvocation'], {
+      input: stdin,
+      encoding: 'utf8',
+      cwd: tmp,
+      env: { ...process.env, TEMP: fakeTmpFile, TMP: fakeTmpFile, TMPDIR: fakeTmpFile, USERPROFILE: tmp, HOME: tmp },
+    });
+    assert.equal(r.status, 0, 'fail-closed still exits 0 (Phoenix #4)');
+    assert.equal(r.stdout, '', 'an unwritable tmp (ENOTDIR on mkdirSync) must skip the emit, never crash or leak an error');
+    assert.equal(r.stderr, '', 'no stderr (Phoenix #13)');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -588,13 +643,88 @@ test('AG conductor: KIND 2 past-due rule nudge rides the guarded injection; enab
     assert.ok(JSON.parse(r.stdout).additionalContext.includes('past their revalidate date'), 'KIND 2 detected via the camelCase sessionId variant');
 
     fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ enableConductor: false }), 'utf8');
+    // Count-based, not filename-based: the marker filename embeds djb2(sessionId)
+    // (a hash), never the literal session id, so a `.includes('AGC3')` check on
+    // the filename can never match anything — count is the correct observable.
+    const beforeCount = fs.readdirSync(path.join(tmp, 'coalmine')).length;
     const off = runHook(CONDUCTOR, JSON.stringify({ session_id: 'AGC3', cwd: tmp }), tmp, ['PreInvocation']);
     assert.equal(off.status, 0);
     assert.equal(off.stdout, '', 'the config gate silences the AG path too');
-    assert.ok(
-      !fs.readdirSync(tmp).some((f) => f.startsWith('coalmine-conductor-') && f.includes('AGC3')),
-      'a silenced conductor writes no marker',
+    assert.equal(
+      fs.readdirSync(path.join(tmp, 'coalmine')).length,
+      beforeCount,
+      'a silenced conductor writes no NEW marker',
     );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("Gemini conductor: SessionStart argv emits the NESTED hookSpecificOutput.additionalContext shape (not AG's flat shape)", () => {
+  const tmp = mkTmp();
+  try {
+    const first = runHook(CONDUCTOR, '', tmp, ['SessionStart']);
+    assert.equal(first.status, 0);
+    assert.equal(first.stderr, '', 'no stderr (Phoenix #13)');
+    const out = JSON.parse(first.stdout);
+    assert.ok(out.hookSpecificOutput && out.hookSpecificOutput.additionalContext.includes('[CoalMine]'), 'Gemini emit is the nested hookSpecificOutput.additionalContext shape');
+    assert.ok(!('additionalContext' in out), 'never AG\'s flat top-level shape on Gemini');
+    assert.ok(!out.hookSpecificOutput.additionalContext.includes('self-update'), 'KIND 1 (CC plugin machinery) is skipped on Gemini, same as AG');
+    assert.ok(!fs.existsSync(path.join(tmp, '.claude', '.coalmine-update-check')), 'Gemini must not consume the CC update stamp');
+    let noMarkerFiles = [];
+    try { noMarkerFiles = fs.readdirSync(path.join(tmp, 'coalmine')); } catch {} // subdir never created is also a pass
+    assert.ok(
+      !noMarkerFiles.some((f) => f.endsWith('.marker')),
+      'Gemini needs no once-per-session marker file — SessionStart already fires once per session',
+    );
+
+    const second = runHook(CONDUCTOR, '', tmp, ['SessionStart']);
+    assert.equal(second.status, 0);
+    assert.ok(
+      JSON.parse(second.stdout).hookSpecificOutput.additionalContext.includes('[CoalMine]'),
+      'no marker throttle on Gemini — fires every invocation, unlike AG\'s once-per-session guard',
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('Gemini conductor: KIND 2 past-due rule nudge rides the nested output; enableConductor:false silences it too', () => {
+  const tmp = mkTmp();
+  try {
+    fs.mkdirSync(path.join(tmp, '.git')); // anchor findGitRoot inside the sandbox (Gemini reads process.cwd(), which runHook sets to tmp)
+    const rulesDir = path.join(tmp, '.claude', 'rules');
+    fs.mkdirSync(rulesDir, { recursive: true });
+    const old = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    fs.writeFileSync(path.join(rulesDir, 'a.md'), `<!-- coalmine: verified ${old} · exemplar X · revalidate 30d -->\n`, 'utf8');
+    const r = runHook(CONDUCTOR, '', tmp, ['SessionStart']);
+    assert.equal(r.status, 0);
+    assert.ok(JSON.parse(r.stdout).hookSpecificOutput.additionalContext.includes('past their revalidate date'), 'KIND 2 detected via process.cwd()');
+
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ enableConductor: false }), 'utf8');
+    const off = runHook(CONDUCTOR, '', tmp, ['SessionStart']);
+    assert.equal(off.status, 0);
+    assert.equal(off.stdout, '', 'the config gate silences the Gemini path too');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('file-copy mode (FileCopy argv): plain CC text shape, KIND 1 self-update skipped, update stamp NOT written', () => {
+  const tmp = mkTmp();
+  try {
+    // No config → updateMode defaults to 'ask'. On the plain CC (no-argv) path
+    // that emits the KIND 1 ask directive AND writes ~/.claude/.coalmine-update-check.
+    // The 5 file-copy platforms (Copilot CLI/Kiro/Augment/Devin CLI/Junie) install
+    // by file-copy: a `claude plugin update` offer is a wrong instruction there,
+    // and the stamp write would throttle a co-installed real CC's own nudge.
+    const r = runHook(CONDUCTOR, '', tmp, ['FileCopy']);
+    assert.equal(r.status, 0);
+    assert.equal(r.stderr, '', 'no stderr (Phoenix #13)');
+    assert.ok(r.stdout.includes('[CoalMine]'), 'file-copy mode emits the plain CC text shape');
+    assert.ok(!r.stdout.trim().startsWith('{'), 'plain stdout — never the AG/Gemini JSON envelope (FileCopy must not fall into the AG branch)');
+    assert.ok(!r.stdout.includes('self-update'), 'KIND 1 (CC plugin machinery) is skipped on file-copy platforms');
+    assert.ok(!fs.existsSync(path.join(tmp, '.claude', '.coalmine-update-check')), 'file-copy mode must not consume the shared CC update stamp');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -642,7 +772,59 @@ test('stop sweep collects stale AG conductor markers (Phoenix #1)', () => {
     fs.utimesSync(stale, new Date(old), new Date(old));
     const r = runHook(STOP, JSON.stringify({ session_id: 'SWP', stop_hook_active: false }), tmp);
     assert.equal(r.status, 0);
-    assert.ok(!fs.existsSync(stale), 'a stale AG conductor marker is swept with the rot-canary temp');
+    assert.ok(!fs.existsSync(stale), 'a legacy flat-tmp-root marker (pre-fix install) is still swept with the rot-canary temp');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('stop sweep collects stale AG conductor markers from the new coalmine/ subdir (CodeQL fix)', () => {
+  const tmp = mkTmp();
+  try {
+    const markerDir = path.join(tmp, 'coalmine');
+    fs.mkdirSync(markerDir, { recursive: true, mode: 0o700 });
+    const stale = path.join(markerDir, 'ag-conductor-zzz.marker');
+    fs.writeFileSync(stale, '');
+    const old = Date.now() - 99 * 24 * 60 * 60 * 1000;
+    fs.utimesSync(stale, new Date(old), new Date(old));
+    const r = runHook(STOP, JSON.stringify({ session_id: 'SWP2', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.ok(!fs.existsSync(stale), 'a stale AG conductor marker in the private coalmine/ subdir is swept too');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('stop sweep collects conductor markers even when rot-canary is OFF — but still leaves the canary\'s own temp alone (ownership split)', () => {
+  // The conductor markers belong to the CONDUCTOR (independently enabled, no stop
+  // hook of its own); gating their only collector on rot-canary's mode leaked one
+  // marker per AG session forever for an off/manual-canary + conductor-on user.
+  // The canary's OWN temp stays untouched when disabled (pinned Node≡PS behavior).
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ disabledCanaries: ['rot-canary'] }), 'utf8');
+    const old = Date.now() - 99 * 24 * 60 * 60 * 1000;
+    // Stale conductor marker in the new coalmine/ subdir...
+    const markerDir = path.join(tmp, 'coalmine');
+    fs.mkdirSync(markerDir, { recursive: true, mode: 0o700 });
+    const subdirMarker = path.join(markerDir, 'ag-conductor-yyy.marker');
+    fs.writeFileSync(subdirMarker, '');
+    fs.utimesSync(subdirMarker, new Date(old), new Date(old));
+    // ...a stale legacy flat-root marker (pre-fix install)...
+    const flatMarker = path.join(tmp, 'coalmine-conductor-yyy.marker');
+    fs.writeFileSync(flatMarker, '');
+    fs.utimesSync(flatMarker, new Date(old), new Date(old));
+    // ...and the canary's OWN stale temp, which a disabled canary must NOT touch.
+    const canaryTemp = path.join(tmp, 'rot-canary-OLD2.touched');
+    fs.writeFileSync(canaryTemp, 'C:\\proj\\z.js\n');
+    fs.utimesSync(canaryTemp, new Date(old), new Date(old));
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'OFFSWP', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '', 'disabled canary emits nothing');
+    assert.ok(!fs.existsSync(subdirMarker), 'stale coalmine/ marker collected even with rot-canary off');
+    assert.ok(!fs.existsSync(flatMarker), 'stale legacy flat marker collected even with rot-canary off');
+    assert.ok(fs.existsSync(canaryTemp), "the canary's own temp stays untouched when disabled (pinned behavior preserved)");
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

@@ -177,7 +177,7 @@ function getTempSweepStaleDays() {
   } catch {}
   return 7;
 }
-function sweepStale() {
+function sweepStale(canaryActive) {
   try {
     const tmp = os.tmpdir();
     // Deterministic throttle (Phoenix #8 — no randomness): the marker file's mtime
@@ -192,12 +192,37 @@ function sweepStale() {
     const staleDays = getTempSweepStaleDays();
     const cutoff = Date.now() - (staleDays * 24 * 60 * 60 * 1000);
     for (const f of fs.readdirSync(tmp)) {
-      // sweep the legacy prefix + the AG conductor's once-per-session markers too
-      // (named divergence from the PS twin: the AG adapter requires node, so a
-      // no-Node box can never have coalmine-conductor-* markers to sweep).
-      if (!f.startsWith('rot-canary-') && !f.startsWith('rotcanary-') && !f.startsWith('coalmine-conductor-')) continue;
       if (f === 'rot-canary-sweep.marker') continue; // the throttle gate itself
+      const isCanaryTemp = f.startsWith('rot-canary-') || f.startsWith('rotcanary-');
+      // A leftover PRE-2026-07-15 flat-tmp-root AG conductor marker (the CodeQL
+      // js/insecure-temporary-file fix relocated new markers into the coalmine/
+      // subdir below; this branch only still catches markers a not-yet-updated
+      // install already wrote flat here). Named divergence from the PS twin:
+      // the AG adapter requires node, so a no-Node box can never have
+      // coalmine-conductor-* markers to sweep.
+      const isConductorMarker = f.startsWith('coalmine-conductor-');
+      if (!isCanaryTemp && !isConductorMarker) continue;
+      // The canary's OWN temp is swept only on the active path ("a disabled
+      // canary does no work", Node≡PS parity) — but the CONDUCTOR's markers are
+      // collected regardless of rot-canary mode: they belong to a different,
+      // independently-enabled feature whose ONLY collector is this hook, so
+      // gating them here leaked one marker per AG session forever whenever
+      // rot-canary was off/manual but the conductor stayed on (Phoenix #1).
+      if (isCanaryTemp && !canaryActive) continue;
       const p = path.join(tmp, f);
+      try { if (fs.statSync(p).mtimeMs < cutoff) fs.unlinkSync(p); } catch {}
+    }
+    // The AG conductor's once-per-session markers now live in a private
+    // per-tool subdir (os.tmpdir()/coalmine/, mode 0o700 — the same CodeQL
+    // fix) instead of loose in the tmp root; sweep it too, or the fixed
+    // conductor's own markers would never get collected (Phoenix #1).
+    // Conductor-owned → unconditional, like the flat-root migration pass above.
+    const markerDir = path.join(tmp, 'coalmine');
+    let markerFiles = [];
+    try { markerFiles = fs.readdirSync(markerDir); } catch {} // absent on a CC-only / no-AG box
+    for (const f of markerFiles) {
+      if (!f.endsWith('.marker')) continue;
+      const p = path.join(markerDir, f);
       try { if (fs.statSync(p).mtimeMs < cutoff) fs.unlinkSync(p); } catch {}
     }
   } catch {}
@@ -266,14 +291,19 @@ function projectOverride() {
 }
 
 function main() {
-  // A disabled/non-auto canary does NO work, not even the housekeeping sweep — the
-  // sweep runs only on the active (auto) path. Mirrors the PS twin, which already
-  // exits before its sweep when disabled/manual/off (Node≡PS parity).
+  // The sweep runs on EVERY stop, BEFORE the mode gates — but what it may touch
+  // is ownership-split (see sweepStale): the CONDUCTOR's once-per-session
+  // markers are always collected (their only collector is this hook; gating
+  // them on rot-canary's mode leaked them forever when the canary was
+  // off/manual but the conductor stayed on), while the canary's OWN temp is
+  // swept only when the canary is active — a disabled/non-auto canary still
+  // does none of ITS work (no scan, no nudge, its temp untouched), mirroring
+  // the PS twin, which exits before its sweep when disabled/manual/off and,
+  // having no AG adapter, never has conductor markers to collect.
   const ov = projectOverride();
-  if (ov === 'off' || ov === 'manual') return;
-  if (rcMode() !== 'auto') return;
-
-  sweepStale();
+  const canaryActive = ov !== 'off' && ov !== 'manual' && rcMode() === 'auto';
+  sweepStale(canaryActive);
+  if (!canaryActive) return;
 
   let raw = '';
   try { raw = fs.readFileSync(0, 'utf8'); } catch { return; }

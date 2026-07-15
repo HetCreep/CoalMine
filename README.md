@@ -65,13 +65,15 @@
 | **Devin Desktop (ex-Windsurf)** | `.windsurf/skills/` | `node scripts/install.mjs windsurf` | ✅ **Native:** `suggested_responses` |
 | **GitHub Copilot** | `.github/skills/` | `node scripts/install.mjs copilot` | ✅ **Native:** `askQuestions` |
 | **Cline** | `.claude/skills/` | `node scripts/install.mjs cline` | ✅ **Native:** `ask_question` |
-| **Gemini CLI (superseded by Antigravity CLI, Jun 2026)** | `.gemini/skills/` | `node scripts/install.mjs gemini` | ✅ **Native:** `ask_user` |
+| **Gemini CLI (business-tier; individual tiers ended 2026-06-18 → Antigravity CLI)** | `.gemini/skills/` | `node scripts/install.mjs gemini` | ✅ **Native:** `ask_user` |
 | **Goose** | `.agents/skills/` | `node scripts/install.mjs goose` | ⚠️ **Text Fallback:** no question tool |
 | **Amp** | `.agents/skills/` | `node scripts/install.mjs amp` | ⚠️ **Text Fallback:** tool not documented |
 | **Junie** | `.junie/skills/` | `node scripts/install.mjs junie` | ⚠️ **Text Fallback:** tool not documented |
 | **Codex** | `.agents/skills/` | `node scripts/install.mjs codex` | ✅ **Native:** `request_user_input` |
+| **Kiro** | `.kiro/skills/` | `node scripts/install.mjs kiro` | ⚠️ **Text Fallback:** tool not documented |
+| **Augment Code** | `.augment/skills/` | `node scripts/install.mjs augment` | ⚠️ **Text Fallback:** tool not documented |
 
-*Skill paths follow the cross-vendor [Agent Skills spec](https://agentskills.io/specification). Cline reads `.claude/skills/`, Junie reads `.junie/skills/`, others use `.agents/skills/`.*
+*Skill paths follow the cross-vendor [Agent Skills spec](https://agentskills.io/specification). Cline reads `.claude/skills/`, Junie reads `.junie/skills/`, Kiro reads `.kiro/skills/`, Augment reads `.augment/skills/`, others use `.agents/skills/`.*
 
 ### What ports where
 
@@ -128,7 +130,7 @@ Run from **your project's root folder** (not inside the CoalMine clone):
 cd /path/to/your-project
 node /path/to/CoalMine/scripts/install.mjs <agent|all|PATH>
 ```
-* Supported `<agent>`: `antigravity`, `cursor`, `codex`, `cline`, `copilot`, `windsurf`, `amp`, `goose`, `junie`, `gemini` (for `claude`, prefer the plugin above) — see [Universal Agent Support](#-universal-agent-support) for target folders + choice-tool support.
+* Supported `<agent>`: `antigravity`, `cursor`, `codex`, `cline`, `copilot`, `windsurf`, `amp`, `goose`, `junie`, `gemini`, `kiro`, `augment` (for `claude`, prefer the plugin above) — see [Universal Agent Support](#-universal-agent-support) for target folders + choice-tool support.
 * `all` auto-detects and installs to all configured agents in the directory.
 * The installer sets up pre-commit/pre-push gates in `.git/hooks`, writes trigger rules, and generates `.coalmine.json` config.
 

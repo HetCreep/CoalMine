@@ -11,6 +11,8 @@ import path from 'node:path';
 //   (NOT ~/.codex/skills); junie → .junie/skills per junie.jetbrains.com/docs/agent-skills.html.
 //   cline → .claude/skills (Cline reads .claude/.cline, NOT .agents — docs.cline.bot).
 //   roocode REMOVED 2026-06: Roo Code archived 2026-05-15 (team → Roomote); dead vendor = drop support.
+//   kiro → .kiro/skills (does NOT read .agents/skills); augment → .augment/skills.
+//   Both verified 2026-07-15 (platform-wave pass; exact doc URL not captured).
 export const TARGETS = {
   claude:      path.join(os.homedir(), '.claude', 'skills'),
   antigravity: path.join(process.cwd(), '.agents', 'skills'),
@@ -23,6 +25,8 @@ export const TARGETS = {
   goose:       path.join(process.cwd(), '.agents', 'skills'),
   junie:       path.join(process.cwd(), '.junie', 'skills'),
   gemini:      path.join(process.cwd(), '.gemini', 'skills'),
+  kiro:        path.join(process.cwd(), '.kiro', 'skills'),
+  augment:     path.join(process.cwd(), '.augment', 'skills'),
 };
 
 // Agents NOT auto-detected by `install.mjs all`. Their skills dir is ambiguous

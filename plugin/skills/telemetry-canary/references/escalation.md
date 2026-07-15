@@ -13,7 +13,7 @@ Use your host's, if it has concurrent fan-out:
 - **GitHub Copilot** → `/fleet` (Copilot CLI) + Cloud agent
 - **Goose** → subagents
 - **JetBrains** → Junie CLI
-- **Gemini CLI (superseded by Antigravity CLI, Jun 2026) / Cline (read-only) / Devin Desktop (ex-Windsurf)** → subagents
+- **Gemini CLI (business-tier product; individual tiers ended 2026-06-18 → Antigravity CLI) / Cline (read-only) / Devin Desktop (ex-Windsurf)** → subagents
 
 No concurrent fan-out on your host → escalate by model tier + reasoning depth only; never fake parallelism you cannot do.
 

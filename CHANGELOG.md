@@ -2,6 +2,29 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [3.11.0] - 2026-07-15
+
+**MINOR** — five more platforms gain hook-configs (GitHub Copilot CLI, Kiro, Augment, Devin CLI, JetBrains Junie), Gemini CLI reaches full SessionStart-driven auto-cadence, and file-copy installs get an honest `FileCopy` conductor mode.
+
+### Added
+- **Five new platform hook-configs** (`platform-configs/hooks/`): GitHub Copilot CLI (camelCase events, `{"version":1}` format, bash+PowerShell command pairs) · Kiro (merge-snippet into `.kiro/agents/{name}.json`, `agentSpawn`/`postToolUse`/`stop`) · Augment (settings.json cascade, PascalCase) · Devin CLI (`.devin/hooks.v1.json`, CC-shaped — explicitly Devin-CLI-only; Devin Desktop/Cascade is a separate system, documented as such) · JetBrains Junie (SessionStart-only, user-scope config; conductor-nudge tier only — no per-tool events exist there). All five carry the badge-tier works-with label; response channels are honestly marked where unverified.
+- **`FileCopy` conductor mode**: a file-copy install (the five platforms above) gets KIND-2 rule-freshness only — the KIND-1 `claude plugin update` offer and the shared update-check stamp are excluded, both being CC-plugin machinery; this also stops a file-copy platform from consuming the update stamp a co-installed Claude Code's own nudge depends on.
+- **`kiro` and `augment` install targets** in `scripts/lib/targets.mjs`.
+- **Gemini CLI reaches full auto-cadence**: the conductor now wires through Gemini's genuine `SessionStart` event, emitting the dedicated nested `{"hookSpecificOutput":{"additionalContext"}}` shape — Gemini's only SessionStart injection channel (the flat `additionalContext` shape used elsewhere would be silently dropped). `geminiMain` honors a payload-supplied `cwd` (mirrors `agMain`). Wiring is labeled wired-not-validated.
+
+### Fixed
+- **Gemini CLI docs reconciled across 5 spots**: retires the stale "superseded by Antigravity CLI" framing — Gemini CLI is a business-tier product with an 11-event official hook surface; only the individual tiers ended (2026-06-18).
+- **AG once-per-session marker hardened against a TOCTOU race** (`hooks/coalmine-conductor.js`): the conductor's marker is now an atomic `wx`-flag create in a private `0o700` `os.tmpdir()/coalmine/` subdir, replacing the old check-then-write — one-flock with the same-day fix in CoalHearth v1.3.1 and CoalFace v0.3.1.
+- **Stale-marker sweep gained a second pass for the new subdir** (the legacy flat-root pass stays, for pre-fix installs) and now runs BEFORE the rot-canary mode gates: conductor markers are collected on every stop even when rot-canary is off/manual. Ownership split — the canary's own temp stays mode-gated.
+
+### Security
+- Closes the four 2026-07-14 CodeQL HIGHs (`js/insecure-temporary-file` ×2 + `js/file-system-race` ×2) at source; the shipped `plugin/` dist pair closes with this release's rebuild.
+
+### Notes
+- **Supersedes [3.7.9]'s "sweep runs only on the active path" note.** True when written — the sweep only ever touched the canary's own temp. The AG port later added conductor markers (a separate advisory-payload class), so the sweep now runs on every stop to collect those too, even when rot-canary itself is off/manual; the canary's own temp stays mode-gated exactly as 3.7.9 described.
+
+Gate: build + verify + `hooks.test.mjs` 38/38 + `conductor-update.test.mjs`/`consistency.test.mjs` 30/30 PASS.
+
 ## [3.10.0] - 2026-07-14
 
 **MINOR** — the full auto-cadence (conductor + rot-canary) runs on Antigravity 2.0's real hook engine (`hooks.json`; empirical pilot 2026-07-12 — which fired CoalMine's Stop cadence live on AG — corroborated against the official docs 2026-07-13). Honest scope: the Stop-hook FIRE is pilot-proven on AG; delivery of the injected context into the agent is emitted per spec, NOT yet validated end-to-end — the README tier is **wired**, not validated, until a real AG session confirms it.
