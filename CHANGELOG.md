@@ -2,6 +2,11 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [3.11.3] - 2026-07-17
+
+### Fixed
+- **[HIGH] Installer no longer delete-then-writes a directory it does not own.** A no-manifest install fell back to the hard-coded skill names and `rmSync`'d each — pointed at a directory holding a same-named foreign file, it destroyed user data (violating CoalMine's own `resilience-audit` "never delete-then-write"). `install.mjs` now proves ownership before removing anything (absent/empty · listed in the package manifest · carries our `skill-meta.json` marker) and REFUSES a foreign collision fail-loud (exit 1); an owned install still upgrades. Found by a nasa-L3 CoalBoard audit — the root spanned three delete sites, not just the one the finding named.
+
 ## [3.11.2] - 2026-07-16
 
 ### Changed

@@ -81,6 +81,65 @@ test('retired skill names are swept even without a manifest (rotcanary -> rot-ca
   }
 });
 
+test('H12: install into a dir with a FOREIGN colliding skill dir preserves the user data (never delete-then-write what we do not own)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-h12-'));
+  const target = path.join(tmp, 'skills');
+  const precious = path.join(target, 'gold-standard', 'precious.txt');
+  try {
+    // No manifest. A foreign dir shares a CoalMine skill's NAME but holds the user's
+    // own file — a blind delete-then-write would destroy it (the H12 root cause).
+    fs.mkdirSync(path.join(target, 'gold-standard'), { recursive: true });
+    fs.writeFileSync(precious, 'IRREPLACEABLE', 'utf8');
+
+    const res = runInstall(target, tmp);
+    assert.notEqual(res.status, 0, 'must fail loud (non-zero) when it refuses a foreign collision');
+    assert.match(res.stdout + res.stderr, /refused/i, 'the refusal is reported');
+    assert.ok(fs.existsSync(precious), 'foreign user data must survive');
+    assert.equal(fs.readFileSync(precious, 'utf8'), 'IRREPLACEABLE', 'foreign data is left byte-untouched');
+    assert.ok(!fs.existsSync(path.join(target, 'gold-standard', 'SKILL.md')), 'the refused skill is NOT written over the foreign dir');
+    // Only the collision is skipped — the non-colliding skills still install.
+    assert.ok(fs.existsSync(path.join(target, 'rot-canary', 'SKILL.md')), 'other skills still install');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('H12: uninstall (no manifest) leaves a FOREIGN colliding dir in place', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-h12un-'));
+  const target = path.join(tmp, 'skills');
+  const precious = path.join(target, 'gold-standard', 'precious.txt');
+  try {
+    fs.mkdirSync(path.join(target, 'gold-standard'), { recursive: true });
+    fs.writeFileSync(precious, 'IRREPLACEABLE', 'utf8');
+
+    const res = runInstall(target, tmp, ['--uninstall']);
+    assert.equal(res.status, 0, `uninstall must pass:\n${res.stdout}${res.stderr}`);
+    assert.ok(fs.existsSync(precious), 'foreign user data must survive an uninstall too');
+    assert.equal(fs.readFileSync(precious, 'utf8'), 'IRREPLACEABLE');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('a colliding dir carrying our own skill-meta.json marker IS replaced (pre-manifest upgrade — the guard is not locked tight)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-premanifest-'));
+  const target = path.join(tmp, 'skills');
+  try {
+    // A pre-manifest CoalMine install: no manifest, but the dir carries OUR marker
+    // (skill-meta.json) — so it is owned and must upgrade cleanly, not be refused.
+    fs.mkdirSync(path.join(target, 'gold-standard'), { recursive: true });
+    fs.writeFileSync(path.join(target, 'gold-standard', 'skill-meta.json'), '{}', 'utf8');
+    fs.writeFileSync(path.join(target, 'gold-standard', 'stale.txt'), 'old', 'utf8');
+
+    const res = runInstall(target, tmp);
+    assert.equal(res.status, 0, `owned dir must upgrade cleanly:\n${res.stdout}${res.stderr}`);
+    assert.ok(fs.existsSync(path.join(target, 'gold-standard', 'SKILL.md')), 'the owned skill is (re)installed');
+    assert.ok(!fs.existsSync(path.join(target, 'gold-standard', 'stale.txt')), 'a stale file from the old owned install is cleared');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('corrupt manifest entries can never escape the target directory', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-escape-'));
   const target = path.join(tmp, 'skills');

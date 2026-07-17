@@ -285,6 +285,25 @@ function safeSkillNames(names) {
   );
 }
 
+// The installer writes into the USER's directory — a trust boundary. A target
+// skill dir is safe for CoalMine to delete/overwrite ONLY when we can PROVE we own
+// it; a blind name match is banned (resilience-audit/checks.md:15, "never
+// delete-then-write"). Ownership proofs, cheapest first:
+//   • the dir is absent or empty        → no user data to lose;
+//   • the destDir manifest lists it      → it is in our package file-list;
+//   • it carries our own skill-meta.json → a pre-manifest CoalMine install.
+// Anything else is a FOREIGN dir that merely shares a skill's name — refuse it, so
+// a name collision can never cost the user their files (the H12 root cause).
+function isForeignSkillDir(destDir, skillName, manifestSkills) {
+  let entries;
+  try { entries = fs.readdirSync(path.join(destDir, skillName)); }
+  catch { return false; }                                        // absent/unreadable → nothing to protect
+  if (entries.length === 0) return false;                        // empty dir → no user data
+  if (manifestSkills && manifestSkills.includes(skillName)) return false; // our package file-list
+  if (entries.includes('skill-meta.json')) return false;         // our own pre-manifest marker
+  return true;                                                   // has content, none of it ours → foreign
+}
+
 // Skill dirs an earlier CoalMine installed under a now-retired name. A very old
 // install (pre-rename / pre-manifest) leaves these behind: they are in neither the
 // manifest nor the current skill set, so the manifest sweep never reaches them and
@@ -292,13 +311,20 @@ function safeSkillNames(names) {
 // (rotcanary -> rot-canary, renamed in v3.0.0.)
 const RETIRED_SKILL_NAMES = ['rotcanary'];
 
-function cleanPreviousInstall(destDir, currentSkills) {
-  // Manifest list when present; pre-manifest installs fall back to current skill
-  // names (same-name upgrades). Retired names are swept regardless (see above).
-  const previous = readManifest(destDir);
-  const names = safeSkillNames(previous ? previous.skills : currentSkills);
+function cleanPreviousInstall(destDir, manifest) {
+  // Orphan sweep ONLY — remove skill dirs a PREVIOUS CoalMine install left that the
+  // current set no longer has (renamed/removed). Ownership is PROVEN, never guessed:
+  //   • manifest.skills is our package file-list — every dir it names, we wrote;
+  //   • RETIRED_SKILL_NAMES is our tombstone of names only CoalMine ever coined
+  //     (rotcanary), for installs predating the manifest (15-Jun lesson) — the single
+  //     named exception to "no name-match delete", bounded to CoalMine-only coinages.
+  // Current-set dirs are cleared+rewritten by installSkillDir, and a foreign collision
+  // on a current name is refused upstream in installSkills — so there is NEVER a blind
+  // name-match delete of a live skill name here (the H12 data-loss root cause). The old
+  // `: currentSkills` fallback did exactly that and is gone.
+  const owned = safeSkillNames(manifest ? manifest.skills : []);
   let cleaned = 0;
-  for (const s of [...names, ...RETIRED_SKILL_NAMES]) {
+  for (const s of [...owned, ...RETIRED_SKILL_NAMES]) {
     const dir = path.join(destDir, s);
     try {
       if (fs.existsSync(dir)) { fs.rmSync(dir, { recursive: true, force: true }); cleaned++; }
@@ -307,7 +333,7 @@ function cleanPreviousInstall(destDir, currentSkills) {
       process.exitCode = 1;
     }
   }
-  if (previous) console.log(`  cleaned previous install v${previous.version ?? '?'} (${cleaned} skill dir(s))`);
+  if (manifest) console.log(`  cleaned previous install v${manifest.version ?? '?'} (${cleaned} skill dir(s))`);
 }
 
 function writeManifest(destDir, installedSkills) {
@@ -328,12 +354,26 @@ function writeManifest(destDir, installedSkills) {
 // ─── Reusable install steps (shared by single-agent and `all`) ──────────────
 function installSkills(dest, skills, shared) {
   console.log(`\nInstalling ${skills.length} skill(s) → ${dest}`);
-  // Program-style version transition: remove everything the previous CoalMine
-  // install put here (per its manifest), then install the new set fresh.
-  cleanPreviousInstall(dest, skills);
+  const manifest = readManifest(dest);
+  const manifestSkills = manifest ? manifest.skills : null;
+  // Trust boundary: the target is the user's dir. Refuse any skill whose target dir
+  // already holds FOREIGN files (a name collision we don't own) — installSkillDir would
+  // otherwise clear-and-write it, destroying the user's data (checks.md:15).
+  const toInstall = [];
+  for (const s of skills) {
+    if (isForeignSkillDir(dest, s, manifestSkills)) {
+      console.warn(`  [refused] ${path.join(dest, s)} holds non-CoalMine files — skipped to protect it (remove it or install elsewhere)`);
+      process.exitCode = 1;
+    } else {
+      toInstall.push(s);
+    }
+  }
+  // Program-style version transition: remove what the PREVIOUS install owned
+  // (manifest orphans + retired tombstone), then write the new set fresh.
+  cleanPreviousInstall(dest, manifest);
   let n = 0;
   const installed = [];
-  for (const s of skills) {
+  for (const s of toInstall) {
     try {
       const to = path.join(dest, s);
       installSkillDir(path.join(skillsSrc, s), to, shared);
@@ -460,10 +500,15 @@ if (path.resolve(dest) === path.resolve(skillsSrc)) {
 
 if (isUninstall) {
   console.log(`\nUninstalling CoalMine from target: ${targetArg}`);
-  // Manifest knows what was actually installed (incl. names from older
-  // versions); fall back to current skill names for pre-manifest installs.
+  // Manifest is our package file-list (owned — safe to remove). Without one, fall back
+  // to current names but ONLY the dirs we can prove we own — a foreign dir that merely
+  // shares a skill's name is left in place (same H12 guard as install). Retired
+  // tombstone names are swept regardless (the one named exception).
   const previous = readManifest(dest);
-  const removedCount = uninstallSkills(dest, [...safeSkillNames(previous ? previous.skills : skills), ...RETIRED_SKILL_NAMES]);
+  const ownedNames = previous
+    ? previous.skills
+    : skills.filter((s) => !isForeignSkillDir(dest, s, null));
+  const removedCount = uninstallSkills(dest, [...safeSkillNames(ownedNames), ...RETIRED_SKILL_NAMES]);
   try { fs.rmSync(path.join(dest, MANIFEST_NAME), { force: true }); } catch {}
   uninstallConfig(targetKey);
   uninstallGitHooks();
