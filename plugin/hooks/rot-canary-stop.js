@@ -314,11 +314,13 @@ function main() {
   try { input = JSON.parse(raw.trim()); } catch { return; }
   if (!input || input.stop_hook_active) return;
 
-  // camelCase variant accepted defensively (the AG payload shape is not fully recorded).
-  const sid = input.session_id || input.sessionId;
-  // Phoenix #10 (sandbox): allowlist the session_id so a traversal-shaped sid cannot
+  // conversationId = the CURRENT AG spec's session field (re-derived 2026-07-23);
+  // session_id/sessionId stay as the CC + legacy fallbacks. MUST match the touch
+  // hook's chain — this hook reads the rot-canary-<sid> state the touch hook keys.
+  const sid = input.conversationId || input.session_id || input.sessionId;
+  // Phoenix #10 (sandbox): allowlist the session key so a traversal-shaped sid cannot
   // escape os.tmpdir() via path.join. Non-conforming -> bail (fail-silent, Phoenix #4).
-  // AG constraint: Antigravity's session_id format is undocumented — a sid outside this
+  // AG constraint: Antigravity's session-key format is undocumented — a sid outside this
   // allowlist nudges nothing there (safe degrade; fail-closed over widening without
   // evidence. The 2026-07-12 AG pilot's cadence DID fire, so real AG sids passed it).
   if (!sid || typeof sid !== 'string' || !/^[A-Za-z0-9_-]+$/.test(sid)) return;
@@ -402,12 +404,16 @@ function main() {
   const list = files.map((x) => '  - ' + x).join('\n');
   const reason = t.reason(list, smellText) + capNoticeText;
 
-  // AG mode (an event-name argv, per the AG hooks.json template `node <file> <Event>`;
-  // Claude Code invokes with no argv): Antigravity's Stop matches CC Stop semantics
-  // but not CC's decision protocol — emit the sanctioned single-line
-  // {"additionalContext": ...} JSON (camelCase key) instead. CoalMine never blocks.
+  // AG mode (an event-name argv — ONLY the Antigravity template passes one; every
+  // other platform invokes with no argv): the current AG engine (re-derived
+  // 2026-07-23) documents NO Stop-output inject channel — the pilot-era
+  // {"additionalContext"} key is a DEAD LETTER (0 engine hits), and an unknown
+  // key risks protojson rejecting the whole payload. Emit the explicit no-op `{}`
+  // (the valid empty output); the side effects above (ack marker + stale sweep)
+  // still run, and AG users reach the findings via the manual /rot-canary path.
+  // CoalMine never blocks on AG.
   process.stdout.write(process.argv[2]
-    ? JSON.stringify({ additionalContext: reason }) + '\n'
+    ? '{}\n'
     : JSON.stringify({ decision: 'block', reason }));
 }
 

@@ -2,6 +2,12 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [3.11.4] - 2026-07-23
+
+### Fixed
+- **The AG adapter emits the current Antigravity inject contract** (re-derived against the current AG build's hooks doc, 2026-07-23): the conductor's PreInvocation output is now `{"injectSteps":[{"ephemeralMessage":...}]}` — the pilot-era `{"additionalContext"}` key is a dead letter on the current engine (0 hits; it never delivered, so nothing depended on it). The Stop hook now emits the explicit no-op `{}` on AG — the current engine documents no Stop-output inject channel; its side effects (ack marker + stale sweep) still run, and AG users reach findings via the manual `/rot-canary` path. CoalMine still never blocks on AG.
+- **AG payload reads follow the current spec's fields**: all three hooks read the session key `conversationId`-first (legacy `session_id`/`sessionId`/transcript-path fallbacks kept); conductor + touch resolve the workspace from `workspacePaths[0]`. Docs swept to the new-contract story (`platform-configs/hooks/README.md` · `references/cadence.md` · SECURITY.md); Gemini's nested `hookSpecificOutput.additionalContext` shape is a different platform's channel and is unchanged. Tier unchanged: **wired**, not live-validated — delivery into a real AG session is still pending.
+
 ## [3.11.3] - 2026-07-17
 
 ### Fixed

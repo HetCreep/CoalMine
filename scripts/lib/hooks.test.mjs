@@ -559,7 +559,19 @@ test('merge drops __proto__/constructor/prototype keys (pollution cannot ride th
 // antigravity-hooks.json). Same real hooks, spawned hermetically with AG-shaped
 // fixture stdin in both casing variants (snake_case core / camelCase toolCall).
 
-test('AG conductor: first PreInvocation injects additionalContext ONCE; repeats are silent (marker throttle)', () => {
+// The sanctioned AG PreInvocation output (contract re-derived 2026-07-23 from the
+// installed engine): exactly {"injectSteps":[{"ephemeralMessage": ...}]} — the
+// pilot-era flat additionalContext key is a dead letter in the engine and must
+// never appear (nor the CC decision protocol; the key-set assert covers both).
+function agInject(stdout) {
+  const out = JSON.parse(stdout);
+  assert.deepEqual(Object.keys(out), ['injectSteps'], 'injectSteps is the ONLY key (current AG PreInvocation output contract)');
+  assert.equal(out.injectSteps.length, 1, 'exactly one injected step');
+  assert.deepEqual(Object.keys(out.injectSteps[0]), ['ephemeralMessage'], 'ephemeralMessage (transient system message) is the step type');
+  return out.injectSteps[0].ephemeralMessage;
+}
+
+test('AG conductor: first PreInvocation injects the directive ONCE (injectSteps/ephemeralMessage); repeats are silent (marker throttle)', () => {
   const tmp = mkTmp();
   try {
     fs.mkdirSync(path.join(tmp, '.git')); // anchor findGitRoot inside the sandbox
@@ -567,10 +579,9 @@ test('AG conductor: first PreInvocation injects additionalContext ONCE; repeats 
     const first = runHook(CONDUCTOR, stdin, tmp, ['PreInvocation']);
     assert.equal(first.status, 0);
     assert.equal(first.stderr, '', 'no stderr (Phoenix #13)');
-    const out = JSON.parse(first.stdout);
-    assert.ok(out.additionalContext.includes('[CoalMine]'), 'AG emit is the sanctioned additionalContext JSON');
-    assert.ok(!('decision' in out), 'never the CC decision protocol on AG');
-    assert.ok(!out.additionalContext.includes('self-update'), 'KIND 1 (CC plugin machinery) is skipped on AG');
+    const msg = agInject(first.stdout);
+    assert.ok(msg.includes('[CoalMine]'), 'AG emit is the sanctioned injectSteps/ephemeralMessage JSON');
+    assert.ok(!msg.includes('self-update'), 'KIND 1 (CC plugin machinery) is skipped on AG');
     assert.ok(!fs.existsSync(path.join(tmp, '.claude', '.coalmine-update-check')), 'AG must not consume the CC update stamp');
     assert.ok(
       fs.readdirSync(path.join(tmp, 'coalmine')).some((f) => f.startsWith('ag-conductor-') && f.endsWith('.marker')),
@@ -661,7 +672,7 @@ test('AG conductor: transcript_path keys the session when session_id is absent; 
   try {
     const byTranscript = runHook(CONDUCTOR, JSON.stringify({ transcript_path: 'C:/x/t.jsonl' }), tmp, ['PreInvocation']);
     assert.equal(byTranscript.status, 0);
-    assert.ok(JSON.parse(byTranscript.stdout).additionalContext.includes('[CoalMine]'), 'transcript_path works as the fallback key');
+    assert.ok(agInject(byTranscript.stdout).includes('[CoalMine]'), 'transcript_path works as the fallback key');
 
     for (const stdin of [JSON.stringify({}), 'not json {{{', '']) {
       const r = runHook(CONDUCTOR, stdin, tmp, ['PreInvocation']);
@@ -683,7 +694,7 @@ test('AG conductor: KIND 2 past-due rule nudge rides the guarded injection; enab
     fs.writeFileSync(path.join(rulesDir, 'a.md'), `<!-- coalmine: verified ${old} · exemplar X · revalidate 30d -->\n`, 'utf8');
     const r = runHook(CONDUCTOR, JSON.stringify({ sessionId: 'AGC2', cwd: tmp }), tmp, ['PreInvocation']);
     assert.equal(r.status, 0);
-    assert.ok(JSON.parse(r.stdout).additionalContext.includes('past their revalidate date'), 'KIND 2 detected via the camelCase sessionId variant');
+    assert.ok(agInject(r.stdout).includes('past their revalidate date'), 'KIND 2 detected via the camelCase sessionId variant');
 
     fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ enableConductor: false }), 'utf8');
     // Count-based, not filename-based: the marker filename embeds djb2(sessionId)
@@ -714,11 +725,39 @@ test('AG conductor: onboarding suppression follows the PAYLOAD cwd, not the hook
     const stdin = JSON.stringify({ session_id: 'AGCWD1', cwd: workDir, hook_event_name: 'PreInvocation' });
     const r = runHook(CONDUCTOR, stdin, spawnDir, ['PreInvocation']);
     assert.equal(r.status, 0);
-    const out = JSON.parse(r.stdout);
     assert.ok(
-      !out.additionalContext.includes('offer /gold-standard ONCE'),
+      !agInject(r.stdout).includes('offer /gold-standard ONCE'),
       'a verified stamp at the PAYLOAD cwd must suppress onboarding even though the hook process cwd (spawnDir) has none -- proves the check follows input.cwd, not process.cwd()',
     );
+  } finally {
+    fs.rmSync(spawnDir, { recursive: true, force: true });
+    fs.rmSync(workDir, { recursive: true, force: true });
+  }
+});
+
+// CURRENT AG spec payload (re-derived 2026-07-23): conversationId + workspacePaths[]
+// — no cwd, no session_id. The conductor must key the marker on conversationId and
+// resolve the workspace from workspacePaths[0].
+test('AG conductor current-spec payload (conversationId + workspacePaths): injects once at the workspace, repeat silent', () => {
+  const spawnDir = mkTmp(); // hook process cwd = the hooks.json dir on AG, NOT the workspace
+  const workDir = mkTmp();
+  try {
+    fs.mkdirSync(path.join(workDir, '.git'));
+    const rulesDir = path.join(workDir, '.claude', 'rules');
+    fs.mkdirSync(rulesDir, { recursive: true });
+    fs.writeFileSync(path.join(rulesDir, 'gold-standard.md'), '<!-- coalmine: verified 2026-07-01 revalidate 90d -->\n', 'utf8');
+    const stdin = JSON.stringify({ conversationId: 'AGCONV1', workspacePaths: [workDir] });
+    const first = runHook(CONDUCTOR, stdin, spawnDir, ['PreInvocation']);
+    assert.equal(first.status, 0);
+    const msg = agInject(first.stdout);
+    assert.ok(msg.includes('[CoalMine]'), 'a current-spec payload (no cwd/session_id) still injects');
+    assert.ok(
+      !msg.includes('offer /gold-standard ONCE'),
+      'workspacePaths[0] drives the onboarding check (the current spec ships no cwd field)',
+    );
+    const second = runHook(CONDUCTOR, stdin, spawnDir, ['PreInvocation']);
+    assert.equal(second.status, 0);
+    assert.equal(second.stdout, '', 'conversationId keys the once-per-session marker');
   } finally {
     fs.rmSync(spawnDir, { recursive: true, force: true });
     fs.rmSync(workDir, { recursive: true, force: true });
@@ -812,7 +851,7 @@ test('AG touch: toolCall.args payload (camelCase) records the edited file', () =
   }
 });
 
-test('AG stop: emits additionalContext (never decision:block) listing touched files', () => {
+test('AG stop: emits the explicit no-op {} (no Stop inject channel in the current engine; never decision:block)', () => {
   const tmp = mkTmp();
   try {
     const real = path.join(tmp, 'edited-c.js');
@@ -820,9 +859,38 @@ test('AG stop: emits additionalContext (never decision:block) listing touched fi
     fs.writeFileSync(path.join(tmp, 'rot-canary-AGS1.touched'), real + '\n');
     const r = runHook(STOP, JSON.stringify({ session_id: 'AGS1' }), tmp, ['Stop']);
     assert.equal(r.status, 0);
-    const out = JSON.parse(r.stdout);
-    assert.ok(out.additionalContext.includes('edited-c.js'), 'AG nudge lists the touched file');
-    assert.ok(!('decision' in out), 'the CC decision protocol never leaves the hook in AG mode');
+    // Contract re-derived 2026-07-23: the engine documents NO Stop-output inject
+    // channel; the pilot-era additionalContext key is a dead letter. The valid
+    // output is the explicit no-op {} — never the dead key, never decision:block.
+    assert.equal(r.stdout.trim(), '{}', 'AG Stop output is the explicit empty object');
+    assert.ok(fs.existsSync(path.join(tmp, 'rot-canary-AGS1.scanned')), 'the scan side effects (ack marker) still ran');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// The touch->stop pair shares one tmp-state key chain: on the current AG spec both
+// hooks must derive it from conversationId (a split chain would strand the state).
+test('AG touch+stop pair on the current-spec payload: conversationId keys the shared state, workspacePaths[0] resolves relative paths', () => {
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, 'edited-conv.js'), 'x');
+    const t1 = runHook(TOUCH, JSON.stringify({
+      conversationId: 'AGCONV2',
+      workspacePaths: [tmp],
+      tool_name: 'write_to_file',
+      tool_input: { file_path: 'edited-conv.js' }, // relative — must resolve vs workspacePaths[0]
+    }), tmp, ['PostToolUse']);
+    assert.equal(t1.status, 0);
+    assert.equal(t1.stdout, '', 'touch stays silent');
+    const touched = path.join(tmp, 'rot-canary-AGCONV2.touched');
+    assert.ok(fs.existsSync(touched), '.touched keyed by conversationId');
+    assert.ok(fs.readFileSync(touched, 'utf8').includes('edited-conv.js'), 'relative path resolved against workspacePaths[0]');
+
+    const r = runHook(STOP, JSON.stringify({ conversationId: 'AGCONV2' }), tmp, ['Stop']);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout.trim(), '{}', 'AG Stop no-op output');
+    assert.ok(fs.existsSync(path.join(tmp, 'rot-canary-AGCONV2.scanned')), 'stop read the conversationId-keyed state (one chain across the pair)');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

@@ -184,18 +184,23 @@ function main() {
 
   const f = extractEditedPath(input);
   if (!f) return;
-  // Resolve a relative path against the payload's cwd when provided (AG launches
-  // the hook with its own cwd; CC's payload cwd equals process.cwd(), so this is a
-  // no-op on CC — an absolute file_path ignores the base either way).
-  const baseDir = (typeof input.cwd === 'string' && input.cwd) ? input.cwd : process.cwd();
+  // Resolve a relative path against the payload's workspace when provided (AG launches
+  // the hook with its own cwd = the hooks.json dir; CC's payload cwd equals
+  // process.cwd(), so this is a no-op on CC — an absolute file_path ignores the base
+  // either way). workspacePaths[0] = the current AG spec's field (re-derived
+  // 2026-07-23); cwd stays as the CC + legacy fallback.
+  const wsBase = Array.isArray(input.workspacePaths) ? input.workspacePaths[0] : undefined;
+  const baseDir = (typeof wsBase === 'string' && wsBase)
+    || ((typeof input.cwd === 'string' && input.cwd) ? input.cwd : process.cwd());
   const normF = path.resolve(baseDir, f);
   const watchedExts = getWatchedExtensions();
   if (!watchedExts.has(path.extname(normF).toLowerCase())) return;
 
-  // No session id → no consumer (the stop hook bails without one). Record nothing.
-  // session_id is the documented core field on both platforms; the camelCase
-  // variant is accepted defensively (the AG payload shape is not fully recorded).
-  const sid = input.session_id || input.sessionId;
+  // No session key → no consumer (the stop hook bails without one). Record nothing.
+  // conversationId = the CURRENT AG spec's session field (re-derived 2026-07-23);
+  // session_id (CC's documented core field) + camelCase sessionId stay as fallbacks.
+  // MUST match the stop hook's chain — it reads the rot-canary-<sid> state keyed here.
+  const sid = input.conversationId || input.session_id || input.sessionId;
   // Phoenix #10 (sandbox): allowlist the session_id so a traversal-shaped sid (e.g.
   // ../../etc/x) cannot escape os.tmpdir() via path.join. Non-conforming -> bail (fail-silent).
   // AG constraint: Antigravity's session_id format is undocumented — a sid outside this

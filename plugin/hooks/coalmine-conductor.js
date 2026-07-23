@@ -315,7 +315,12 @@ function buildLines(cfg, base) {
 // keyed by the payload's session, in a private coalmine/ subdir of os.tmpdir()
 // (Phoenix #10 sandbox; rot-canary-stop's stale sweep collects it, Phoenix #1 —
 // see the coalmine/ pass in sweepStale()). Emit = the sanctioned single-line
-// {"additionalContext": ...} JSON, camelCase key. KIND 1 (self-update) is
+// {"injectSteps":[{"ephemeralMessage": ...}]} JSON — the CURRENT engine's
+// PreInvocation output contract (re-derived 2026-07-23 from the installed
+// build's own hooks doc; the pilot-era {"additionalContext"} key is a DEAD
+// LETTER there — 0 engine hits — and dual-emitting risks protojson rejecting
+// the whole payload; ephemeralMessage = transient system message, the advisory
+// class). KIND 1 (self-update) is
 // deliberately NOT injected on AG: its directives drive `claude plugin update` /
 // configure.mjs — Claude Code plugin machinery; AG installs by file-copy, and
 // firing here would also consume the CC-side once-per-window stamp. KIND 2
@@ -331,7 +336,10 @@ function agMain(cfg, updateMode) {
   let input = null;
   try { input = JSON.parse(fs.readFileSync(0, 'utf8').trim()); } catch {}
   if (!input || typeof input !== 'object') return; // no payload → no session key → skip silently (Phoenix #12)
-  const key = [input.session_id, input.sessionId, input.transcript_path, input.transcriptPath]
+  // conversationId = the CURRENT AG spec's documented session field (re-derived
+  // 2026-07-23); the rest stay defensive legacy fallbacks (transcriptPath is
+  // also documented + per-conversation).
+  const key = [input.conversationId, input.session_id, input.sessionId, input.transcript_path, input.transcriptPath]
     .find((v) => typeof v === 'string' && v);
   if (!key) return; // un-keyable session: an injection would repeat per model call — skip (fail-closed on spend)
   // Atomic once-per-session latch (CodeQL js/insecure-temporary-file +
@@ -362,10 +370,14 @@ function agMain(cfg, updateMode) {
     if (fs.lstatSync(markerDir).isSymbolicLink()) return; // dir-symlink residual -> fail-closed (see above)
     fs.writeFileSync(marker, '', { flag: 'wx' });
   } catch { return; } // EEXIST (already ran) OR any write failure -> fail-closed, no emit
-  // Resolved ONCE, shared by the onboarding check (buildLines) and KIND 2 below — the payload's
-  // cwd is authoritative when present (the hook process's own cwd is not guaranteed to be the
-  // workspace on AG).
-  const base = (typeof input.cwd === 'string' && input.cwd) || process.cwd();
+  // Resolved ONCE, shared by the onboarding check (buildLines) and KIND 2 below — the payload
+  // names the workspace (the hook process's own cwd is the hooks.json dir on AG, not the
+  // workspace): `workspacePaths[0]` = the current spec's field (re-derived 2026-07-23),
+  // `cwd` kept as the legacy fallback.
+  const ws = Array.isArray(input.workspacePaths) ? input.workspacePaths[0] : undefined;
+  const base = (typeof ws === 'string' && ws)
+    || (typeof input.cwd === 'string' && input.cwd)
+    || process.cwd();
   const lines = buildLines(cfg, base);
   if (updateMode !== 'off') {
     try {
@@ -373,7 +385,7 @@ function agMain(cfg, updateMode) {
       if (n > 0) lines.push(pastDueDirective(n));
     } catch {}
   }
-  process.stdout.write(JSON.stringify({ additionalContext: lines.join('\n') }) + '\n');
+  process.stdout.write(JSON.stringify({ injectSteps: [{ ephemeralMessage: lines.join('\n') }] }) + '\n');
 }
 
 // --- Gemini CLI adapter -------------------------------------------------------
@@ -450,7 +462,7 @@ function main() {
   const fileCopy = process.argv[2] === 'FileCopy';
 
   // AG mode: any OTHER truthy argv → the Antigravity adapter (once-per-session
-  // marker guard + additionalContext emit). The config gates above already ran.
+  // marker guard + injectSteps emit). The config gates above already ran.
   // Never 'SessionStart' or 'FileCopy' — those argv values are claimed above.
   if (process.argv[2] && !fileCopy) { agMain(cfg, updateMode); return; }
 
