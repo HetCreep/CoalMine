@@ -108,14 +108,17 @@ test('project .coalmine.json can disable the canary', () => {
 
 test('touch hook records edited code file and exits 0', () => {
   const tmp = mkTmp();
+  const proj = mkTmp(); // project dir, sibling of the sandbox os.tmpdir() (tmp) — the fixture must live OUTSIDE tmp now that touch excludes os.tmpdir() (a Windows-literal 'C:\proj\a.js' resolved as a RELATIVE segment under process.cwd()==tmp on POSIX, landing inside tmp and tripping the exclusion — CI-red on ubuntu, masked on macOS by an unrelated /private realpath quirk)
   try {
-    const r = runHook(TOUCH, JSON.stringify({ session_id: 'T1', tool_input: { file_path: 'C:\\proj\\a.js' } }), tmp);
+    const real = path.join(proj, 'a.js');
+    const r = runHook(TOUCH, JSON.stringify({ session_id: 'T1', tool_input: { file_path: real } }), tmp, [], proj);
     assert.equal(r.status, 0);
     const touched = path.join(tmp, 'rot-canary-T1.touched');
     assert.ok(fs.existsSync(touched), '.touched file must be created in sandbox TEMP');
     assert.ok(fs.readFileSync(touched, 'utf8').includes('a.js'));
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(proj, { recursive: true, force: true });
   }
 });
 
@@ -138,9 +141,12 @@ test('touch + stop reject a traversal-shaped session_id (Phoenix #10 sandbox gua
 
 test('touch hook dedups case-insensitively on win32 and never crashes', () => {
   const tmp = mkTmp();
+  const proj = mkTmp(); // project dir, sibling of the sandbox os.tmpdir() (tmp) — same Windows-literal-path fix as T1 above
   try {
-    runHook(TOUCH, JSON.stringify({ session_id: 'T2', tool_input: { file_path: 'C:\\proj\\App.js' } }), tmp);
-    runHook(TOUCH, JSON.stringify({ session_id: 'T2', tool_input: { file_path: 'C:\\proj\\app.js' } }), tmp);
+    const upper = path.join(proj, 'App.js');
+    const lower = path.join(proj, 'app.js');
+    runHook(TOUCH, JSON.stringify({ session_id: 'T2', tool_input: { file_path: upper } }), tmp, [], proj);
+    runHook(TOUCH, JSON.stringify({ session_id: 'T2', tool_input: { file_path: lower } }), tmp, [], proj);
     const lines = fs.readFileSync(path.join(tmp, 'rot-canary-T2.touched'), 'utf8').split('\n').filter(Boolean);
     if (process.platform === 'win32') {
       assert.equal(lines.length, 1, 'same path differing only by case must be recorded once on win32');
@@ -149,6 +155,7 @@ test('touch hook dedups case-insensitively on win32 and never crashes', () => {
     }
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(proj, { recursive: true, force: true });
   }
 });
 
