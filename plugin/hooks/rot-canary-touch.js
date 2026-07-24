@@ -170,6 +170,24 @@ function getWatchedExtensions() {
   } catch {}
   return new Set(defaultExts);
 }
+
+// Scratch-space exclude (2026-07-25, dogfood-found): os.tmpdir() is where THIS hook
+// keeps its OWN session state (rot-canary-<sid>.*) and where an agent's own throwaway
+// scratchpad/harness files live (e.g. a long IC campaign's one-shot harness .mjs under
+// the session scratchpad, which sits INSIDE os.tmpdir()) — never ship code, so it must
+// never enter the touched/memmoved set. This is a scan-SCOPE exclude, not a security
+// boundary: a lexical resolve-and-contain is correct (a missed symlinked-temp edge just
+// means the file gets scanned — harmless), no realpath/fail-closed needed. Boundary-safe
+// (a trailing path.sep — "<tmp>X" must never match "<tmp>"); case-insensitive on win32,
+// mirroring the isWin precedent used for the .touched dedup below.
+function isUnderTmpdir(absPath) {
+  const tmp = path.resolve(os.tmpdir());
+  let p = path.resolve(absPath);
+  let t = tmp;
+  if (process.platform === 'win32') { p = p.toLowerCase(); t = t.toLowerCase(); }
+  return p === t || p.startsWith(t + path.sep);
+}
+
 function main() {
   const ov = projectOverride();
   if (ov === 'off') return;
@@ -193,6 +211,13 @@ function main() {
   const baseDir = (typeof wsBase === 'string' && wsBase)
     || ((typeof input.cwd === 'string' && input.cwd) ? input.cwd : process.cwd());
   const normF = path.resolve(baseDir, f);
+
+  // Never record a file living under the hook's own os.tmpdir() — throwaway lab/scratch
+  // (the session scratchpad, a one-shot harness), never ship code. Checked BEFORE
+  // anything is recorded, ahead of the MEMORY.md marker branch below (a temp-resident
+  // MEMORY.md must not set .memmoved either — temp files count for nothing) and ahead
+  // of the watched-extension gate.
+  if (isUnderTmpdir(normF)) return;
 
   // No session key → no consumer (the stop hook bails without one). Record nothing.
   // conversationId = the CURRENT AG spec's session field (re-derived 2026-07-23);

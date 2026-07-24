@@ -19,14 +19,17 @@ const TOUCH = path.join(repo, 'hooks', 'rot-canary-touch.js');
 const STOP = path.join(repo, 'hooks', 'rot-canary-stop.js');
 const CONDUCTOR = path.join(repo, 'hooks', 'coalmine-conductor.js');
 
-function runHook(script, input, tmp, args = []) {
+function runHook(script, input, tmp, args = [], cwd = tmp) {
   // TEMP/TMP/TMPDIR → sandbox os.tmpdir(); USERPROFILE/HOME → sandbox os.homedir()
   // so the real ~/.claude/.rot-canary-mode can never affect the test (mode = auto default).
   // args: the AG hooks.json template passes the event name as argv (AG mode); CC passes none.
+  // cwd: defaults to the same sandbox dir as TEMP/TMP/TMPDIR (every existing caller is
+  // unaffected); a test exercising the os.tmpdir()-exclusion guard passes a SEPARATE
+  // project dir here, since loadCfg()'s project-config lookup keys off raw process.cwd().
   return spawnSync(process.execPath, [script, ...args], {
     input,
     encoding: 'utf8',
-    cwd: tmp,
+    cwd,
     env: { ...process.env, TEMP: tmp, TMP: tmp, TMPDIR: tmp, USERPROFILE: tmp, HOME: tmp },
   });
 }
@@ -229,85 +232,94 @@ test('stop hook honors language override in .coalmine.json', () => {
 
 test('touch hook honors tripwireMaxFileSizeKb in .coalmine.json', () => {
   const tmp = mkTmp();
+  const proj = mkTmp(); // project dir, sibling of the sandbox os.tmpdir() (tmp) — the fixture must live OUTSIDE tmp now that touch excludes os.tmpdir()
   try {
-    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ tripwireMaxFileSizeKb: 1 }), 'utf8');
-    
+    fs.writeFileSync(path.join(proj, '.coalmine.json'), JSON.stringify({ tripwireMaxFileSizeKb: 1 }), 'utf8');
+
     // Create a file larger than 1KB (e.g. 2KB)
-    const largeFile = path.join(tmp, 'large.js');
+    const largeFile = path.join(proj, 'large.js');
     fs.writeFileSync(largeFile, 'x'.repeat(2048));
-    
-    const r = runHook(TOUCH, JSON.stringify({ session_id: 'T3', tool_input: { file_path: largeFile } }), tmp);
+
+    const r = runHook(TOUCH, JSON.stringify({ session_id: 'T3', tool_input: { file_path: largeFile } }), tmp, [], proj);
     assert.equal(r.status, 0);
-    
+
     // It should record the touched file path, but should NOT flag it as smell (smell scan is skipped)
     assert.ok(fs.existsSync(path.join(tmp, 'rot-canary-T3.touched')), 'touched path is still recorded');
     assert.ok(!fs.existsSync(path.join(tmp, 'rot-canary-T3.smells')), 'large file smells check was skipped due to size cap');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(proj, { recursive: true, force: true });
   }
 });
 
 test('touch hook honors watchedExtensions override in .coalmine.json', () => {
   const tmp = mkTmp();
+  const proj = mkTmp(); // project dir, sibling of the sandbox os.tmpdir() (tmp)
   try {
-    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ watchedExtensions: ['py', '.sh'] }), 'utf8');
-    
-    const fileJs = path.join(tmp, 'file.js');
+    fs.writeFileSync(path.join(proj, '.coalmine.json'), JSON.stringify({ watchedExtensions: ['py', '.sh'] }), 'utf8');
+
+    const fileJs = path.join(proj, 'file.js');
     fs.writeFileSync(fileJs, 'x');
-    const filePy = path.join(tmp, 'file.py');
+    const filePy = path.join(proj, 'file.py');
     fs.writeFileSync(filePy, 'x');
-    
-    const r1 = runHook(TOUCH, JSON.stringify({ session_id: 'T4', tool_input: { file_path: fileJs } }), tmp);
+
+    const r1 = runHook(TOUCH, JSON.stringify({ session_id: 'T4', tool_input: { file_path: fileJs } }), tmp, [], proj);
     assert.equal(r1.status, 0);
     assert.ok(!fs.existsSync(path.join(tmp, 'rot-canary-T4.touched')), 'unwatched JS file is ignored');
-    
-    const r2 = runHook(TOUCH, JSON.stringify({ session_id: 'T4', tool_input: { file_path: filePy } }), tmp);
+
+    const r2 = runHook(TOUCH, JSON.stringify({ session_id: 'T4', tool_input: { file_path: filePy } }), tmp, [], proj);
     assert.equal(r2.status, 0);
     assert.ok(fs.existsSync(path.join(tmp, 'rot-canary-T4.touched')), 'watched PY file is recorded');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(proj, { recursive: true, force: true });
   }
 });
 
 test('touch hook honors tripwireMaxLines override in .coalmine.json', () => {
   const tmp = mkTmp();
+  const proj = mkTmp(); // project dir, sibling of the sandbox os.tmpdir() (tmp)
   try {
-    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ tripwireMaxLines: 5 }), 'utf8');
-    
-    const fileLines = path.join(tmp, 'lines.js');
+    fs.writeFileSync(path.join(proj, '.coalmine.json'), JSON.stringify({ tripwireMaxLines: 5 }), 'utf8');
+
+    const fileLines = path.join(proj, 'lines.js');
     fs.writeFileSync(fileLines, 'x\n'.repeat(10)); // 11 lines
-    
-    const r = runHook(TOUCH, JSON.stringify({ session_id: 'T5', tool_input: { file_path: fileLines } }), tmp);
+
+    const r = runHook(TOUCH, JSON.stringify({ session_id: 'T5', tool_input: { file_path: fileLines } }), tmp, [], proj);
     assert.equal(r.status, 0);
-    
+
     const smellsFile = path.join(tmp, 'rot-canary-T5.smells');
     assert.ok(fs.existsSync(smellsFile), 'smell file was created');
     assert.ok(fs.readFileSync(smellsFile, 'utf8').includes('file >5 lines'), 'triggered custom maxLines smell warning');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(proj, { recursive: true, force: true });
   }
 });
 
 test('touch hook clamps a negative tripwireMaxLines → no mass false-smell (Board-2 clamp)', () => {
   const tmp = mkTmp();
+  const proj = mkTmp(); // project dir, sibling of the sandbox os.tmpdir() (tmp)
   try {
     // raw -3 would flag EVERY file (lines > -3 is always true); clamped to >=1 a
     // 1-line file must NOT be flagged. Same clamp class as tripwireMaxFileSizeKb / ruleRevalidateDays.
-    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ tripwireMaxLines: -3 }), 'utf8');
-    const oneLine = path.join(tmp, 'one.js');
+    fs.writeFileSync(path.join(proj, '.coalmine.json'), JSON.stringify({ tripwireMaxLines: -3 }), 'utf8');
+    const oneLine = path.join(proj, 'one.js');
     fs.writeFileSync(oneLine, 'x'); // 1 line, no trailing newline
-    const r = runHook(TOUCH, JSON.stringify({ session_id: 'T5b', tool_input: { file_path: oneLine } }), tmp);
+    const r = runHook(TOUCH, JSON.stringify({ session_id: 'T5b', tool_input: { file_path: oneLine } }), tmp, [], proj);
     assert.equal(r.status, 0);
     const smellsFile = path.join(tmp, 'rot-canary-T5b.smells');
     const smells = fs.existsSync(smellsFile) ? fs.readFileSync(smellsFile, 'utf8') : '';
     assert.ok(!smells.includes('lines'), 'a negative tripwireMaxLines must not produce a line-count smell on a 1-line file');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(proj, { recursive: true, force: true });
   }
 });
 
 test('loadCfg parses JSONC with a backslash-terminated string before a later // string (no silent revert to defaults)', () => {
   const tmp = mkTmp();
+  const proj = mkTmp(); // project dir, sibling of the sandbox os.tmpdir() (tmp)
   try {
     // The comment-stripper used to desync here: a string value ending in a literal
     // backslash ("C:\\") leaked escape state, so a LATER string containing // was
@@ -322,12 +334,12 @@ test('loadCfg parses JSONC with a backslash-terminated string before a later // 
       '  "tripwireMaxLines": 5',
       '}',
     ].join('\n');
-    fs.writeFileSync(path.join(tmp, '.coalmine.json'), jsonc, 'utf8');
+    fs.writeFileSync(path.join(proj, '.coalmine.json'), jsonc, 'utf8');
 
-    const fileLines = path.join(tmp, 'lines.js');
+    const fileLines = path.join(proj, 'lines.js');
     fs.writeFileSync(fileLines, 'x\n'.repeat(10)); // 11 lines > the override of 5
 
-    const r = runHook(TOUCH, JSON.stringify({ session_id: 'T6', tool_input: { file_path: fileLines } }), tmp);
+    const r = runHook(TOUCH, JSON.stringify({ session_id: 'T6', tool_input: { file_path: fileLines } }), tmp, [], proj);
     assert.equal(r.status, 0);
 
     const smellsFile = path.join(tmp, 'rot-canary-T6.smells');
@@ -338,6 +350,7 @@ test('loadCfg parses JSONC with a backslash-terminated string before a later // 
     );
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(proj, { recursive: true, force: true });
   }
 });
 
@@ -836,10 +849,11 @@ test('file-copy mode (FileCopy argv): plain CC text shape, KIND 1 self-update sk
 
 test('AG touch: toolCall.args payload (camelCase) records the edited file', () => {
   const tmp = mkTmp();
+  const proj = mkTmp(); // project dir, sibling of the sandbox os.tmpdir() (tmp) — must live OUTSIDE tmp now
   try {
-    const real = path.join(tmp, 'edited-b.js');
+    const real = path.join(proj, 'edited-b.js');
     fs.writeFileSync(real, 'x');
-    const stdin = JSON.stringify({ session_id: 'AGT1', cwd: tmp, toolCall: { name: 'write_to_file', args: { filePath: real } } });
+    const stdin = JSON.stringify({ session_id: 'AGT1', cwd: proj, toolCall: { name: 'write_to_file', args: { filePath: real } } });
     const r = runHook(TOUCH, stdin, tmp, ['PostToolUse']);
     assert.equal(r.status, 0);
     assert.equal(r.stdout, '', 'touch stays silent');
@@ -848,6 +862,7 @@ test('AG touch: toolCall.args payload (camelCase) records the edited file', () =
     assert.ok(fs.readFileSync(touched, 'utf8').includes('edited-b.js'));
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(proj, { recursive: true, force: true });
   }
 });
 
@@ -873,11 +888,12 @@ test('AG stop: emits the explicit no-op {} (no Stop inject channel in the curren
 // hooks must derive it from conversationId (a split chain would strand the state).
 test('AG touch+stop pair on the current-spec payload: conversationId keys the shared state, workspacePaths[0] resolves relative paths', () => {
   const tmp = mkTmp();
+  const proj = mkTmp(); // project workspace, sibling of the sandbox os.tmpdir() (tmp) — must live OUTSIDE tmp now
   try {
-    fs.writeFileSync(path.join(tmp, 'edited-conv.js'), 'x');
+    fs.writeFileSync(path.join(proj, 'edited-conv.js'), 'x');
     const t1 = runHook(TOUCH, JSON.stringify({
       conversationId: 'AGCONV2',
-      workspacePaths: [tmp],
+      workspacePaths: [proj],
       tool_name: 'write_to_file',
       tool_input: { file_path: 'edited-conv.js' }, // relative — must resolve vs workspacePaths[0]
     }), tmp, ['PostToolUse']);
@@ -893,6 +909,7 @@ test('AG touch+stop pair on the current-spec payload: conversationId keys the sh
     assert.ok(fs.existsSync(path.join(tmp, 'rot-canary-AGCONV2.scanned')), 'stop read the conversationId-keyed state (one chain across the pair)');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(proj, { recursive: true, force: true });
   }
 });
 
@@ -977,8 +994,9 @@ function plantCodeSession(tmp, sid) {
 
 test('touch hook records a MEMORY.md edit as .memmoved marker, never into .touched', () => {
   const tmp = mkTmp();
+  const proj = mkTmp(); // project dir, sibling of the sandbox os.tmpdir() (tmp) — a MEMORY.md UNDER tmp is covered separately (tmpdir-exclusion test below)
   try {
-    const mem = path.join(tmp, 'MEMORY.md');
+    const mem = path.join(proj, 'MEMORY.md');
     fs.writeFileSync(mem, '# m\n');
     const r = runHook(TOUCH, JSON.stringify({ session_id: 'MD1', tool_input: { file_path: mem } }), tmp);
     assert.equal(r.status, 0);
@@ -986,6 +1004,7 @@ test('touch hook records a MEMORY.md edit as .memmoved marker, never into .touch
     assert.ok(!fs.existsSync(path.join(tmp, 'rot-canary-MD1.touched')), 'MEMORY.md never enters the code .touched list');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(proj, { recursive: true, force: true });
   }
 });
 
@@ -1042,5 +1061,70 @@ test('memoryDriftNudge:false silences the drift line but not the scan nudge', ()
     assert.ok(!r.stdout.includes('memoryDriftNudge'), 'config off-switch silences the drift line');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// ---- os.tmpdir() scratch-space exclusion (2026-07-25, dogfood-found) ----
+// A long IC campaign writes one-shot harness .mjs files under the SESSION SCRATCHPAD,
+// which lives INSIDE os.tmpdir() — every Stop-scan nagged on them. The touch hook must
+// exclude anything under its own os.tmpdir() before recording, without excluding a real
+// project file that merely happens to live in the test sandbox's chosen TEMP dir.
+
+test('touch hook excludes a file living under the sandbox os.tmpdir() (scratchpad exclusion) — no .touched, no .memmoved', () => {
+  const tmp = mkTmp();
+  try {
+    // A watched-extension file directly under the hook's own os.tmpdir() (TEMP/TMP/TMPDIR
+    // all point at tmp) — the dogfood shape: a one-shot IC-campaign harness .mjs under
+    // the session scratchpad, which lives INSIDE os.tmpdir().
+    const scratch = path.join(tmp, 'harness.mjs');
+    fs.writeFileSync(scratch, 'x();\n');
+    const r1 = runHook(TOUCH, JSON.stringify({ session_id: 'TMPX1', tool_input: { file_path: scratch } }), tmp);
+    assert.equal(r1.status, 0);
+    assert.ok(!fs.existsSync(path.join(tmp, 'rot-canary-TMPX1.touched')), 'a tmpdir-resident code file must not be recorded');
+
+    // A MEMORY.md living under the same os.tmpdir() must not set .memmoved either —
+    // temp files count for nothing, including the drift-marker convention file.
+    const memInTmp = path.join(tmp, 'MEMORY.md');
+    fs.writeFileSync(memInTmp, '# scratch\n');
+    const r2 = runHook(TOUCH, JSON.stringify({ session_id: 'TMPX2', tool_input: { file_path: memInTmp } }), tmp);
+    assert.equal(r2.status, 0);
+    assert.ok(!fs.existsSync(path.join(tmp, 'rot-canary-TMPX2.memmoved')), 'a tmpdir-resident MEMORY.md must not set .memmoved');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('touch hook still records a normal project file living OUTSIDE os.tmpdir() (no-regression)', () => {
+  const tmp = mkTmp();
+  const proj = mkTmp(); // a project dir, sibling of the sandbox os.tmpdir() (tmp) — NOT nested inside it
+  try {
+    const real = path.join(proj, 'edited-real.mjs');
+    fs.writeFileSync(real, 'x();\n');
+    const r = runHook(TOUCH, JSON.stringify({ session_id: 'TMPX3', tool_input: { file_path: real } }), tmp);
+    assert.equal(r.status, 0);
+    const touched = path.join(tmp, 'rot-canary-TMPX3.touched');
+    assert.ok(fs.existsSync(touched), 'a project file outside os.tmpdir() is still recorded');
+    assert.ok(fs.readFileSync(touched, 'utf8').includes('edited-real.mjs'));
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(proj, { recursive: true, force: true });
+  }
+});
+
+test('touch hook does NOT exclude a sibling directory whose name merely PREFIXES the tmpdir path (e.g. "<tmp>X")', () => {
+  const tmp = mkTmp();
+  const sibling = tmp + 'X'; // same parent, NOT nested — "<tmp>X" textually starts with "<tmp>" but is a different dir
+  fs.mkdirSync(sibling, { recursive: true });
+  try {
+    const real = path.join(sibling, 'a.js');
+    fs.writeFileSync(real, 'x();\n');
+    const r = runHook(TOUCH, JSON.stringify({ session_id: 'TMPX4', tool_input: { file_path: real } }), tmp);
+    assert.equal(r.status, 0);
+    const touched = path.join(tmp, 'rot-canary-TMPX4.touched');
+    assert.ok(fs.existsSync(touched), 'a sibling dir sharing a string prefix with tmpdir must NOT be excluded');
+    assert.ok(fs.readFileSync(touched, 'utf8').includes('a.js'));
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(sibling, { recursive: true, force: true });
   }
 });

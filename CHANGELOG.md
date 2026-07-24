@@ -2,6 +2,11 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [3.12.2] - 2026-07-25
+
+### Fixed
+- **rot-canary no longer records/scans files living under `os.tmpdir()`.** Dogfood-found: a long IC campaign writes one-shot harness `.mjs` files under the session scratchpad, which sits INSIDE `os.tmpdir()` (`AppData/Local/Temp/claude/...`) — every Stop-scan nagged on them. `hooks/rot-canary-touch.js` now checks `normF` against `os.tmpdir()` (boundary-safe, case-insensitive on win32) right after resolving the edited path, BEFORE the MEMORY.md `.memmoved` marker branch and BEFORE the watched-extension gate — a tmpdir-resident file is recorded into neither `.touched` nor `.memmoved`. Scan-scope refinement, not a security boundary: lexical resolve-and-contain (no realpath) is correct here, since a missed symlinked-temp edge just means the file gets scanned (harmless). +3 hermetic tests in `hooks.test.mjs` (tmpdir-resident code + MEMORY.md excluded · a normal project file outside tmpdir still recorded · a sibling dir merely prefix-matching the tmpdir path is NOT wrongly excluded); 8 existing tests whose fixtures lived inside the sandbox's `os.tmpdir()` were relocated to a sibling project dir (`hooks.test.mjs`'s `runHook` gained an optional 5th `cwd` param, defaulting to the existing sandbox dir — every other call site unchanged).
+
 ## [3.12.1] - 2026-07-24
 
 ### Security
