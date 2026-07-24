@@ -2,6 +2,11 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [3.12.1] - 2026-07-24
+
+### Security
+- **[CodeQL js/insecure-temporary-file, alerts #55/#56] the `.memmoved` marker write hardened to an atomic `wx` create.** The v3.12.0 memory-drift marker used an `existsSync` pre-check + plain `writeFileSync` — a TOCTOU window, and a plain create can write through a pre-planted symlink. Now a single `writeFileSync(..., { flag: 'wx' })` (O_CREAT|O_EXCL): EEXIST = already recorded this session (swallowed, same idempotence), a symlink at the path is refused. The name stays sid-scoped flat tmp like the sibling `.touched`/`.smells` session state (session-UUID = unpredictable — the dismissed-FP class of the `.scanned` marker). Behavior identical; hermetic tests unchanged-green.
+
 ## [3.12.0] - 2026-07-24
 
 **MINOR** — the rot-canary Stop hook gains a memory-drift exit-gate advisory: a session that edited code but never touched MEMORY.md gets a one-line nudge before it ends.

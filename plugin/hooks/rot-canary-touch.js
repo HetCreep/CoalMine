@@ -214,8 +214,12 @@ function main() {
   // the extension gate returns — the stop hook's drift check reads it to decide
   // "code moved but MEMORY did not". Swept with the other rot-canary-* temp.
   if (path.basename(normF).toLowerCase() === 'memory.md') {
-    const mm = base + '.memmoved';
-    try { if (!fs.existsSync(mm)) fs.writeFileSync(mm, ''); } catch {}
+    // Atomic wx create (O_CREAT|O_EXCL): EEXIST = already recorded this session —
+    // swallowed by the catch. No existsSync pre-check (that was a TOCTOU window,
+    // js/insecure-temporary-file); wx also refuses to write through a pre-planted
+    // symlink. Name stays sid-scoped flat tmp like the sibling .touched/.smells
+    // state (the session-UUID makes it unpredictable — the dismissed-FP class).
+    try { fs.writeFileSync(base + '.memmoved', '', { flag: 'wx' }); } catch {}
     return; // .md is never in the watched code-extension set — nothing else to record
   }
 
