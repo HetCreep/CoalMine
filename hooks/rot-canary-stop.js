@@ -155,7 +155,7 @@ function detectLang() {
 // acknowledged, and sweep rot-canary-* files older than the configured age left
 // behind by sessions that never reached a second stop (crash/kill).
 function cleanupSession(base) {
-  for (const f of [base + '.touched', base + '.smells', base + '.scanned']) {
+  for (const f of [base + '.touched', base + '.smells', base + '.scanned', base + '.memmoved']) {
     try { fs.unlinkSync(f); } catch {}
   }
 }
@@ -231,6 +231,7 @@ function sweepStale(canaryActive) {
 const TRANSLATIONS = {
   en: {
     smellPrefix: '\n\nTripwires flagged at edit time:\n',
+    memoryDrift: '\n\nMemory-drift check: code changed this session but no MEMORY.md was updated — if this work is worth keeping, update the project MEMORY/status line + crystallize before ending. (Advisory; disable: memoryDriftNudge=false in .coalmine.json)',
     capNotice: '\n\n(Auto-scan capped at {N} files to prevent token leakage; remaining files can be scanned manually)',
     reason: (list, smellText) =>
       'Code-health auto-check (session end): code files were edited this session. Before stopping, ' +
@@ -240,6 +241,7 @@ const TRANSLATIONS = {
   },
   th: {
     smellPrefix: '\n\nสัญญาณเตือนความเสี่ยงที่พบขณะแก้ไข:\n',
+    memoryDrift: '\n\nตรวจ memory-drift: เซสชันนี้แก้โค้ดแต่ไม่มีการอัพเดต MEMORY.md — ถ้างานนี้ควรเก็บ ให้อัพเดต MEMORY/status line ของโปรเจกต์ + crystallize ก่อนจบ (advisory; ปิด: ตั้ง memoryDriftNudge=false ใน .coalmine.json)',
     capNotice: '\n\n(จำกัดการสแกนอัตโนมัติที่ {N} ไฟล์หลักเพื่อป้องกันโทเค็นรั่วไหล คุณสามารถสั่งสแกนไฟล์ที่เหลือแบบแมนวลได้)',
     reason: (list, smellText) =>
       'ระบบตรวจสอบสุขภาพโค้ดอัตโนมัติ (สิ้นสุดเซสชัน): มีการแก้ไขไฟล์โค้ดในเซสชันนี้ ก่อนที่คุณจะหยุดทำงาน ' +
@@ -249,6 +251,7 @@ const TRANSLATIONS = {
   },
   ja: {
     smellPrefix: '\n\n編集時に検出されたリスク警告:\n',
+    memoryDrift: '\n\nMemory-driftチェック: このセッションでコードが変更されましたが MEMORY.md は更新されていません — 保持すべき作業なら、終了前にプロジェクトの MEMORY/status line を更新してください。(参考情報; 無効化: .coalmine.json で memoryDriftNudge=false)',
     capNotice: '\n\n(トークン漏洩を防ぐため、自動スキャンは主要{N}ファイルに制限されています。残りのファイルは手動でスキャンできます)',
     reason: (list, smellText) =>
       'コードヘルス自動チェック（セッション終了）: このセッションでコードファイルが編集されました。終了する前に、' +
@@ -258,6 +261,7 @@ const TRANSLATIONS = {
   },
   zh: {
     smellPrefix: '\n\n编辑时标记的风险警告：\n',
+    memoryDrift: '\n\nMemory-drift 检查：本会话修改了代码但未更新 MEMORY.md — 若此工作值得保留，请在结束前更新项目的 MEMORY/status line。（仅提示；停用: 在 .coalmine.json 设 memoryDriftNudge=false）',
     capNotice: '\n\n(为防止 Token 泄露，自动扫描限制为前 {N} 个主要文件；其余文件可手动扫描)',
     reason: (list, smellText) =>
       '代码健康自动检查（会话结束）：此会话中编辑了代码文件。在停止之前，请运行 DEPTH=QUICK 的 rot-canary 技能，' +
@@ -267,6 +271,7 @@ const TRANSLATIONS = {
   },
   es: {
     smellPrefix: '\n\nAlertas de riesgo marcadas al editar:\n',
+    memoryDrift: '\n\nComprobación memory-drift: se modificó código en esta sesión pero no se actualizó MEMORY.md — si este trabajo merece conservarse, actualice el MEMORY/status line del proyecto antes de terminar. (Consultivo; desactivar: memoryDriftNudge=false en .coalmine.json)',
     capNotice: '\n\n(Escaneo automático limitado a {N} archivos para evitar fugas de tokens; los archivos restantes se pueden escanear manualmente)',
     reason: (list, smellText) =>
       'Autocomprobación de salud del código (fin de sesión): se editaron archivos de código en esta sesión. Antes de detenerse, ' +
@@ -396,13 +401,34 @@ function main() {
     }
   } catch {}
 
+  // Memory-drift exit-gate advisory (2026-07-24, FIRST CUT — scope flagged for board
+  // review, see CoalMine/MEMORY.md): code moved this session but no MEMORY.md edit was
+  // recorded (.memmoved marker, written by the touch hook) → append ONE advisory line
+  // to this same nudge. Guards: fires only when the project actually uses the
+  // MEMORY.md convention (a MEMORY.md exists at the project root — read-only
+  // existence probe, same access class as the root .coalmine.json read, Phoenix #10);
+  // silenced via .coalmine.json memoryDriftNudge:false (default ON). Advisory only —
+  // it RIDES this nudge, never blocks on its own. NAMED v1 ceilings: (a) a
+  // version-bump-only session (no watched code file) emits nothing; (b) the check is
+  // session-global, not per-repo; (c) it rides rot-canary auto mode (manual/off
+  // silence it too).
+  let driftText = '';
+  try {
+    const cfg = loadCfg();
+    if (!(cfg && cfg.memoryDriftNudge === false)
+        && !fs.existsSync(base + '.memmoved')
+        && fs.existsSync(path.join(findGitRoot(process.cwd()), 'MEMORY.md'))) {
+      driftText = t.memoryDrift || TRANSLATIONS.en.memoryDrift;
+    }
+  } catch {}
+
   // Acknowledgement marker — store the mtime of .touched when we started the check.
   try {
     fs.writeFileSync(scanned, String(touchedMtime), 'utf8');
   } catch {}
 
   const list = files.map((x) => '  - ' + x).join('\n');
-  const reason = t.reason(list, smellText) + capNoticeText;
+  const reason = t.reason(list, smellText) + capNoticeText + driftText;
 
   // AG mode (an event-name argv — ONLY the Antigravity template passes one; every
   // other platform invokes with no argv): the current AG engine (re-derived

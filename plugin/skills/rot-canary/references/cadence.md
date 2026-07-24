@@ -1,4 +1,4 @@
-<!-- coalmine: verified 2026-06-12 · revalidate 30d · definition file for rot-canary -->
+<!-- coalmine: verified 2026-07-23 · revalidate 30d · definition file for rot-canary -->
 # Rot-Canary — auto-cadence per platform
 
 Stop hook → auto QUICK scan on the session's touched files (report only). Platform support (verified Jun 2026; Antigravity re-verified 2026-07-12; Gemini + 5 new platforms added 2026-07-15 — response schemas honestly marked, see `platform-configs/hooks/README.md`):

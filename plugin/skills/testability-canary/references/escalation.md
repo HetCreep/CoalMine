@@ -1,4 +1,4 @@
-<!-- coalmine: verified 2026-06-12 · revalidate 30d · shared escalation detail for all canaries -->
+<!-- coalmine: verified 2026-07-23 · revalidate 30d · shared escalation detail for all canaries -->
 # Heavy-tier escalation — per-platform levers & durability
 
 Read this only before a **Heavy** run (deep fan-out). Light/Standard never need it.

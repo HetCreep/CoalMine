@@ -32,6 +32,11 @@
   // # Default value: auto
   "rotCanaryMode": "auto",
 
+  // ## Session-end advisory when code changed this session but no MEMORY.md was updated. Rides the rot-canary auto nudge (never fires standalone); needs a MEMORY.md at the project root to ever fire.
+  // # Setting type: Boolean
+  // # Default value: true
+  "memoryDriftNudge": true,
+
   // ## Maximum number of edited files allowed to be scanned automatically at session end.
   // # Setting type: Int32
   // # Default value: 10

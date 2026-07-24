@@ -30,6 +30,7 @@ export const CONFIG_SCHEMA = [
   { key: 'platformDefinitionRevalidateDays', type: 'int', min: 1, max: 3650, flags: ['-k'], help: 'Days before platform definitions are stale (default: 30)' },
   { key: 'disabledCanaries', type: 'strArr', lower: true, flags: ['-x', '--disable'], help: 'Comma-separated canaries to disable (or "all")' },
   { key: 'rotCanaryMode', type: 'enum', values: ['auto', 'manual', 'off'], flags: ['-m', '--mode'], help: 'rot-canary auto-scan mode (auto, manual, off)' },
+  { key: 'memoryDriftNudge', type: 'bool', flags: ['--memory-drift-nudge'], help: 'Session-end advisory when code changed this session but no MEMORY.md was updated (default: on; the advisory rides the rot-canary auto nudge)' },
   { key: 'autoFixMode', type: 'enum', values: ['interactive', 'safe', 'off'], flags: ['-f'], help: 'Default fix-mode behavior (interactive, safe, off)' },
   { key: 'updateMode', type: 'enum', values: ['ask', 'auto', 'remind', 'off'], flags: ['-u', '--update-mode'], help: 'Self-update behavior at session start (ask, auto, remind, off; default: ask)' },
   { key: 'updateCheckDays', type: 'int', min: 1, max: 365, flags: ['-p', '--update-days'], help: 'Days between self-update checks/reminders (default: 14)' },

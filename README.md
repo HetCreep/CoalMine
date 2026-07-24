@@ -164,6 +164,7 @@ Zero-config to start — and two config levels when you want them: a global `~/.
 | `language` | `auto` | Language for prompts and nudges (`auto` \| `en` \| `th` \| `ja` \| `zh` \| `es`) |
 | `enableConductor` | `true` | Master switch for rules injection at session start |
 | `rotCanaryMode` | `auto` | rot-canary session-end auto-scan (`auto` \| `manual` \| `off`) |
+| `memoryDriftNudge` | `true` | Session-end advisory when code changed but MEMORY.md didn't (needs a root MEMORY.md; advisory-only) |
 | `defaultTier` | `auto` | Force an execution tier (`Light` \| `Standard` \| `Heavy` \| `auto`) |
 | `disabledCanaries` | `[]` | Canaries to disable (e.g. `["rot-canary"]` or `["all"]`) |
 

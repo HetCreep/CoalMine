@@ -193,13 +193,13 @@ function main() {
   const baseDir = (typeof wsBase === 'string' && wsBase)
     || ((typeof input.cwd === 'string' && input.cwd) ? input.cwd : process.cwd());
   const normF = path.resolve(baseDir, f);
-  const watchedExts = getWatchedExtensions();
-  if (!watchedExts.has(path.extname(normF).toLowerCase())) return;
 
   // No session key → no consumer (the stop hook bails without one). Record nothing.
   // conversationId = the CURRENT AG spec's session field (re-derived 2026-07-23);
   // session_id (CC's documented core field) + camelCase sessionId stay as fallbacks.
   // MUST match the stop hook's chain — it reads the rot-canary-<sid> state keyed here.
+  // (Parsed BEFORE the code-extension gate since the memory-drift marker below
+  // needs it for non-code files too; a non-conforming sid still records nothing.)
   const sid = input.conversationId || input.session_id || input.sessionId;
   // Phoenix #10 (sandbox): allowlist the session_id so a traversal-shaped sid (e.g.
   // ../../etc/x) cannot escape os.tmpdir() via path.join. Non-conforming -> bail (fail-silent).
@@ -208,6 +208,19 @@ function main() {
   // evidence. The 2026-07-12 AG pilot's cadence DID fire, so real AG sids passed it).
   if (!sid || typeof sid !== 'string' || !/^[A-Za-z0-9_-]+$/.test(sid)) return;
   const base = path.join(os.tmpdir(), `rot-canary-${sid}`);
+
+  // Memory-drift exit-gate marker (2026-07-24): a MEMORY.md edit (any directory) is
+  // not a watched code extension, so record it as a 0-byte .memmoved marker BEFORE
+  // the extension gate returns — the stop hook's drift check reads it to decide
+  // "code moved but MEMORY did not". Swept with the other rot-canary-* temp.
+  if (path.basename(normF).toLowerCase() === 'memory.md') {
+    const mm = base + '.memmoved';
+    try { if (!fs.existsSync(mm)) fs.writeFileSync(mm, ''); } catch {}
+    return; // .md is never in the watched code-extension set — nothing else to record
+  }
+
+  const watchedExts = getWatchedExtensions();
+  if (!watchedExts.has(path.extname(normF).toLowerCase())) return;
   const touched = base + '.touched';
 
   let existing = [];

@@ -962,3 +962,85 @@ test('stop sweep collects conductor markers even when rot-canary is OFF — but 
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+// ---- Memory-drift exit-gate (2026-07-24 first cut) ----
+// A helper that plants a REAL code file + its .touched record so the stop hook's
+// existsSync filter passes, with the sandbox tmp as both TEMP and project root.
+function plantCodeSession(tmp, sid) {
+  const proj = path.join(tmp, 'proj');
+  fs.mkdirSync(proj, { recursive: true });
+  const code = path.join(proj, 'a.js');
+  fs.writeFileSync(code, 'x();\n');
+  fs.writeFileSync(path.join(tmp, `rot-canary-${sid}.touched`), code + '\n');
+  return code;
+}
+
+test('touch hook records a MEMORY.md edit as .memmoved marker, never into .touched', () => {
+  const tmp = mkTmp();
+  try {
+    const mem = path.join(tmp, 'MEMORY.md');
+    fs.writeFileSync(mem, '# m\n');
+    const r = runHook(TOUCH, JSON.stringify({ session_id: 'MD1', tool_input: { file_path: mem } }), tmp);
+    assert.equal(r.status, 0);
+    assert.ok(fs.existsSync(path.join(tmp, 'rot-canary-MD1.memmoved')), '.memmoved marker created');
+    assert.ok(!fs.existsSync(path.join(tmp, 'rot-canary-MD1.touched')), 'MEMORY.md never enters the code .touched list');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('stop hook appends the memory-drift advisory when code moved, project has MEMORY.md, and no .memmoved', () => {
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, 'MEMORY.md'), '# project memory\n'); // project root uses the convention
+    plantCodeSession(tmp, 'MD2');
+    const r = runHook(STOP, JSON.stringify({ session_id: 'MD2', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.ok(r.stdout.includes('memoryDriftNudge'), 'drift advisory line appended (key name appears in every language)');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('stop hook stays drift-silent when a MEMORY.md edit was recorded (.memmoved present)', () => {
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, 'MEMORY.md'), '# project memory\n');
+    plantCodeSession(tmp, 'MD3');
+    fs.writeFileSync(path.join(tmp, 'rot-canary-MD3.memmoved'), '');
+    const r = runHook(STOP, JSON.stringify({ session_id: 'MD3', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.ok(r.stdout.includes('rot-canary'), 'the scan nudge itself still fires');
+    assert.ok(!r.stdout.includes('memoryDriftNudge'), 'no drift line when memory moved this session');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('stop hook stays drift-silent when the project has no MEMORY.md convention', () => {
+  const tmp = mkTmp();
+  try {
+    plantCodeSession(tmp, 'MD4'); // no MEMORY.md at the sandbox project root
+    const r = runHook(STOP, JSON.stringify({ session_id: 'MD4', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.ok(r.stdout.includes('rot-canary'), 'the scan nudge itself still fires');
+    assert.ok(!r.stdout.includes('memoryDriftNudge'), 'no drift line on a project without MEMORY.md');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('memoryDriftNudge:false silences the drift line but not the scan nudge', () => {
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, 'MEMORY.md'), '# project memory\n');
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ memoryDriftNudge: false }), 'utf8');
+    plantCodeSession(tmp, 'MD5');
+    const r = runHook(STOP, JSON.stringify({ session_id: 'MD5', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.ok(r.stdout.includes('rot-canary'), 'the scan nudge itself still fires');
+    assert.ok(!r.stdout.includes('memoryDriftNudge'), 'config off-switch silences the drift line');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});

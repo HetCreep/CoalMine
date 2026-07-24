@@ -2,6 +2,17 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [3.12.0] - 2026-07-24
+
+**MINOR** — the rot-canary Stop hook gains a memory-drift exit-gate advisory: a session that edited code but never touched MEMORY.md gets a one-line nudge before it ends.
+
+### Added
+- **Memory-drift exit-gate advisory** (`hooks/rot-canary-touch.js` + `hooks/rot-canary-stop.js`): the touch hook records a MEMORY.md edit (any directory, basename match) as a 0-byte `.memmoved` marker — parsed BEFORE the watched-code-extension gate so a non-code MEMORY.md edit is still caught, behavior-neutral to the existing `.touched`/`.smells` recording. At session end, if code moved this session and no `.memmoved` marker exists, the Stop hook appends ONE localized advisory line (all 5 languages) to the existing rot-canary scan nudge. Three guards keep it a true advisory: **(1)** it fires only when the project actually uses the MEMORY.md convention — a read-only existence probe for `<gitroot>/MEMORY.md` (Phoenix #10, same access class as the root `.coalmine.json` read); **(2)** the new `memoryDriftNudge` config key (default `true`) is a standing off-switch; **(3)** it RIDES the existing scan nudge — it never fires standalone, and it never blocks on its own (on Antigravity the Stop hook still emits the no-op `{}`; nothing new blocks there). NAMED v1 limitations, tracked for a future cut, not fixed here: a version-bump-only session (no watched code file touched) emits nothing; the check is session-global, not per-repo; it rides rot-canary's `auto` mode (`manual`/`off` silence it too, same as the base nudge). +5 hermetic tests in `hooks.test.mjs`.
+- **`memoryDriftNudge` config key** (`config-schema.mjs`, `platform-configs/.coalmine.json`, README Configure table): boolean, default `true` — the off-switch for the advisory above.
+
+### Fixed
+- `skills/rot-canary/references/cadence.md` and `skills/_shared/references/escalation.md` freshness stamps refreshed `verified 2026-06-12` → `verified 2026-07-23` (re-read against current hook behavior; no content drift found beyond the stamp).
+
 ## [3.11.4] - 2026-07-23
 
 ### Fixed
