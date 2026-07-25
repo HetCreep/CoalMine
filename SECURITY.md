@@ -14,7 +14,7 @@ To report a security issue in a canary, hook, or installer:
 
 ## 🔑 Commit & Tag Signatures
 
-Every **release tag** and **maintainer commit** is SSH-signed (`gpg.format=ssh`); GitHub shows the Verified badge on them. Automated **Dependabot / CI** commits are unsigned by design (they carry no maintainer key), so verify a signed **release tag** — the artifact a release consumer trusts:
+Every **release tag** and **maintainer commit** is SSH-signed (`gpg.format=ssh`); GitHub shows the Verified badge on them. Automated **Dependabot / CI** commits are not signed with the maintainer key (GitHub signs these with its own), so verify a signed **release tag** — the artifact a release consumer trusts:
 ```bash
 echo "* ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEtqTWGKhX1Dk9nZP8ns13Wl5zsO1Cz3VlTS6m1p2fP9" > coalmine_signers
 git config gpg.ssh.allowedSignersFile ./coalmine_signers
@@ -45,7 +45,7 @@ CoalMine is evaluated against [NVIDIA SkillSpector](https://github.com/NVIDIA/sk
   * `HIGH · AS1 Agent Snooping` (`commands/stats.md:12`) — a read-only `grep` of the project's own rules home for CoalMine's freshness stamps; the command ends "Do not modify any file."
   * `HIGH · P2 Hidden Instructions` (`skills/gold-standard/references/method.md:1`, confidence 0.21) — the metadata rule-freshness stamp (an instruction-shaped HTML comment carrying no command or exfil directive).
   * `MED · EA2 Autonomous Decision` (`skills/gold-standard/SKILL.md:28`) — the line reads "...**never** assume approval"; the scanner matched the substring "assume approval" and missed the "never." The `ask_question` gate is the opposite of acting without confirmation.
-  * `MED · RA2 Session Persistence` (`hooks/rot-canary-stop.js:160`) — the stop-hook session temp file (written to `tmpdir`, deleted on stop) plus the flagged text itself: the USER's documented opt-out ("Disable: create `~/.claude/.rot-canary-off`") — a kill-switch, not an OS-persistence mechanism.
+  * `MED · RA2 Session Persistence` (`hooks/rot-canary-stop.js:240`) — the stop-hook session temp file (written to `tmpdir`, deleted on stop) plus the flagged text itself: the USER's documented opt-out ("Disable: create `~/.claude/.rot-canary-off`") — a kill-switch, not an OS-persistence mechanism.
 * **Method:** `uvx --from git+https://github.com/NVIDIA/skillspector.git skillspector scan <plugin> --format json` — uvx fetches its own ephemeral Python, so no manual Python/pip install is needed; a JSON report is written even when the optional LLM stage is skipped.
 * **LLM Semantic Scan:** not run this pass (`--no-llm` — static-only is the documented, FP-prone baseline: pattern-match without the skill-contract context).
 

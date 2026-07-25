@@ -13,7 +13,7 @@
 ![skills](https://img.shields.io/badge/skills-9-success)
 
 ![Claude Code](https://img.shields.io/badge/Claude_Code-validated-brightgreen)
-![Antigravity](https://img.shields.io/badge/Antigravity-validated-brightgreen)
+![Antigravity](https://img.shields.io/badge/Antigravity-validated_canaries_·_wired_auto--cadence-brightgreen)
 ![Cursor](https://img.shields.io/badge/Cursor-works_with-blue)
 ![Codex](https://img.shields.io/badge/Codex-works_with-blue)
 ![Gemini CLI](https://img.shields.io/badge/Gemini_CLI-works_with-blue)
@@ -195,7 +195,7 @@ Canaries report in a lean shape (one-line verdict + severity table of confirmed 
 
 ## 📊 Benchmark
 
-**Headline (measured 2026-07-03, skill v3.8.4):** 7 canaries measured over 82 planted-defect fixtures × 4 engines (Claude Fable 5 / Opus 4.8 / Sonnet 5 / Haiku 4.5 + Gemini 3.5 Flash), K=3-5 repeated runs per arm — **recall at 100% on 6 of 7 suites for every engine · zero decoy false alarms across the entire batch (~200 clean-file opportunities)** · drift-canary is the discriminating suite (88% median — engines find every planted disagreement but split on which side is authoritative).
+**Headline (measured 2026-07-03, skill v3.8.4):** 7 canaries measured over 82 fixtures (60 planted defects + 22 clean decoys) × 4 engines (Claude Fable 5 / Opus 4.8 / Sonnet 5 + Gemini 3.5 Flash), K=3-5 repeated runs per arm — **recall at 100% on 5 of 7 suites for every engine · zero decoy false alarms across the entire batch (~200 clean-file opportunities)** · the two suites that separate engines are drift-canary (88% median — engines split on which side is authoritative) and rot-canary (92% median on opus/haiku/AG — the one item needs whole-file reachability reasoning).
 
 Each canary is measured AV-Comparatives-style — recall, precision, decoy false-positives, and severity accuracy over fixed fixture corpora, scored mechanically, cross-engine, with repeated runs (flips extend K per the locked methodology). **Honest scope:** small, dated samples authored in-project — a regression floor, not an independent benchmark; re-run on model/skill changes.
 

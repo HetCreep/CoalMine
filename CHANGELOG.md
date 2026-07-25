@@ -2,6 +2,21 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [3.12.4] - 2026-07-25
+
+**PATCH** — a pattern-conform pass: doc claims re-grounded against the code, and one gold-standard rationale paragraph moved out of the always-loaded SKILL.md body. No behavior change in any hook or script.
+
+### Changed
+- **`skills/gold-standard/SKILL.md` FILL step slimmed — the 30d/90d RATIONALE moved to `references/method.md`** (skill-authoring §5: a rail stays in the always-loaded body, an explanation moves to the on-demand reference). The rail is intact and inline — stamp each rule, 30d for fast-moving surfaces, 90d for general engineering, advisory EVENT re-validates before the calendar — while the *why* (which surfaces ship weekly-to-daily; that 90d is stricter than OWASP ~4y and NIST/FISMA annual; that the 30d stamp is only the Dependabot-pattern staleness backstop) now lives in the reference behind a four-word pointer. Shipped `plugin/` dist rebuilt to match.
+
+### Fixed
+- **`CONTRIBUTING.md` no longer claims `consistency.mjs` is part of the automatic gate.** The installer wires `verify.mjs` + the `node --test` suite into `.git/hooks`; `consistency.mjs` is a separate on-demand check. Corrected in BOTH places that asserted it (the git-hooks paragraph and the release checklist), and the gate code-block gained the `node scripts/test.mjs` line it was missing — the block listed build/verify/consistency but omitted the one command CI actually runs. Project Layout gained the undocumented `commands/` and `alt/` rows, and the dev prerequisite is now **Node 22+**, matching the CI matrix (22/24 — 18/20 are EOL and untested).
+- **`SECURITY.md` SkillSpector line-reference re-synced** — the `RA2 Session Persistence` finding pointed at `hooks/rot-canary-stop.js:160`, which the v3.12.x hook edits had left on an unrelated line; it now points at `:240`, the flagged opt-out text itself. **A line-ref re-sync, NOT a re-scan** — the scan version/score pin is deliberately untouched (a pin lagging the ship version is by design; re-scan only on a new SkillSpector version).
+- **`SECURITY.md` commit-signing wording corrected** — Dependabot/CI commits were described as "unsigned by design", which is wrong: GitHub signs them with its own key, not the maintainer key. The verify-the-release-tag instruction is unchanged.
+- **README Antigravity badge no longer overclaims** — `validated` became `validated canaries · wired auto-cadence`, matching the honest tier split already documented in the compat matrix (the canaries are validated on Antigravity; the hook-driven auto-cadence is wired, not yet confirmed end-to-end in a live AG session).
+- **`ci.yml` `setup-node` version comment** corrected `# v6` → `# v7.0.0` to match the pinned SHA (comment only — the 40-char SHA pin is unchanged).
+- **README benchmark headline corrected — four figures were wrong against `RESULTS.md`** (found by the org-level benchmark deputy's ingest audit, SWEEP-MARKS Event-1 mark 2, wrong for 16 days). "100% on 6 of 7 suites" → **5 of 7** (rot-canary's own median is 92% on opus/haiku/AG, not 100% — `RESULTS.md:19-24`). "drift-canary is *the* discriminating suite" → **drift-canary and rot-canary** are the two that separate engines (`RESULTS.md:119` names rot-canary's `f01:5` "the original discriminator"). "82 planted-defect fixtures" → **60 planted defects + 22 clean decoys** (all 82 were mislabeled as planted; counted directly from `fixtures/`, the ground truth over `RESULTS.md`'s own slightly-off corpus-size prose). "4 engines" listing 5 names → **Haiku 4.5 dropped** from the list (it ran only the original rot-canary benchmark, not the 7-canary matrix, which has exactly 4 columns — `RESULTS.md:92`). Now matches the org landing's framing (`profile/README.md:81`), which was already correct — the 2026-07-09 landing sweep fixed that surface and never touched this one, since `verify-landing.mjs` can't see across repos.
+
 ## [3.12.3] - 2026-07-25
 
 ### Changed

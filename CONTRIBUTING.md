@@ -14,17 +14,18 @@ CoalMine is the 9-canary quality-safeguard suite of the [TheColliery](https://gi
 
 ## 💻 Developing & Testing
 
-CoalMine is **zero-dependency** (Node.js built-ins only, Node 18+). No `npm install` is required.
+CoalMine is **zero-dependency** (Node.js built-ins only, Node 22+). No `npm install` is required.
 
 Keep the gates green before and after editing:
 
 ```bash
 node scripts/build-plugin.mjs   # re-inject the _shared regions into each skill + rebuild plugin/
 node scripts/verify.mjs         # validate config, plugin sync, and version pins
-node scripts/consistency.mjs    # cross-doc counts, doctrine mirrors, well-formed stamps
+node scripts/test.mjs           # zero-dep unit + hermetic hook tests (node --test)
+node scripts/consistency.mjs    # cross-doc counts, doctrine mirrors, well-formed stamps — on-demand, not gated
 ```
 
-The installer wires `verify.mjs`, `consistency.mjs`, and the `node --test` unit suite into `.git/hooks` (pre-commit + pre-push), so a clone that ran `scripts/install.mjs` runs them on every commit.
+The installer wires `verify.mjs` and the `node --test` unit suite into `.git/hooks` (pre-commit + pre-push), so a clone that ran `scripts/install.mjs` runs them on every commit. `consistency.mjs` is a separate on-demand check (cross-doc counts, doctrine mirrors, stamp formats) — run it yourself before a big rule/doc change; it is not part of the automatic gate.
 
 ### Development Rules
 * **`skills/_shared/` is the Single Source of Truth** for shared blocks (language header, escalation footer, orchestration). Edit there, then run `node scripts/build-plugin.mjs` to re-inject; never hand-edit the generated regions inside a skill.
@@ -51,16 +52,18 @@ The installer wires `verify.mjs`, `consistency.mjs`, and the `node --test` unit 
 | `skills/<canary>/SKILL.md` | The 9 canary skills (the audits). |
 | `skills/_shared/` | Shared blocks injected into each skill at build time. |
 | `hooks/` | Phoenix-pure lifecycle hooks (rot-canary auto-scan, conductor). |
+| `commands/` | Slash-commands (`/coalmine:stats`, `/coalmine:update`). |
 | `scripts/` | `build-plugin`, `verify`, `consistency`, `install`, `configure` + `lib/`. |
 | `plugin/` | Generated Claude Code plugin distribution. |
 | `platform-configs/` | Per-agent install templates + manual hook snippets. |
+| `alt/` | PowerShell fallback hooks for Node-less Windows setups. |
 | `agents/coalmine-scanner.md` | Read-only scan worker for Heavy-tier fan-out. |
 
 ---
 
 ## 🚀 Releasing (Maintainers)
 
-Bump the version in `.claude-plugin/plugin.json` → add a `CHANGELOG.md` entry → ensure `verify.mjs`, `consistency.mjs`, and the test suite pass → commit → create a signed git tag (`vX.Y.Z`) → push `--follow-tags` → publish a GitHub Release for the stable tag.
+Bump the version in `.claude-plugin/plugin.json` → add a `CHANGELOG.md` entry → ensure `verify.mjs` and the test suite pass (run `node scripts/consistency.mjs` too — on-demand, not gated, but cheap insurance before a release) → commit → create a signed git tag (`vX.Y.Z`) → push `--follow-tags` → publish a GitHub Release for the stable tag.
 
 ---
 
