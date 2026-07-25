@@ -173,6 +173,14 @@ Full key reference: every key + default lives in [`scripts/lib/config-schema.mjs
 
 ---
 
+## Permissions
+
+CoalMine asks for the least it needs: **read** (main + spawned scan workers, repo-scoped) · **exec** for read-only probes only (build `--dry`, lint, dead-code checks) · **scratch-write** confined to `os.tmpdir()` session state and one `~/.claude` update-check stamp · **ask** before any fix or spend. It never requests target-file writes or deletes, and its hooks/scripts never touch the network on their own — a canary's own web check (source-grounding, CVE lookups) is the agent's own judgment call through its normal tools, not a CoalMine background call. A spawned scan worker gets strictly less than the orchestrator: no spawn power of its own, no write/delete tools, no prompts to the user. Hooks auto-wire on Claude Code and carry a tested Antigravity 2.0 contract on the same files — capability-keyed, never a hardcoded platform list.
+
+Full series matrix + the must-fail set: [Permission Matrix](https://github.com/TheColliery/.github/blob/main/PERMISSION-MATRIX.md)
+
+---
+
 ## 📝 Ultra-Short Summary Format
 
 Canaries report in a lean shape (one-line verdict + severity table of confirmed findings) to save tokens:
