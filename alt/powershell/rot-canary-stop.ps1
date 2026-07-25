@@ -1,6 +1,10 @@
 # Code-Health Tier 2 (Stop)
 # At a natural stop, if code was edited this session, nudge the agent to run /rot-canary QUICK
 # on the touched files. Loop-guarded (stop_hook_active), one-shot per edit-batch, kill-switchable.
+# NAMED DIVERGENCE from the Node twin (deliberate, not a port gap): this fallback covers the
+# code-rot SCAN only — it has neither the quiet memory-drift advisory (v3.12.0/v3.12.3, which
+# rides a Stop JSON channel this English-only text nudge does not emit) nor the os.tmpdir()
+# scratch-space exclude (v3.12.2). A Node-less box gets the scan; the rest stays Node-only.
 $ErrorActionPreference = 'SilentlyContinue'
 
 function Get-RcMode {

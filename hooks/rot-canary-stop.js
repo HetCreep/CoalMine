@@ -356,62 +356,27 @@ function main() {
   try {
     files = [...new Set(fs.readFileSync(touched, 'utf8').split('\n').filter(Boolean).map((x) => path.normalize(x)))];
   } catch { return; }
-  // Drop lines that aren't real paths (corrupt/garbage .touched content).
-  files = files.filter(fs.existsSync);
-  if (!files.length) return;
+  if (!files.length) return; // no recorded edit → nothing moved this session
 
   const lang = detectLang();
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
 
-  let fileCap = 10;
-  let fileCapSlice = 5;
-  try {
-    const cfg = loadCfg();
-    // Clamp at read time to a positive integer — the schema bound (min:1) is enforced
-    // only by verify.mjs over the factory config, never at hook read time. Without this,
-    // {0} emits an empty-list nudge and {-1}/non-int silently drops the last touched file.
-    if (cfg && typeof cfg.autoScanFileCap === 'number') {
-      fileCap = Math.max(1, Math.floor(cfg.autoScanFileCap));
-    }
-    if (cfg && typeof cfg.autoScanFileCapSlice === 'number') {
-      fileCapSlice = Math.max(1, Math.floor(cfg.autoScanFileCapSlice));
-    }
-  } catch {}
+  // The loud scan report can only target files that STILL EXIST; a file edited then
+  // deleted this session (or a corrupt/garbage line) drops out of it. `files`
+  // (recorded) still counts as "code moved" for the memory-drift check below;
+  // `extant` gates the scan report. Empty extant with drift = the quiet-only case.
+  const extant = files.filter(fs.existsSync);
 
-  let capNoticeText = '';
-  if (files.length > fileCap) {
-    // Sort by mtime (newest first) and slice to protect the token budget —
-    // one stat per file, not one per comparison.
-    const mtimes = new Map();
-    for (const f of files) { try { mtimes.set(f, fs.statSync(f).mtimeMs); } catch { mtimes.set(f, 0); } }
-    files.sort((a, b) => mtimes.get(b) - mtimes.get(a));
-    files = files.slice(0, fileCapSlice);
-    capNoticeText = (t.capNotice || '').replace('{N}', String(fileCapSlice));
-  } else {
-    files.sort();
-  }
-
-  let smellText = '';
-  try {
-    if (fs.existsSync(base + '.smells')) {
-      const sm = [...new Set(fs.readFileSync(base + '.smells', 'utf8').split('\n').filter(Boolean))].sort();
-      if (sm.length) {
-        smellText = t.smellPrefix + sm.map((x) => '  ' + x).join('\n');
-      }
-    }
-  } catch {}
-
-  // Memory-drift exit-gate advisory (2026-07-24, FIRST CUT — scope flagged for board
-  // review, see CoalMine/MEMORY.md): code moved this session but no MEMORY.md edit was
-  // recorded (.memmoved marker, written by the touch hook) → append ONE advisory line
-  // to this same nudge. Guards: fires only when the project actually uses the
-  // MEMORY.md convention (a MEMORY.md exists at the project root — read-only
-  // existence probe, same access class as the root .coalmine.json read, Phoenix #10);
-  // silenced via .coalmine.json memoryDriftNudge:false (default ON). Advisory only —
-  // it RIDES this nudge, never blocks on its own. NAMED v1 ceilings: (a) a
-  // version-bump-only session (no watched code file) emits nothing; (b) the check is
-  // session-global, not per-repo; (c) it rides rot-canary auto mode (manual/off
-  // silence it too).
+  // Memory-drift exit-gate — QUIET, non-reporting (revamped v3.12.3; USER: "it's NOT
+  // a canary, it should NOT display and report"). It never rides the loud rot scan
+  // report: no severity table, no "invoke rot-canary skill", no fix menu, no blocking
+  // Stop. Detection is UNCHANGED — a recorded code edit this session with no MEMORY.md
+  // edit (.memmoved absent) — gated by the project using the MEMORY.md convention (root
+  // MEMORY.md exists; read-only probe, Phoenix #10) and the memoryDriftNudge off-switch
+  // (default ON). At emit the note rides the QUIET model-only additionalContext channel,
+  // decoupled from the scan report; a drift-only stop surfaces it alone (no block).
+  // NAMED ceiling: the check is SESSION-GLOBAL, not per-repo — a MEMORY.md edit in ANY
+  // repo satisfies the drift check for a code edit in another.
   let driftText = '';
   try {
     const cfg = loadCfg();
@@ -422,25 +387,74 @@ function main() {
     }
   } catch {}
 
-  // Acknowledgement marker — store the mtime of .touched when we started the check.
+  // Nothing extant to scan AND no drift → nothing to surface this stop.
+  if (!extant.length && !driftText) return;
+
+  // ---- Loud scan report (UNCHANGED) — built only when files still exist on disk ----
+  let reason = '';
+  if (extant.length) {
+    let scan = extant;
+    let fileCap = 10;
+    let fileCapSlice = 5;
+    try {
+      const cfg = loadCfg();
+      // Clamp at read time to a positive integer — the schema bound (min:1) is enforced
+      // only by verify.mjs over the factory config, never at hook read time. Without this,
+      // {0} emits an empty-list nudge and {-1}/non-int silently drops the last touched file.
+      if (cfg && typeof cfg.autoScanFileCap === 'number') {
+        fileCap = Math.max(1, Math.floor(cfg.autoScanFileCap));
+      }
+      if (cfg && typeof cfg.autoScanFileCapSlice === 'number') {
+        fileCapSlice = Math.max(1, Math.floor(cfg.autoScanFileCapSlice));
+      }
+    } catch {}
+
+    let capNoticeText = '';
+    if (scan.length > fileCap) {
+      // Sort by mtime (newest first) and slice to protect the token budget —
+      // one stat per file, not one per comparison.
+      const mtimes = new Map();
+      for (const f of scan) { try { mtimes.set(f, fs.statSync(f).mtimeMs); } catch { mtimes.set(f, 0); } }
+      scan.sort((a, b) => mtimes.get(b) - mtimes.get(a));
+      scan = scan.slice(0, fileCapSlice);
+      capNoticeText = (t.capNotice || '').replace('{N}', String(fileCapSlice));
+    } else {
+      scan.sort();
+    }
+
+    let smellText = '';
+    try {
+      if (fs.existsSync(base + '.smells')) {
+        const sm = [...new Set(fs.readFileSync(base + '.smells', 'utf8').split('\n').filter(Boolean))].sort();
+        if (sm.length) {
+          smellText = t.smellPrefix + sm.map((x) => '  ' + x).join('\n');
+        }
+      }
+    } catch {}
+
+    const list = scan.map((x) => '  - ' + x).join('\n');
+    reason = t.reason(list, smellText) + capNoticeText;
+  }
+
+  // Acknowledgement marker — store the mtime of .touched when we started the check
+  // (so a later stop in this batch re-surfaces neither the scan nor the drift note).
   try {
     fs.writeFileSync(scanned, String(touchedMtime), 'utf8');
   } catch {}
 
-  const list = files.map((x) => '  - ' + x).join('\n');
-  const reason = t.reason(list, smellText) + capNoticeText + driftText;
-
-  // AG mode (an event-name argv — ONLY the Antigravity template passes one; every
-  // other platform invokes with no argv): the current AG engine (re-derived
-  // 2026-07-23) documents NO Stop-output inject channel — the pilot-era
-  // {"additionalContext"} key is a DEAD LETTER (0 engine hits), and an unknown
-  // key risks protojson rejecting the whole payload. Emit the explicit no-op `{}`
-  // (the valid empty output); the side effects above (ack marker + stale sweep)
-  // still run, and AG users reach the findings via the manual /rot-canary path.
-  // CoalMine never blocks on AG.
-  process.stdout.write(process.argv[2]
-    ? '{}\n'
-    : JSON.stringify({ decision: 'block', reason }));
+  // Emit. AG mode (an event-name argv — ONLY the Antigravity template passes one):
+  // the current AG engine (re-derived 2026-07-23) documents NO Stop-output inject
+  // channel, so emit the explicit no-op `{}` (the side effects above still ran; AG
+  // users reach findings via the manual /rot-canary path — CoalMine never blocks on
+  // AG). On CC: the scan report rides the loud blocking `reason`; the memory-drift
+  // reminder rides the QUIET model-only hookSpecificOutput.additionalContext (a field
+  // in the same sanctioned Stop JSON block, never the loud block, never a fix menu). A
+  // drift-only stop (no extant files) emits the quiet note ALONE, with no decision:block.
+  if (process.argv[2]) { process.stdout.write('{}\n'); return; }
+  const out = {};
+  if (reason) { out.decision = 'block'; out.reason = reason; }
+  if (driftText) { out.hookSpecificOutput = { hookEventName: 'Stop', additionalContext: driftText.trim() }; }
+  process.stdout.write(JSON.stringify(Object.keys(out).length ? out : {}));
 }
 
 try { main(); } catch {}

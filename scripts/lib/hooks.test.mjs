@@ -987,7 +987,7 @@ test('stop sweep collects conductor markers even when rot-canary is OFF — but 
   }
 });
 
-// ---- Memory-drift exit-gate (2026-07-24 first cut) ----
+// ---- Memory-drift exit-gate (session-end hygiene surface) ----
 // A helper that plants a REAL code file + its .touched record so the stop hook's
 // existsSync filter passes, with the sandbox tmp as both TEMP and project root.
 function plantCodeSession(tmp, sid) {
@@ -1015,14 +1015,44 @@ test('touch hook records a MEMORY.md edit as .memmoved marker, never into .touch
   }
 });
 
-test('stop hook appends the memory-drift advisory when code moved, project has MEMORY.md, and no .memmoved', () => {
+test('stop hook routes the memory-drift note to the QUIET additionalContext channel, decoupled from the loud scan report', () => {
   const tmp = mkTmp();
   try {
     fs.writeFileSync(path.join(tmp, 'MEMORY.md'), '# project memory\n'); // project root uses the convention
     plantCodeSession(tmp, 'MD2');
     const r = runHook(STOP, JSON.stringify({ session_id: 'MD2', stop_hook_active: false }), tmp);
     assert.equal(r.status, 0);
-    assert.ok(r.stdout.includes('memoryDriftNudge'), 'drift advisory line appended (key name appears in every language)');
+    const out = JSON.parse(r.stdout);
+    // The loud scan report is UNCHANGED: still a blocking reason that invokes rot-canary.
+    assert.equal(out.decision, 'block', 'scan report still blocks');
+    assert.ok(out.reason.includes('rot-canary'), 'scan report still asks to invoke rot-canary');
+    assert.ok(!out.reason.includes('memoryDriftNudge'), 'drift note is NOT welded into the loud report');
+    // The drift note rides the QUIET model-only additionalContext channel, decoupled...
+    assert.ok(out.hookSpecificOutput && out.hookSpecificOutput.additionalContext.includes('memoryDriftNudge'),
+      'drift note lands in the quiet additionalContext channel');
+    // ...as a soft reminder, carrying no scan / fix-menu framing of its own.
+    assert.ok(!out.hookSpecificOutput.additionalContext.includes('DEPTH=QUICK'), 'quiet note carries no scan/fix-menu framing');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('stop hook drift-only case (code edited then deleted, no MEMORY update) emits ONLY the quiet note, no loud scan block', () => {
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, 'MEMORY.md'), '# project memory\n');
+    // Record a code edit whose file no longer exists at stop time (edited then deleted) —
+    // "code moved" for the drift check, but nothing extant to scan → no loud report.
+    const ghost = path.join(tmp, 'proj', 'gone.js');
+    fs.writeFileSync(path.join(tmp, 'rot-canary-MD6.touched'), ghost + '\n');
+    const r = runHook(STOP, JSON.stringify({ session_id: 'MD6', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.decision, undefined, 'no blocking decision when the only signal is drift');
+    assert.equal(out.reason, undefined, 'no loud scan report when nothing extant to scan');
+    assert.ok(out.hookSpecificOutput && out.hookSpecificOutput.additionalContext.includes('memoryDriftNudge'),
+      'the quiet drift note is emitted alone');
+    assert.ok(!r.stdout.includes('DEPTH=QUICK'), 'no scan/fix-menu framing anywhere');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

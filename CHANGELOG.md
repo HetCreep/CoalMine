@@ -2,6 +2,11 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [3.12.3] - 2026-07-25
+
+### Changed
+- **The memory-drift exit-gate (v3.12.0) is now QUIET and non-reporting — it is not a canary finding and no longer rides the loud rot-canary scan report.** It was welded into the blocking Stop `reason` (which triggers the scan + fix-menu); it now rides the QUIET model-only `hookSpecificOutput.additionalContext` channel instead — no severity table, no "invoke rot-canary skill", no fix menu, no blocking Stop of its own. The loud code-scan report is UNCHANGED (still blocks on the touched files when they still exist). Decoupling: the scan report keys off files that still EXIST at stop time, the drift check keys off the recorded-edit fact — so a session that edited code, deleted it, and never updated MEMORY.md surfaces ONLY the quiet note, no loud block. Detection + guards unchanged (`memoryDriftNudge` off-switch default `true`, root-`MEMORY.md`-exists probe, fires only when code moved and no `.memmoved` was recorded). `hooks/rot-canary-stop.js` restructured; memory-drift hermetic tests updated (drift lands in the quiet channel; a drift-only stop emits the quiet note alone). On Antigravity the Stop hook still emits the no-op `{}` (no Stop inject channel there, so drift is silent on AG).
+
 ## [3.12.2] - 2026-07-25
 
 ### Fixed

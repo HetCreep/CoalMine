@@ -32,7 +32,7 @@
   // # Default value: auto
   "rotCanaryMode": "auto",
 
-  // ## Session-end advisory when code changed this session but no MEMORY.md was updated. Rides the rot-canary auto nudge (never fires standalone); needs a MEMORY.md at the project root to ever fire.
+  // ## Quiet session-end advisory when code changed this session but no MEMORY.md was updated. Not part of the rot-canary scan report and never blocks; needs a MEMORY.md at the project root to ever fire (and shares rot-canary's auto mode gate).
   // # Setting type: Boolean
   // # Default value: true
   "memoryDriftNudge": true,
