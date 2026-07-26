@@ -188,6 +188,79 @@ function isUnderTmpdir(absPath) {
   return p === t || p.startsWith(t + path.sep);
 }
 
+// Size-tripwire exemptions (coding-style.md amended 2026-07-26): 800 is a review
+// SIGNAL, not a cap — the finding is an UNDECLARED over-run. A source file
+// crossing tripwireMaxLines with a top-of-file declaration comment is compliant,
+// and test files are out of scope entirely (their cohesion unit is the module
+// under test). Neither exemption touches the merge-conflict tripwire or the
+// .touched recording — the stop-scan still sees the file.
+//
+// A declaration = a head-of-file comment naming a marker + a line count:
+//   // ponytail: <N> lines at declaration — <why splitting would reduce cohesion>
+// `waiver:` is accepted alongside `ponytail:` — the tree reached for that word
+// independently before the rule existed (scripts/lib/hooks.test.mjs:6). The N is
+// HISTORY, not a live claim — deliberately NOT compared to the current count (a
+// drifted number must not reopen the finding; that re-sync churn is what the
+// amendment killed). Head-bounded: "top-of-file" per the rule, and a mid-file
+// ponytail comment that happens to say "<N> lines" about something else must not
+// silence the tripwire (deepest real declaration in the flock sits at the end of
+// a header block — CoalLedger md-ast.mjs; re-derive with grep, don't trust a
+// pinned line number here).
+//
+// LOOSE ON PURPOSE, and the boundary is measured, not assumed: this pattern also
+// matches prose that merely mentions a line count (`/* ponytail: dropped 900
+// lines of dead code */`, or that text inside a string literal) — both silence
+// the tripwire, verified by probe. Tightening to the rule's literal
+// `<N> lines at declaration` form would re-break every declaration the flock
+// already wrote, INCLUDING hooks.test.mjs:6, which is the exact cry-wolf case
+// this exemption exists to fix — so the looseness is accepted, not overlooked.
+// The property that holds instead, and is designed for: the literal `<N>` form
+// carries no digits, so the feature's OWN documentation cannot self-silence —
+// this comment, config-schema.mjs, the .coalmine.json template and the PS twin's
+// comment all still FLAG if they ever cross the cap (probe-verified).
+//
+// The 2048 slice is the ReDoS bound (mirrors STAMP_WINDOW in coalmine-conductor.js,
+// v3.7.9 CM-1): lazy `.*?` before `\d+` backtracks quadratically in LINE LENGTH, and
+// a poison line is reachable at shipped defaults — 100k digits + 801 short lines is
+// 99.2 KB, under the 100 KB tripwireMaxFileSizeKb cap. Measured through this hook:
+// 5424 ms unbounded vs 57 ms control; ~3 ms sliced. Phoenix #3 is ≤100 ms WITH a scan,
+// and this is a PostToolUse hook that re-runs on every edit to that file.
+const SIZE_DECLARATION_RE = /(?:ponytail|waiver):.*?\d+\s*lines/i;
+const SIZE_DECLARATION_HEAD = 30;
+const SIZE_DECLARATION_WINDOW = 2048; // no real declaration puts its digits past column 2048
+function hasSizeDeclaration(lines) {
+  const head = Math.min(lines.length, SIZE_DECLARATION_HEAD);
+  for (let i = 0; i < head; i++) {
+    if (SIZE_DECLARATION_RE.test(lines[i].slice(0, SIZE_DECLARATION_WINDOW))) return true;
+  }
+  return false;
+}
+
+// Test-file classifier — naming CONVENTIONS, not path identity: basename markers
+// (.test./.spec./test_/_test. and friends, delimiter-anchored so contest.js never
+// matches) plus test-directory segments, compared case-insensitively on every
+// platform (a convention check, not the volume case-folding trap). Segments are
+// consulted only BELOW the project root (findGitRoot of the resolution base) so
+// an unlucky ancestor like /home/test cannot classify a whole tree as tests and
+// silently retire the tripwire for that user.
+// ponytail: delimiter-less suffix names (FooTests.cs, FooTest.java) are missed
+// unless a test dir places them — extend the basename regex if that class shows
+// up flagged in practice.
+// NAMED RESIDUAL (the ancestor guard leaks in one config): findGitRoot CLIMBS PAST a
+// non-git workspace, so when an OUTER repo owns the .git, a workspace dir merely
+// NAMED test/spec becomes an in-root segment — <outer>/test/proj/src/big.js is then
+// silently exempt for that whole subtree. Narrow config, silent-miss failure mode.
+// Deliberately not "fixed" by anchoring on baseDir instead: that only trades this
+// miss for a different one (a hook launched with cwd below the real root).
+const TEST_DIR_SEGMENTS = new Set(['test', 'tests', '__tests__', 'spec', 'specs']);
+function isTestFile(absPath, baseDir) {
+  const bn = path.basename(absPath).toLowerCase();
+  if (/(^|[._-])(test|spec)s?[._-]/.test(bn)) return true;
+  const rel = path.relative(findGitRoot(baseDir), path.dirname(absPath));
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return false; // at/outside the root: basename verdict only
+  return rel.split(path.sep).some((s) => TEST_DIR_SEGMENTS.has(s.toLowerCase()));
+}
+
 function main() {
   const ov = projectOverride();
   if (ov === 'off') return;
@@ -288,7 +361,11 @@ function main() {
   // A file with exactly maxLines content lines + a trailing newline splits to maxLines+1
   // elements; drop that single trailing empty element so a file AT the cap is not flagged.
   const lineCount = lines.length - (lines[lines.length - 1] === '' ? 1 : 0);
-  if (lineCount > maxLines) smells.push(`file >${maxLines} lines (${lineCount})`);
+  // Exemption order: the cheap count check short-circuits first (happy path pays
+  // nothing); the classifier + declaration scan run only on an over-run.
+  if (lineCount > maxLines && !isTestFile(normF, baseDir) && !hasSizeDeclaration(lines)) {
+    smells.push(`file >${maxLines} lines (${lineCount})`);
+  }
   if (smells.length) {
     // One line per file — the stop hook reports each .smells line verbatim.
     try { fs.appendFileSync(base + '.smells', `${normF}: ${smells.join('; ')}\n`); } catch {}
