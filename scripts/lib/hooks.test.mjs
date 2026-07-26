@@ -464,6 +464,13 @@ test('size tripwire: the tests/ segment exemption survives the root and the file
     // cwd = the REAL spelling, payload = the SAME file via the OTHER spelling.
     const r = runHook(TOUCH, JSON.stringify({ session_id: 'SZLINK', tool_input: { file_path: path.join(link, 'tests', 'helper.js') } }), tmp, [], real);
     assert.equal(r.status, 0);
+    // ANTI-VACUITY PIN: exit 0 proves nothing on a fail-silent hook — Phoenix #4
+    // guarantees it on every bail path (bad sid, extension gate, tmpdir exclude,
+    // unreadable config), and the real assertion below is a NEGATIVE. Without this
+    // positive state-effect check, a future gate that made the hook bail on this
+    // fixture would turn the test green while proving nothing.
+    const touched = fs.readFileSync(path.join(tmp, 'rot-canary-SZLINK.touched'), 'utf8');
+    assert.ok(touched.includes('helper.js'), 'the hook actually processed the fixture (not a silent bail)');
     const smellsFile = path.join(tmp, 'rot-canary-SZLINK.smells');
     const smells = fs.existsSync(smellsFile) ? fs.readFileSync(smellsFile, 'utf8') : '';
     assert.ok(!smells.includes('file >'), 'a tests/ file must stay exempt when root and file are spelled differently');

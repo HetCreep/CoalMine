@@ -126,6 +126,63 @@ test('doctrine mirrors: identical copies pass, a diverged copy fails', () => {
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('doctrine mirrors: a MALFORMED rule home fails closed — only a genuinely ABSENT one gets the carve-out', (t) => {
+  const dir = mkRepo();
+  try {
+    const mk = (rel, body) => { fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
+    mk('.claude/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\n');
+
+    // The fail-OPEN hole this closes: a regular FILE where the counterpart TREE belongs
+    // read as "absent", so the carve-out fired and the whole guard was bypassed in
+    // silence while .claude genuinely held rules.
+    fs.mkdirSync(path.join(dir, '.agents/rules'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.agents/rules/ecc'), 'not a directory\n');
+    const notdir = checkDoctrineMirrors(dir);
+    assert.equal(notdir.length, 1, 'a file where the rule home belongs must be reported, not swallowed');
+    assert.match(notdir[0].msg, /is NOT a directory/);
+
+    // ENOTDIR reached through a PARENT that is a file is still a real absence.
+    fs.rmSync(path.join(dir, '.agents/rules/ecc'));
+    fs.rmSync(path.join(dir, '.agents/rules'), { recursive: true, force: true });
+    fs.writeFileSync(path.join(dir, '.agents/rules'), 'parent is a file\n');
+    assert.deepEqual(checkDoctrineMirrors(dir), [], 'ENOTDIR through a file parent = the home really is not there');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// SEPARATE test, deliberately: this leg cannot run on every volume, and folding it into
+// the one above made t.skip mark the WHOLE test skipped — so the malformed-home
+// assertions that DID run reported as "skipped" on Windows. One skippable leg must never
+// hide a leg that ran.
+test('doctrine mirrors: an UNINSPECTABLE rule home fails closed (Unix CI runners; skips where stat cannot be denied)', (t) => {
+  const dir = mkRepo();
+  const guarded = path.join(dir, '.agents/rules');
+  try {
+    const mk = (rel, body) => { fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
+    mk('.claude/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\n');
+    mk('.agents/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\n');
+
+    // chmod is a no-op on NTFS and needs Developer Mode for some ops, so the denial is
+    // PROBED, never assumed from process.platform (a volume property, not a platform one).
+    let denied = false;
+    try {
+      fs.chmodSync(guarded, 0o000);
+      fs.statSync(path.join(dir, '.agents/rules/ecc'));
+    } catch (e) {
+      denied = e.code !== 'ENOENT' && e.code !== 'ENOTDIR';
+    }
+    if (!denied) {
+      t.skip('this volume cannot deny stat (chmod no-op on NTFS / needs Developer Mode) — this leg runs on the Unix CI runners');
+      return;
+    }
+    const unreadable = checkDoctrineMirrors(dir);
+    assert.equal(unreadable.length, 1, 'an uninspectable rule home must fail closed, not read as absent');
+    assert.match(unreadable[0].msg, /could not be inspected/);
+  } finally {
+    try { fs.chmodSync(guarded, 0o700); } catch { /* best effort, so cleanup can recurse */ }
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('doctrine mirrors: ENUMERATED, not a pair list — a nested rule and a brand-new rule are both compared', () => {
   const dir = mkRepo();
   try {

@@ -177,7 +177,11 @@ function getWatchedExtensions() {
 // the session scratchpad, which sits INSIDE os.tmpdir()) — never ship code, so it must
 // never enter the touched/memmoved set. This is a scan-SCOPE exclude, not a security
 // boundary: a lexical resolve-and-contain is correct (a missed symlinked-temp edge just
-// means the file gets scanned — harmless), no realpath/fail-closed needed. Boundary-safe
+// means the file gets scanned — harmless), no realpath/fail-closed needed. This is the
+// SAME asymmetric-derivation shape as isTestFile below and is deliberately NOT
+// canonicalized here (ruling 2026-07-26): the miss direction is EXTRA SCANNING (noise),
+// never a wrong exemption and never a safety hole, so the lexical compare stays rather
+// than hardening a guard with no reachable defect. Boundary-safe
 // (a trailing path.sep — "<tmp>X" must never match "<tmp>"); case-insensitive on win32,
 // mirroring the isWin precedent used for the .touched dedup below.
 function isUnderTmpdir(absPath) {
@@ -264,6 +268,22 @@ const TEST_DIR_SEGMENTS = new Set(['test', 'tests', '__tests__', 'spec', 'specs'
 // platform test would be wrong on a symlinked-tmp Linux box in the other direction.
 // Unresolvable (file already gone) degrades to the lexical compare, which fails
 // CLOSED in the exemption sense: no exemption, the tripwire still fires.
+//
+// DELIBERATE, CONSIDERED INVERSION of node/runtime.md §4 ("fail closed on an
+// unresolvable path, never fall back to a lexical resolve") — named here so a future
+// §4 audit grepping realpathSync+catch finds a marker instead of a defect. §4 governs
+// a CONTAINMENT/authorization compare, where the privileged outcome is "proceed", so a
+// lexical fallback there could let something through. Here the privileged outcome is
+// the EXEMPTION, so the same fallback DENIES it — the closed direction. The inversion
+// is safe because of THIS call site, not because of the helper.
+// ponytail: `physical()` is deliberately general-purpose but is NOT safe for a
+// containment compare — its catch is fail-OPEN for anything whose privileged outcome
+// is "proceed". Reusing it to guard a write/delete needs §4's fail-closed catch
+// (rethrow / refuse), not this one.
+// Nuance, NOT a defect: if BOTH sides fall back, the compare succeeds lexically and an
+// exemption can be granted — unreachable on the live path (the only caller runs after
+// the file was opened and read, so its dirname provably exists) and the blast radius is
+// one un-emitted advisory line.
 function physical(p) {
   try { return fs.realpathSync.native(p); } catch { return path.resolve(p); }
 }

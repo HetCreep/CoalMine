@@ -242,9 +242,24 @@ export function checkJsoncRegexSync(repo) {
 export function checkDoctrineMirrors(repo) {
   const out = [];
   const [claudeRoot, agentsRoot] = MIRROR_ROOTS.map((r) => path.join(repo, r));
-  const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
+  // Tri-state, NOT a boolean: the carve-out below is "this clone does not keep that
+  // rule home", and ONLY a genuinely absent path can claim it. Collapsing every other
+  // outcome into "absent" made the one fail-OPEN hole in this guard — a regular FILE
+  // at .agents/rules/ecc silently bypassed the whole check while .claude held rules.
+  // ENOENT/ENOTDIR = the home really is not there. Anything else (EACCES, EPERM, EIO)
+  // means we could not TELL, which is not the same as knowing it is absent.
+  const kind = (p) => {
+    try { return fs.statSync(p).isDirectory() ? 'dir' : 'notdir'; }
+    catch (e) { return (e.code === 'ENOENT' || e.code === 'ENOTDIR') ? 'absent' : 'unreadable'; }
+  };
+  const kinds = [kind(claudeRoot), kind(agentsRoot)];
+  for (const [i, k] of kinds.entries()) {
+    if (k === 'notdir') out.push({ level: 'FAIL', msg: `consistency: ${MIRROR_ROOTS[i]} exists but is NOT a directory — the doctrine-mirror carve-out covers an ABSENT rule home, never a malformed one` });
+    else if (k === 'unreadable') out.push({ level: 'FAIL', msg: `consistency: ${MIRROR_ROOTS[i]} could not be inspected — cannot prove the two rule homes agree` });
+  }
+  if (out.length) return out; // malformed on either side: fail CLOSED, never silent
   // Whole tree absent on either side = this clone does not keep that rule home.
-  if (!isDir(claudeRoot) || !isDir(agentsRoot)) return out;
+  if (kinds.includes('absent')) return out;
 
   const read = (abs) => { try { return norm(fs.readFileSync(abs, 'utf8')); } catch (e) { return e; } };
   const side = (root) => new Map([...walkMd(root)].map((f) => [f.rel, f.abs]));
