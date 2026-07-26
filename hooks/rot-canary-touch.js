@@ -198,20 +198,40 @@ function isUnderTmpdir(absPath) {
 // A declaration = a head-of-file comment naming a marker + a line count:
 //   // ponytail: <N> lines at declaration — <why splitting would reduce cohesion>
 // `waiver:` is accepted alongside `ponytail:` — the tree reached for that word
-// independently before the rule existed (scripts/lib/hooks.test.mjs:6); the
-// discriminator that keeps rigor is the `<digits> lines` payload, which a
-// ponytail comment about anything else does not carry. The N is HISTORY, not a
-// live claim — deliberately NOT compared to the current count (a drifted number
-// must not reopen the finding; that re-sync churn is what the amendment killed).
-// Head-bounded: "top-of-file" per the rule, and a mid-file ponytail comment that
-// happens to say "<N> lines" about something else must not silence the tripwire
-// (deepest real declaration observed in the flock: line 24, end of a header block).
+// independently before the rule existed (scripts/lib/hooks.test.mjs:6). The N is
+// HISTORY, not a live claim — deliberately NOT compared to the current count (a
+// drifted number must not reopen the finding; that re-sync churn is what the
+// amendment killed). Head-bounded: "top-of-file" per the rule, and a mid-file
+// ponytail comment that happens to say "<N> lines" about something else must not
+// silence the tripwire (deepest real declaration in the flock sits at the end of
+// a header block — CoalLedger md-ast.mjs; re-derive with grep, don't trust a
+// pinned line number here).
+//
+// LOOSE ON PURPOSE, and the boundary is measured, not assumed: this pattern also
+// matches prose that merely mentions a line count (`/* ponytail: dropped 900
+// lines of dead code */`, or that text inside a string literal) — both silence
+// the tripwire, verified by probe. Tightening to the rule's literal
+// `<N> lines at declaration` form would re-break every declaration the flock
+// already wrote, INCLUDING hooks.test.mjs:6, which is the exact cry-wolf case
+// this exemption exists to fix — so the looseness is accepted, not overlooked.
+// The property that holds instead, and is designed for: the literal `<N>` form
+// carries no digits, so the feature's OWN documentation cannot self-silence —
+// this comment, config-schema.mjs, the .coalmine.json template and the PS twin's
+// comment all still FLAG if they ever cross the cap (probe-verified).
+//
+// The 2048 slice is the ReDoS bound (mirrors STAMP_WINDOW in coalmine-conductor.js,
+// v3.7.9 CM-1): lazy `.*?` before `\d+` backtracks quadratically in LINE LENGTH, and
+// a poison line is reachable at shipped defaults — 100k digits + 801 short lines is
+// 99.2 KB, under the 100 KB tripwireMaxFileSizeKb cap. Measured through this hook:
+// 5424 ms unbounded vs 57 ms control; ~3 ms sliced. Phoenix #3 is ≤100 ms WITH a scan,
+// and this is a PostToolUse hook that re-runs on every edit to that file.
 const SIZE_DECLARATION_RE = /(?:ponytail|waiver):.*?\d+\s*lines/i;
 const SIZE_DECLARATION_HEAD = 30;
+const SIZE_DECLARATION_WINDOW = 2048; // no real declaration puts its digits past column 2048
 function hasSizeDeclaration(lines) {
   const head = Math.min(lines.length, SIZE_DECLARATION_HEAD);
   for (let i = 0; i < head; i++) {
-    if (SIZE_DECLARATION_RE.test(lines[i])) return true;
+    if (SIZE_DECLARATION_RE.test(lines[i].slice(0, SIZE_DECLARATION_WINDOW))) return true;
   }
   return false;
 }
@@ -226,6 +246,12 @@ function hasSizeDeclaration(lines) {
 // ponytail: delimiter-less suffix names (FooTests.cs, FooTest.java) are missed
 // unless a test dir places them — extend the basename regex if that class shows
 // up flagged in practice.
+// NAMED RESIDUAL (the ancestor guard leaks in one config): findGitRoot CLIMBS PAST a
+// non-git workspace, so when an OUTER repo owns the .git, a workspace dir merely
+// NAMED test/spec becomes an in-root segment — <outer>/test/proj/src/big.js is then
+// silently exempt for that whole subtree. Narrow config, silent-miss failure mode.
+// Deliberately not "fixed" by anchoring on baseDir instead: that only trades this
+// miss for a different one (a hook launched with cwd below the real root).
 const TEST_DIR_SEGMENTS = new Set(['test', 'tests', '__tests__', 'spec', 'specs']);
 function isTestFile(absPath, baseDir) {
   const bn = path.basename(absPath).toLowerCase();

@@ -466,6 +466,37 @@ test('size tripwire: the declaration must sit in the file head — a deep marker
   }
 });
 
+test('size tripwire: a poison declaration line cannot blow the latency budget (ReDoS bound; the suite\'s FIRST timing assertion)', () => {
+  const tmp = mkTmp();
+  const proj = mkTmp(); // project dir, sibling of the sandbox os.tmpdir() (tmp)
+  try {
+    // SHIPPED DEFAULTS on purpose — no .coalmine.json. The scan needs lineCount > 800,
+    // and 100k digits + 801 short lines is 99.2 KB, under the 100 KB size cap: the
+    // catastrophic path is reachable without any config change. The lazy `.*?` before
+    // `\d+` backtracks quadratically in LINE LENGTH, so this measured 5424 ms unbounded
+    // vs 57 ms on the benign control; the 2048-char slice puts it back at ~3 ms.
+    // Every other test here asserts STATE — none asserts TIME, so the suite was
+    // structurally blind to this axis and 56/56 green was never evidence on it.
+    // 2000 ms ceiling: ~25x over the fixed path, ~2.7x under the broken one on the
+    // slowest box measured — non-flaky in both directions.
+    const f = path.join(proj, 'poison.js');
+    // 1 poison line + 800 content lines = 801 > the shipped cap of 800 (the trailing
+    // newline's empty split element is dropped by the hook, so this is exactly 801).
+    fs.writeFileSync(f, `// ponytail: ${'9'.repeat(100000)}\n` + 'x\n'.repeat(800));
+    assert.ok(fs.statSync(f).size < 100 * 1024, 'fixture must stay under the shipped tripwireMaxFileSizeKb, else the scan is skipped and the test proves nothing');
+    const t0 = Date.now();
+    const r = runHook(TOUCH, JSON.stringify({ session_id: 'SZ5', tool_input: { file_path: f } }), tmp, [], proj);
+    const ms = Date.now() - t0;
+    assert.equal(r.status, 0);
+    assert.ok(ms < 2000, `hook took ${ms} ms on a poison declaration line — the ReDoS bound is gone`);
+    const smells = fs.readFileSync(path.join(tmp, 'rot-canary-SZ5.smells'), 'utf8');
+    assert.ok(smells.includes('file >800 lines (801)'), 'digits with no "lines" payload is NOT a declaration — still flagged');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(proj, { recursive: true, force: true });
+  }
+});
+
 test('stop hook honors autoScanFileCapSlice override in .coalmine.json', () => {
   const tmp = mkTmp();
   try {

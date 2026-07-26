@@ -188,6 +188,9 @@ try {
     # NAMED divergence (deliberate, not a port gap — see alt/powershell/README.md): the Node
     # hook exempts test files and declared over-runs (top-of-file "ponytail:/waiver: <N> lines"
     # comment, coding-style.md 2026-07-26) from this size tripwire; the PS twins keep the plain count.
+    # A THIRD reason beyond the usual fallback-scope one: the declaration scan is a regex whose
+    # unbounded form was a measured ReDoS (fixed there with a 2048-char window) — porting it would
+    # replicate that hazard into a second implementation. Plain counting has no such surface.
     $maxLines = 800
     if ($cfg -and ($cfg.tripwireMaxLines -is [int] -or $cfg.tripwireMaxLines -is [long] -or $cfg.tripwireMaxLines -is [double])) {
       $maxLines = [Math]::Max(1, [Math]::Floor([double]$cfg.tripwireMaxLines))
