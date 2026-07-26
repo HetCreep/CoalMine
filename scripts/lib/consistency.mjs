@@ -17,32 +17,56 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { listSkills } from './render.mjs';
 
-// The doctrine documents that are deliberately duplicated. The canonical copy lives
-// in a SEPARATE repo (the org TheColliery/.github) that this check CANNOT reach at
-// runtime — a stranger's CoalMine clone has no path to it — so the org copy is OUT OF
-// SCOPE here by construction. This check compares only the in-repo mirrors below
-// (the per-machine rule-home copies). Whatever of those EXIST must be byte-identical;
-// a missing mirror is fine (not every clone installs the rule home), a differing one
-// is not. (Keeping the in-repo mirrors in sync with the org canonical is a release-time
-// concern, handled outside this runtime check.)
-const DOCTRINE_MIRRORS = [
-  {
-    name: 'hooks-safety',
-    copies: [
-      '.claude/rules/ecc/domain/hooks-safety.md',
-      '.agents/rules/ecc/domain/hooks-safety.md',
-    ],
-  },
-  {
-    name: 'scripts-quality',
-    copies: [
-      '.claude/rules/ecc/domain/scripts-quality.md',
-      '.agents/rules/ecc/domain/scripts-quality.md',
-    ],
-  },
-];
+// The two doctrine rule homes. `.claude/rules/ecc/` is what Claude reads;
+// `.agents/rules/ecc/` is what the non-Claude agents (Antigravity, Codex, Cursor)
+// read. Neither population can see the other's tree, so a divergence is invisible
+// from both sides and the two run different rulebooks — which is why this is a
+// mechanical check and not a review item. The canonical copy lives in a SEPARATE
+// repo (the org TheColliery/.github) that this check CANNOT reach at runtime — a
+// stranger's CoalMine clone has no path to it — so the org copy is OUT OF SCOPE by
+// construction; keeping the local homes in sync with it is a release-time concern.
+//
+// ENUMERATED, never a hard-coded pair list. A list rots on every rule added: the
+// list this replaced named 2 files, so 19 of the 21 rules in a populated home were
+// never compared at all and the check reported agreement over them.
+//
+// THE TWO ABSENCES ARE DIFFERENT THINGS, and conflating them is what made the old
+// carve-out ("a missing mirror is fine") swallow real drift:
+//   - the whole counterpart TREE absent  → SILENT (the legitimate case: a clone that
+//     never installed that rule home — this repo itself has neither tree today)
+//   - the tree PRESENT but a file missing from it → FAIL (drift wearing the costume
+//     of the carve-out)
+// Comparison is CRLF-normalized, not raw bytes: a line-ending difference between two
+// checkouts is not doctrine drift.
+//
+// RETIRED.md mirrors like every other rule — deliberately NO exception. It is never
+// `@imported` (deleting a dead rule must cost zero always-loaded tokens), but "not
+// loaded" is not "may disagree": a tombstone ledger that tells the two populations
+// different things about what was retired is still two rulebooks. Both copies exist
+// and agree today, so the exception would buy nothing and cost a permanent carve-out.
+//
+// NAMED ASYMMETRY (legitimate, not drift): `.agents/rules/coalmine-trigger.md` has no
+// `.claude` counterpart — it is the trigger table for agents that do not receive
+// triggers from the plugin, and Claude does. It sits OUTSIDE `ecc/`, so this
+// ecc-scoped walk never sees it; that placement IS the mechanism, not an oversight.
+const MIRROR_ROOTS = ['.claude/rules/ecc', '.agents/rules/ecc'];
 
 const norm = (s) => s.replace(/\r\n/g, '\n');
+
+// Recursive .md walk yielding { abs, rel } with a POSIX-style rel key so the two
+// trees compare on the same spelling on Windows. Symlinked directories are not
+// followed (`isDirectory()` is false for a link) — no cycle risk, and a rule home
+// is a plain directory.
+function* walkMd(dir, rel = '') {
+  let entries = [];
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+  for (const e of entries) {
+    const abs = path.join(dir, e.name);
+    const r = rel ? `${rel}/${e.name}` : e.name;
+    if (e.isDirectory()) yield* walkMd(abs, r);
+    else if (e.name.endsWith('.md')) yield { abs, rel: r };
+  }
+}
 
 // 1. The shipped skill count must agree across every place that states it.
 // Source of truth = the skills/ directory; plugin.json must not drift from it
@@ -212,26 +236,38 @@ export function checkJsoncRegexSync(repo) {
   return out;
 }
 
-// 2. Doctrine mirrors must be byte-identical wherever they exist. A lone diverging
-// copy is the mechanical fingerprint of a stale sync or a tampered rule file.
+// 2. Every rule in one doctrine home must exist, and agree, in the other. A missing
+// counterpart or a diverging copy is the mechanical fingerprint of a stale sync, a
+// half-finished rule addition, or a tampered rule file.
 export function checkDoctrineMirrors(repo) {
   const out = [];
-  for (const doc of DOCTRINE_MIRRORS) {
-    const present = [];
-    for (const rel of doc.copies) {
-      const p = path.join(repo, rel);
-      try {
-        if (fs.existsSync(p)) present.push({ rel, body: norm(fs.readFileSync(p, 'utf8')) });
-      } catch (e) {
-        out.push({ level: 'FAIL', msg: `consistency: ${rel} unreadable: ${e.message}` });
-      }
+  const [claudeRoot, agentsRoot] = MIRROR_ROOTS.map((r) => path.join(repo, r));
+  const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
+  // Whole tree absent on either side = this clone does not keep that rule home.
+  if (!isDir(claudeRoot) || !isDir(agentsRoot)) return out;
+
+  const read = (abs) => { try { return norm(fs.readFileSync(abs, 'utf8')); } catch (e) { return e; } };
+  const side = (root) => new Map([...walkMd(root)].map((f) => [f.rel, f.abs]));
+  const a = side(claudeRoot);
+  const b = side(agentsRoot);
+
+  // Union, both directions: a rule only Claude sees and a rule only the other agents
+  // see are the SAME defect (two populations, two rulebooks) pointed opposite ways.
+  // Sorted so the gate's output is deterministic across platforms (Phoenix #8).
+  for (const rel of [...new Set([...a.keys(), ...b.keys()])].sort()) {
+    const [pa, pb] = [a.get(rel), b.get(rel)];
+    if (!pa || !pb) {
+      const [have, missing] = pa ? [MIRROR_ROOTS[0], MIRROR_ROOTS[1]] : [MIRROR_ROOTS[1], MIRROR_ROOTS[0]];
+      out.push({ level: 'FAIL', msg: `consistency: doctrine '${rel}' UNMIRRORED — present in ${have}/ but MISSING from ${missing}/ (the two agent populations would read different rulebooks)` });
+      continue;
     }
-    if (present.length < 2) continue; // 0 or 1 copy on this machine — nothing to cross-check
-    const baseline = present[0];
-    for (const other of present.slice(1)) {
-      if (other.body !== baseline.body) {
-        out.push({ level: 'FAIL', msg: `consistency: doctrine '${doc.name}' DIVERGED — ${other.rel} differs from ${baseline.rel} (stale mirror or tampering)` });
-      }
+    const [ba, bb] = [read(pa), read(pb)];
+    for (const [body, root] of [[ba, MIRROR_ROOTS[0]], [bb, MIRROR_ROOTS[1]]]) {
+      if (body instanceof Error) out.push({ level: 'FAIL', msg: `consistency: ${root}/${rel} unreadable: ${body.message}` });
+    }
+    if (ba instanceof Error || bb instanceof Error) continue;
+    if (ba !== bb) {
+      out.push({ level: 'FAIL', msg: `consistency: doctrine '${rel}' DIVERGED — ${MIRROR_ROOTS[1]}/${rel} differs from ${MIRROR_ROOTS[0]}/${rel} (stale mirror or tampering)` });
     }
   }
   return out;
@@ -259,34 +295,30 @@ const STAMP_RE = /<!--\s*coalmine:\s*verified\s+\d{4}-\d{2}-\d{2}[\s\S]*?revalid
 const STAMP_WINDOW = 2048;
 export function checkRuleStamps(repo) {
   const out = [];
+  // Scope is the whole rules home (not just ecc/) — a stamp is well-formed or not
+  // wherever it sits. Shares walkMd with the mirror check above: one walker, so a
+  // future change to what counts as a rule file cannot apply to only one of them.
   const roots = ['.claude/rules', '.agents/rules'].map((r) => path.join(repo, r));
-  const walk = (dir) => {
-    let entries = [];
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-    for (const e of entries) {
-      const p = path.join(dir, e.name);
-      if (e.isDirectory()) walk(p);
-      else if (e.name.endsWith('.md')) {
-        let body;
-        try { body = fs.readFileSync(p, 'utf8'); } catch { continue; }
-        STAMP_OPEN.lastIndex = 0;
-        let m;
-        let bad = false;
-        let any = false;
-        while ((m = STAMP_OPEN.exec(body)) !== null) {
-          any = true;
-          // Validate only a bounded slice anchored at this opener — a well-formed
-          // stamp fits easily; a poisoned blob can never grow the regex's work.
-          if (STAMP_RE.test(body.slice(m.index, m.index + STAMP_WINDOW))) { bad = false; break; }
-          bad = true;
-        }
-        if (any && bad) {
-          out.push({ level: 'FAIL', msg: `consistency: ${path.relative(repo, p)} has a malformed coalmine stamp (expected "verified <YYYY-MM-DD> ... revalidate <N>d")` });
-        }
+  for (const root of roots) {
+    for (const { abs: p } of walkMd(root)) {
+      let body;
+      try { body = fs.readFileSync(p, 'utf8'); } catch { continue; }
+      STAMP_OPEN.lastIndex = 0;
+      let m;
+      let bad = false;
+      let any = false;
+      while ((m = STAMP_OPEN.exec(body)) !== null) {
+        any = true;
+        // Validate only a bounded slice anchored at this opener — a well-formed
+        // stamp fits easily; a poisoned blob can never grow the regex's work.
+        if (STAMP_RE.test(body.slice(m.index, m.index + STAMP_WINDOW))) { bad = false; break; }
+        bad = true;
+      }
+      if (any && bad) {
+        out.push({ level: 'FAIL', msg: `consistency: ${path.relative(repo, p)} has a malformed coalmine stamp (expected "verified <YYYY-MM-DD> ... revalidate <N>d")` });
       }
     }
-  };
-  for (const r of roots) walk(r);
+  }
   return out;
 }
 

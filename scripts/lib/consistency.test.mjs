@@ -126,6 +126,63 @@ test('doctrine mirrors: identical copies pass, a diverged copy fails', () => {
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('doctrine mirrors: ENUMERATED, not a pair list — a nested rule and a brand-new rule are both compared', () => {
+  const dir = mkRepo();
+  try {
+    const mk = (rel, body) => { fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
+    // The live defect this replaced: the hard-coded list named 2 files, so common/,
+    // node/, typescript/ and RETIRED.md were never compared and drift read as clean.
+    for (const rel of ['domain/hooks-safety.md', 'common/coding-style.md', 'node/runtime.md', 'RETIRED.md']) {
+      mk(`.claude/rules/ecc/${rel}`, `RULE ${rel}\n`);
+      mk(`.agents/rules/ecc/${rel}`, `RULE ${rel}\n`);
+    }
+    assert.deepEqual(checkDoctrineMirrors(dir), [], 'a fully mirrored tree is clean');
+
+    // A rule added on the Claude side only — the shape of every future rule addition.
+    mk('.claude/rules/ecc/typescript/testing.md', 'NEW RULE\n');
+    const added = checkDoctrineMirrors(dir);
+    assert.equal(added.length, 1, 'the newly-added rule must be compared without touching this check');
+    assert.match(added[0].msg, /typescript\/testing\.md.*UNMIRRORED/);
+    fs.rmSync(path.join(dir, '.claude/rules/ecc/typescript/testing.md'));
+
+    // Nested content drift, in a directory the old pair list never named.
+    fs.writeFileSync(path.join(dir, '.agents/rules/ecc/common/coding-style.md'), 'RULE common/coding-style.md\nPOISON\n');
+    const drift = checkDoctrineMirrors(dir);
+    assert.equal(drift.length, 1);
+    assert.match(drift[0].msg, /common\/coding-style\.md.*DIVERGED/);
+    fs.writeFileSync(path.join(dir, '.agents/rules/ecc/common/coding-style.md'), 'RULE common/coding-style.md\n');
+
+    // RETIRED.md is deliberately NOT exempt: never @imported is not "may disagree".
+    fs.rmSync(path.join(dir, '.agents/rules/ecc/RETIRED.md'));
+    assert.match(checkDoctrineMirrors(dir)[0].msg, /RETIRED\.md.*UNMIRRORED/, 'RETIRED.md mirrors like any other rule — no carve-out');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('doctrine mirrors: the two absences are DIFFERENT — whole tree absent is silent, tree present but incomplete FAILs', () => {
+  const dir = mkRepo();
+  try {
+    const mk = (rel, body) => { fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
+    mk('.claude/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\n');
+    mk('.claude/rules/ecc/common/testing.md', 'RULE\n');
+
+    // (1) No .agents rule home at all — a clone that never installed it. SILENT.
+    assert.deepEqual(checkDoctrineMirrors(dir), [], 'the whole counterpart tree being absent is the legitimate carve-out');
+
+    // (2) The tree EXISTS but is missing a file — drift wearing the costume of (1). FAIL.
+    mk('.agents/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\n');
+    const partial = checkDoctrineMirrors(dir);
+    assert.equal(partial.length, 1, 'a present-but-incomplete tree must not inherit the carve-out');
+    assert.match(partial[0].msg, /common\/testing\.md.*MISSING from \.agents/);
+
+    // (3) Reverse direction: a rule only the non-Claude agents can see is the same defect.
+    mk('.agents/rules/ecc/common/testing.md', 'RULE\n');
+    mk('.agents/rules/ecc/common/agents-only.md', 'RULE\n');
+    const reverse = checkDoctrineMirrors(dir);
+    assert.equal(reverse.length, 1);
+    assert.match(reverse[0].msg, /agents-only\.md.*MISSING from \.claude/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('rule stamps: well-formed passes, malformed fails, unstamped ignored', () => {
   const dir = mkRepo();
   try {

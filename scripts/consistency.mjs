@@ -25,7 +25,10 @@ try {
 }
 
 if (findings.length === 0) {
-  console.log('CONSISTENCY: PASS — cross-document facts, doctrine mirrors, and stamps all agree.');
+  // Scope-honest wording: the mirror check compares the rule homes that EXIST here,
+  // and a repo with neither home compares nothing. Claiming "doctrine mirrors agree"
+  // in that case would be the same false all-clear the enumerated check just closed.
+  console.log('CONSISTENCY: PASS — cross-document facts and stamps agree; doctrine mirrors agree across the rule homes present in this repo (an absent rule home is not compared).');
   process.exit(0);
 }
 for (const f of findings) console.log(`  ${f.level}  ${f.msg}`);
