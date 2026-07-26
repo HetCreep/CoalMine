@@ -253,10 +253,24 @@ function hasSizeDeclaration(lines) {
 // Deliberately not "fixed" by anchoring on baseDir instead: that only trades this
 // miss for a different one (a hook launched with cwd below the real root).
 const TEST_DIR_SEGMENTS = new Set(['test', 'tests', '__tests__', 'spec', 'specs']);
+// The two sides of the segment compare are derived INDEPENDENTLY — the root from
+// process.cwd(), the file from the tool payload — so they can be two different
+// SPELLINGS of one directory and the `..` guard below then rejects a path that is
+// really inside the root. Measured: macOS CI went red here while ubuntu+windows
+// passed, because process.cwd() is kernel-resolved to /private/var/... while the
+// payload still says /var/... (.native also expands a Windows 8.3 alias, per
+// node/runtime.md section 4). Canonicalize BOTH sides — never one — and never key
+// this on a platform name: a symlinked tmpdir is a VOLUME property, and a
+// platform test would be wrong on a symlinked-tmp Linux box in the other direction.
+// Unresolvable (file already gone) degrades to the lexical compare, which fails
+// CLOSED in the exemption sense: no exemption, the tripwire still fires.
+function physical(p) {
+  try { return fs.realpathSync.native(p); } catch { return path.resolve(p); }
+}
 function isTestFile(absPath, baseDir) {
   const bn = path.basename(absPath).toLowerCase();
   if (/(^|[._-])(test|spec)s?[._-]/.test(bn)) return true;
-  const rel = path.relative(findGitRoot(baseDir), path.dirname(absPath));
+  const rel = path.relative(physical(findGitRoot(baseDir)), physical(path.dirname(absPath)));
   if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return false; // at/outside the root: basename verdict only
   return rel.split(path.sep).some((s) => TEST_DIR_SEGMENTS.has(s.toLowerCase()));
 }

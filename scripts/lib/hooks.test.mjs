@@ -438,6 +438,41 @@ test('size tripwire: test files are out of scope — .test. basename and a tests
   }
 });
 
+test('size tripwire: the tests/ segment exemption survives the root and the file being TWO SPELLINGS of one dir (the macOS /private/var class)', (t) => {
+  // Regression for a real CI red: macos-latest failed on both node 22 and 24 while
+  // ubuntu+windows passed, because process.cwd() is kernel-resolved (/private/var/...)
+  // while the payload path is not (/var/...), so isTestFile's `..` guard rejected a
+  // path that was really inside the root. Reproduced here WITHOUT macOS by pointing a
+  // junction/symlink at the project dir: spawn cwd uses the real spelling, the payload
+  // uses the link. 'junction' is the unprivileged Windows shim; the arg is ignored on POSIX.
+  const tmp = mkTmp();
+  const holder = mkTmp();
+  const real = path.join(holder, 'real');
+  const link = path.join(holder, 'link');
+  fs.mkdirSync(real, { recursive: true });
+  try {
+    try {
+      fs.symlinkSync(real, link, 'junction');
+    } catch (e) {
+      // Visible skip, never a bare return — a silent vacuous pass is how this class hid.
+      t.skip(`cannot create a directory link here (${e.code}) — no two spellings to compare`);
+      return;
+    }
+    fs.writeFileSync(path.join(real, '.coalmine.json'), JSON.stringify({ tripwireMaxLines: 5 }), 'utf8');
+    fs.mkdirSync(path.join(real, 'tests'), { recursive: true });
+    fs.writeFileSync(path.join(real, 'tests', 'helper.js'), 'x\n'.repeat(10));
+    // cwd = the REAL spelling, payload = the SAME file via the OTHER spelling.
+    const r = runHook(TOUCH, JSON.stringify({ session_id: 'SZLINK', tool_input: { file_path: path.join(link, 'tests', 'helper.js') } }), tmp, [], real);
+    assert.equal(r.status, 0);
+    const smellsFile = path.join(tmp, 'rot-canary-SZLINK.smells');
+    const smells = fs.existsSync(smellsFile) ? fs.readFileSync(smellsFile, 'utf8') : '';
+    assert.ok(!smells.includes('file >'), 'a tests/ file must stay exempt when root and file are spelled differently');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(holder, { recursive: true, force: true });
+  }
+});
+
 test('size tripwire: the declaration must sit in the file head — a deep marker does not silence an over-run, a header-block one does', () => {
   const tmp = mkTmp();
   const proj = mkTmp(); // project dir, sibling of the sandbox os.tmpdir() (tmp)
