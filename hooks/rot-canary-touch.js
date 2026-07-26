@@ -188,6 +188,53 @@ function isUnderTmpdir(absPath) {
   return p === t || p.startsWith(t + path.sep);
 }
 
+// Size-tripwire exemptions (coding-style.md amended 2026-07-26): 800 is a review
+// SIGNAL, not a cap — the finding is an UNDECLARED over-run. A source file
+// crossing tripwireMaxLines with a top-of-file declaration comment is compliant,
+// and test files are out of scope entirely (their cohesion unit is the module
+// under test). Neither exemption touches the merge-conflict tripwire or the
+// .touched recording — the stop-scan still sees the file.
+//
+// A declaration = a head-of-file comment naming a marker + a line count:
+//   // ponytail: <N> lines at declaration — <why splitting would reduce cohesion>
+// `waiver:` is accepted alongside `ponytail:` — the tree reached for that word
+// independently before the rule existed (scripts/lib/hooks.test.mjs:6); the
+// discriminator that keeps rigor is the `<digits> lines` payload, which a
+// ponytail comment about anything else does not carry. The N is HISTORY, not a
+// live claim — deliberately NOT compared to the current count (a drifted number
+// must not reopen the finding; that re-sync churn is what the amendment killed).
+// Head-bounded: "top-of-file" per the rule, and a mid-file ponytail comment that
+// happens to say "<N> lines" about something else must not silence the tripwire
+// (deepest real declaration observed in the flock: line 24, end of a header block).
+const SIZE_DECLARATION_RE = /(?:ponytail|waiver):.*?\d+\s*lines/i;
+const SIZE_DECLARATION_HEAD = 30;
+function hasSizeDeclaration(lines) {
+  const head = Math.min(lines.length, SIZE_DECLARATION_HEAD);
+  for (let i = 0; i < head; i++) {
+    if (SIZE_DECLARATION_RE.test(lines[i])) return true;
+  }
+  return false;
+}
+
+// Test-file classifier — naming CONVENTIONS, not path identity: basename markers
+// (.test./.spec./test_/_test. and friends, delimiter-anchored so contest.js never
+// matches) plus test-directory segments, compared case-insensitively on every
+// platform (a convention check, not the volume case-folding trap). Segments are
+// consulted only BELOW the project root (findGitRoot of the resolution base) so
+// an unlucky ancestor like /home/test cannot classify a whole tree as tests and
+// silently retire the tripwire for that user.
+// ponytail: delimiter-less suffix names (FooTests.cs, FooTest.java) are missed
+// unless a test dir places them — extend the basename regex if that class shows
+// up flagged in practice.
+const TEST_DIR_SEGMENTS = new Set(['test', 'tests', '__tests__', 'spec', 'specs']);
+function isTestFile(absPath, baseDir) {
+  const bn = path.basename(absPath).toLowerCase();
+  if (/(^|[._-])(test|spec)s?[._-]/.test(bn)) return true;
+  const rel = path.relative(findGitRoot(baseDir), path.dirname(absPath));
+  if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) return false; // at/outside the root: basename verdict only
+  return rel.split(path.sep).some((s) => TEST_DIR_SEGMENTS.has(s.toLowerCase()));
+}
+
 function main() {
   const ov = projectOverride();
   if (ov === 'off') return;
@@ -288,7 +335,11 @@ function main() {
   // A file with exactly maxLines content lines + a trailing newline splits to maxLines+1
   // elements; drop that single trailing empty element so a file AT the cap is not flagged.
   const lineCount = lines.length - (lines[lines.length - 1] === '' ? 1 : 0);
-  if (lineCount > maxLines) smells.push(`file >${maxLines} lines (${lineCount})`);
+  // Exemption order: the cheap count check short-circuits first (happy path pays
+  // nothing); the classifier + declaration scan run only on an over-run.
+  if (lineCount > maxLines && !isTestFile(normF, baseDir) && !hasSizeDeclaration(lines)) {
+    smells.push(`file >${maxLines} lines (${lineCount})`);
+  }
   if (smells.length) {
     // One line per file — the stop hook reports each .smells line verbatim.
     try { fs.appendFileSync(base + '.smells', `${normF}: ${smells.join('; ')}\n`); } catch {}

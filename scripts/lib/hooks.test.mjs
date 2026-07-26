@@ -361,6 +361,111 @@ test('loadCfg parses JSONC with a backslash-terminated string before a later // 
   }
 });
 
+test('size tripwire: a declared over-run (top-of-file ponytail, drifted N) is NOT flagged — the finding is an UNDECLARED over-run (coding-style.md 2026-07-26)', () => {
+  const tmp = mkTmp();
+  const proj = mkTmp(); // project dir, sibling of the sandbox os.tmpdir() (tmp)
+  try {
+    fs.writeFileSync(path.join(proj, '.coalmine.json'), JSON.stringify({ tripwireMaxLines: 5 }), 'utf8');
+    const f = path.join(proj, 'declared.js');
+    // N deliberately DRIFTED (999 vs 11 actual): the N is HISTORY, not a live claim —
+    // a stale number must not reopen the finding (the churn the amendment killed).
+    fs.writeFileSync(f, '// ponytail: 999 lines at declaration — single cohesive fixture\n' + 'x\n'.repeat(10));
+    const r = runHook(TOUCH, JSON.stringify({ session_id: 'SZ1', tool_input: { file_path: f } }), tmp, [], proj);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '', 'hook stays silent (Phoenix #13)');
+    assert.ok(fs.existsSync(path.join(tmp, 'rot-canary-SZ1.touched')),
+      'declared file is still RECORDED for the stop-scan — the exemption covers the size smell only');
+    const smellsFile = path.join(tmp, 'rot-canary-SZ1.smells');
+    const smells = fs.existsSync(smellsFile) ? fs.readFileSync(smellsFile, 'utf8') : '';
+    assert.ok(!smells.includes('file >'), 'a declared over-run must not produce a size smell');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(proj, { recursive: true, force: true });
+  }
+});
+
+test('size tripwire: an UNDECLARED over-run stays flagged, and a waiver declaration never silences the merge-conflict tripwire', () => {
+  const tmp = mkTmp();
+  const proj = mkTmp(); // project dir, sibling of the sandbox os.tmpdir() (tmp)
+  try {
+    fs.writeFileSync(path.join(proj, '.coalmine.json'), JSON.stringify({ tripwireMaxLines: 5 }), 'utf8');
+    const plain = path.join(proj, 'undeclared.js');
+    fs.writeFileSync(plain, 'x\n'.repeat(10)); // 10 lines, no declaration
+    const conflicted = path.join(proj, 'declared-conflict.js');
+    // waiver: form (the pre-rule in-tree idiom, hooks.test.mjs:6 precedent) — accepted
+    // as a declaration; the size smell goes quiet but the CONFLICT smell must survive.
+    fs.writeFileSync(conflicted,
+      '// waiver: 12 lines — conflict fixture\n<<<<<<< HEAD\nours\n=======\ntheirs\n>>>>>>> branch\n' + 'x\n'.repeat(6));
+    for (const f of [plain, conflicted]) {
+      const r = runHook(TOUCH, JSON.stringify({ session_id: 'SZ2', tool_input: { file_path: f } }), tmp, [], proj);
+      assert.equal(r.status, 0);
+    }
+    const rows = fs.readFileSync(path.join(tmp, 'rot-canary-SZ2.smells'), 'utf8').split('\n').filter(Boolean);
+    const plainRow = rows.find((l) => l.startsWith(plain + ':'));
+    assert.ok(plainRow && plainRow.includes('file >5 lines (10)'), 'the undeclared over-run is still flagged — this half must not weaken');
+    const confRow = rows.find((l) => l.startsWith(conflicted + ':'));
+    assert.ok(confRow && confRow.includes('merge-conflict markers'), 'the conflict tripwire still fires on a declared file');
+    assert.ok(!confRow.includes('file >'), 'the declaration silences ONLY the size smell');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(proj, { recursive: true, force: true });
+  }
+});
+
+test('size tripwire: test files are out of scope — .test. basename and a tests/ dir segment both exempt (source files only)', () => {
+  const tmp = mkTmp();
+  const proj = mkTmp(); // project dir, sibling of the sandbox os.tmpdir() (tmp)
+  try {
+    fs.writeFileSync(path.join(proj, '.coalmine.json'), JSON.stringify({ tripwireMaxLines: 5 }), 'utf8');
+    const byName = path.join(proj, 'big.test.js');
+    fs.writeFileSync(byName, 'x\n'.repeat(10)); // 10 lines, no declaration
+    fs.mkdirSync(path.join(proj, 'tests'), { recursive: true });
+    const byDir = path.join(proj, 'tests', 'helper.js');
+    fs.writeFileSync(byDir, 'x\n'.repeat(10));
+    for (const f of [byName, byDir]) {
+      const r = runHook(TOUCH, JSON.stringify({ session_id: 'SZ3', tool_input: { file_path: f } }), tmp, [], proj);
+      assert.equal(r.status, 0);
+    }
+    const touched = fs.readFileSync(path.join(tmp, 'rot-canary-SZ3.touched'), 'utf8');
+    assert.ok(touched.includes('big.test.js') && touched.includes('helper.js'),
+      'test files are still RECORDED for the stop-scan — only the size smell is out of scope');
+    const smellsFile = path.join(tmp, 'rot-canary-SZ3.smells');
+    const smells = fs.existsSync(smellsFile) ? fs.readFileSync(smellsFile, 'utf8') : '';
+    assert.ok(!smells.includes('file >'), 'no size smell on test files');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(proj, { recursive: true, force: true });
+  }
+});
+
+test('size tripwire: the declaration must sit in the file head — a deep marker does not silence an over-run, a header-block one does', () => {
+  const tmp = mkTmp();
+  const proj = mkTmp(); // project dir, sibling of the sandbox os.tmpdir() (tmp)
+  try {
+    fs.writeFileSync(path.join(proj, '.coalmine.json'), JSON.stringify({ tripwireMaxLines: 5 }), 'utf8');
+    // Declaration at line 20 (end of a header block, the md-ast.mjs:24 shape) → inside
+    // the 30-line head window → accepted.
+    const headerStyle = path.join(proj, 'header.js');
+    fs.writeFileSync(headerStyle, '// header\n'.repeat(19) + '// ponytail: 25 lines — header-block placement\n' + 'x\n'.repeat(5));
+    // Same marker text buried at line 36 → OUTSIDE the head window → the over-run is
+    // UNDECLARED where the rule says a declaration lives, so it stays flagged.
+    const deepMarker = path.join(proj, 'deep.js');
+    fs.writeFileSync(deepMarker, 'x\n'.repeat(35) + '// ponytail: 99 lines at declaration — too deep to count\n');
+    for (const f of [headerStyle, deepMarker]) {
+      const r = runHook(TOUCH, JSON.stringify({ session_id: 'SZ4', tool_input: { file_path: f } }), tmp, [], proj);
+      assert.equal(r.status, 0);
+    }
+    const smellsFile = path.join(tmp, 'rot-canary-SZ4.smells');
+    const smells = fs.existsSync(smellsFile) ? fs.readFileSync(smellsFile, 'utf8') : '';
+    assert.ok(!smells.includes('header.js'), 'a header-block declaration (≤ line 30) is honored');
+    assert.ok(smells.includes('deep.js') && smells.includes('file >5 lines'),
+      'a marker below the head window does not count as a declaration — the undeclared half holds');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(proj, { recursive: true, force: true });
+  }
+});
+
 test('stop hook honors autoScanFileCapSlice override in .coalmine.json', () => {
   const tmp = mkTmp();
   try {

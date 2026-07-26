@@ -21,7 +21,7 @@ export const CONFIG_SCHEMA = [
   { key: 'autoScanFileCap', type: 'int', min: 1, max: 1000, flags: ['-c', '--file-cap'], help: 'Max touched files scanned automatically at session end (default: 10)' },
   { key: 'autoScanFileCapSlice', type: 'int', min: 1, max: 1000, flags: ['-y'], help: 'Number of most-recently-modified files kept (a file count, not a fraction) when autoScanFileCap is exceeded (default: 5)' },
   { key: 'tripwireMaxFileSizeKb', type: 'int', min: 1, max: 102400, flags: ['-s', '--tripwire-cap'], help: 'Max file size in KB for the tripwire scan (default: 100)' },
-  { key: 'tripwireMaxLines', type: 'int', min: 1, max: 100000, flags: ['-n'], help: 'Line count that flags a file as a smell (default: 800)' },
+  { key: 'tripwireMaxLines', type: 'int', min: 1, max: 100000, flags: ['-n'], help: 'Line count that flags a source file as a smell; test files and files declaring the over-run (top-of-file "ponytail:/waiver: <N> lines" comment) are exempt (default: 800)' },
   { key: 'tempSweepStaleDays', type: 'int', min: 1, max: 3650, flags: ['-w'], help: 'Age in days before session temp files are swept (default: 7)' },
   { key: 'watchedExtensions', type: 'strArr', lower: true, flags: ['-e'], help: 'Comma-separated file extensions the touch hook watches (empty = defaults)' },
   { key: 'ruleRevalidateDays', type: 'int', min: 1, max: 3650, flags: ['-v', '--antivirusStalenessDays'], help: 'Days before general rules need re-validation (default: 90)' },

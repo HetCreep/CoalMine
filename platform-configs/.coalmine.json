@@ -52,7 +52,8 @@
   // # Default value: 100 (100KB)
   "tripwireMaxFileSizeKb": 100,
 
-  // ## Maximum line count for a file before flagging it as a code-health warning/smell.
+  // ## Maximum line count for a source file before flagging it as a code-health warning/smell.
+  // ## Exempt: test files, and files declaring the over-run with a top-of-file "ponytail:/waiver: <N> lines" comment.
   // # Setting type: Int32
   // # Default value: 800 (800 lines)
   "tripwireMaxLines": 800,
