@@ -57,9 +57,20 @@ const norm = (s) => s.replace(/\r\n/g, '\n');
 // trees compare on the same spelling on Windows. Symlinked directories are not
 // followed (`isDirectory()` is false for a link) — no cycle risk, and a rule home
 // is a plain directory.
+//
+// THROWS on an unreadable directory, and that is the point. A guard rests on TWO
+// capability checks — the stat PROBE (`kind()` below) and this ENUMERATION — and
+// hardening one leaves the other. Swallowing a readdir failure yields an EMPTY tree,
+// so two genuinely diverged rule homes report agreement over zero files compared:
+// the same fail-OPEN hole as the probe's, one level down. POSIX `chmod 0100` is
+// exactly that state — stat succeeds, readdir does not. Same tri-state rule:
+// ENOENT/ENOTDIR = the directory really is not there; anything else (EACCES, EPERM,
+// EIO) = could not enumerate, which is not the same as knowing it is empty. Every
+// caller turns the throw into its own FAIL finding, so one guard here covers both.
 function* walkMd(dir, rel = '') {
-  let entries = [];
-  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
+  catch (e) { if (e.code === 'ENOENT' || e.code === 'ENOTDIR') return; throw e; }
   for (const e of entries) {
     const abs = path.join(dir, e.name);
     const r = rel ? `${rel}/${e.name}` : e.name;
@@ -250,7 +261,15 @@ export function checkDoctrineMirrors(repo) {
   // means we could not TELL, which is not the same as knowing it is absent.
   const kind = (p) => {
     try { return fs.statSync(p).isDirectory() ? 'dir' : 'notdir'; }
-    catch (e) { return (e.code === 'ENOENT' || e.code === 'ENOTDIR') ? 'absent' : 'unreadable'; }
+    catch (e) {
+      if (e.code !== 'ENOENT' && e.code !== 'ENOTDIR') return 'unreadable';
+      // ENOENT with the directory ENTRY still on disk = a DANGLING link: something
+      // claims the rule home and delivers nothing. `statSync` FOLLOWS the link and
+      // reports the missing TARGET, so only `lstat` separates "no home here" from "a
+      // broken one" — and a broken one is malformed, the same fail-OPEN bypass as the
+      // regular-file case above wearing a different entry type.
+      try { fs.lstatSync(p); return 'notdir'; } catch { return 'absent'; }
+    }
   };
   const kinds = [kind(claudeRoot), kind(agentsRoot)];
   for (const [i, k] of kinds.entries()) {
@@ -262,9 +281,15 @@ export function checkDoctrineMirrors(repo) {
   if (kinds.includes('absent')) return out;
 
   const read = (abs) => { try { return norm(fs.readFileSync(abs, 'utf8')); } catch (e) { return e; } };
-  const side = (root) => new Map([...walkMd(root)].map((f) => [f.rel, f.abs]));
+  const side = (root) => { try { return new Map([...walkMd(root)].map((f) => [f.rel, f.abs])); } catch (e) { return e; } };
   const a = side(claudeRoot);
   const b = side(agentsRoot);
+  // A home we could not enumerate is not an empty one — reporting agreement over
+  // files never opened is the same false all-clear the pair list used to produce.
+  for (const [m, root] of [[a, MIRROR_ROOTS[0]], [b, MIRROR_ROOTS[1]]]) {
+    if (m instanceof Error) out.push({ level: 'FAIL', msg: `consistency: ${root} could not be enumerated (${m.code || m.message}) — cannot prove the two rule homes agree` });
+  }
+  if (out.length) return out; // blind on either side: fail CLOSED, never silent
 
   // Union, both directions: a rule only Claude sees and a rule only the other agents
   // see are the SAME defect (two populations, two rulebooks) pointed opposite ways.
@@ -315,7 +340,13 @@ export function checkRuleStamps(repo) {
   // future change to what counts as a rule file cannot apply to only one of them.
   const roots = ['.claude/rules', '.agents/rules'].map((r) => path.join(repo, r));
   for (const root of roots) {
-    for (const { abs: p } of walkMd(root)) {
+    let files;
+    try { files = [...walkMd(root)]; }
+    catch (e) {
+      out.push({ level: 'FAIL', msg: `consistency: ${path.relative(repo, root)} could not be enumerated (${e.code || e.message}) — cannot prove its stamps are well-formed` });
+      continue;
+    }
+    for (const { abs: p } of files) {
       let body;
       try { body = fs.readFileSync(p, 'utf8'); } catch { continue; }
       STAMP_OPEN.lastIndex = 0;

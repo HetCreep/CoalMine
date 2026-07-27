@@ -126,7 +126,7 @@ test('doctrine mirrors: identical copies pass, a diverged copy fails', () => {
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('doctrine mirrors: a MALFORMED rule home fails closed — only a genuinely ABSENT one gets the carve-out', (t) => {
+test('doctrine mirrors: a MALFORMED rule home fails closed — only a genuinely ABSENT one gets the carve-out', () => {
   const dir = mkRepo();
   try {
     const mk = (rel, body) => { fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
@@ -141,7 +141,12 @@ test('doctrine mirrors: a MALFORMED rule home fails closed — only a genuinely 
     assert.equal(notdir.length, 1, 'a file where the rule home belongs must be reported, not swallowed');
     assert.match(notdir[0].msg, /is NOT a directory/);
 
-    // ENOTDIR reached through a PARENT that is a file is still a real absence.
+    // A PARENT that is a file is still a real absence. NOTE the errno differs by
+    // platform — POSIX raises ENOTDIR, Windows raises ENOENT — so this leg exercises
+    // the ENOTDIR arm of the classification only on the Unix CI runners while passing
+    // here through the ENOENT arm. Both are the same verdict, which is why one
+    // assertion covers both; the ENOTDIR arm is NOT dead code, it is just not
+    // reachable on this volume.
     fs.rmSync(path.join(dir, '.agents/rules/ecc'));
     fs.rmSync(path.join(dir, '.agents/rules'), { recursive: true, force: true });
     fs.writeFileSync(path.join(dir, '.agents/rules'), 'parent is a file\n');
@@ -181,6 +186,73 @@ test('doctrine mirrors: an UNINSPECTABLE rule home fails closed (Unix CI runners
     try { fs.chmodSync(guarded, 0o700); } catch { /* best effort, so cleanup can recurse */ }
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// The tri-state above hardened the stat PROBE. A guard rests on TWO capability checks
+// — the probe AND the enumeration — and hardening one leaves the other: a swallowed
+// readdir failure yields an empty tree, so two genuinely DIVERGED homes report
+// agreement over zero files compared. POSIX `chmod 0100` is exactly that state (stat
+// succeeds, readdir does not). Patching the `node:fs` default export reaches the
+// module under test — one realm, one singleton object — so this leg runs on EVERY
+// volume instead of only where permissions can be denied. No skippable leg here.
+test('doctrine mirrors: an UNENUMERABLE rule home fails loud — a readdir failure is not an empty tree', () => {
+  const dir = mkRepo();
+  const realReaddir = fs.readdirSync;
+  try {
+    const mk = (rel, body) => { fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
+    mk('.claude/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\n');
+    mk('.agents/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\nPOISON\n');
+    assert.equal(checkDoctrineMirrors(dir).length, 1, 'control: the divergence is visible while the tree can be read');
+
+    // Both roots still stat as directories; only the nested readdir fails, so the walk
+    // is blinded MID-WALK and the recursion — not just the root — has to carry the guard.
+    fs.readdirSync = (p, opts) => {
+      if (path.basename(String(p)) === 'domain') {
+        const e = new Error('EACCES: permission denied, scandir'); e.code = 'EACCES'; throw e;
+      }
+      return realReaddir(p, opts);
+    };
+    const blind = checkDoctrineMirrors(dir);
+    assert.equal(blind.length, 2, 'each unenumerable rule home is reported — never a silent all-clear over zero files compared');
+    for (const root of ['.claude/rules/ecc', '.agents/rules/ecc']) {
+      assert.ok(blind.some((f) => f.msg.includes(root) && /could not be enumerated/.test(f.msg)), `${root} must be named as unenumerable`);
+    }
+
+    // ONE walker, BOTH callers: the stamp check consumed the same swallow.
+    const stamps = checkRuleStamps(dir);
+    assert.equal(stamps.length, 2, 'checkRuleStamps shares walkMd and must fail loud on the same blindness');
+    assert.match(stamps[0].msg, /could not be enumerated/);
+  } finally {
+    fs.readdirSync = realReaddir;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// SEPARATE test: creating a link is a volume capability, so this carries the one
+// skippable leg and nothing else (t.skip marks the WHOLE test, not the leg).
+test('doctrine mirrors: a DANGLING link at a rule home is MALFORMED, not absent (skips where the volume cannot make a link)', (t) => {
+  const dir = mkRepo();
+  try {
+    const mk = (rel, body) => { fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
+    mk('.claude/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\n');
+    fs.mkdirSync(path.join(dir, '.agents/rules'), { recursive: true });
+    try {
+      // 'junction' is the unprivileged Windows shim (a plain symlink needs Developer
+      // Mode; measured EPERM here) and the type arg is ignored on POSIX. PROBED, never
+      // keyed to process.platform — link permission is a volume property.
+      fs.symlinkSync(path.join(dir, 'no-such-rule-home'), path.join(dir, '.agents/rules/ecc'), 'junction');
+    } catch (e) {
+      t.skip(`this volume cannot create a link (${e.code}) — this leg runs where one can`);
+      return;
+    }
+    // statSync FOLLOWS the link and reports the missing target as ENOENT, which the
+    // carve-out would read as "this clone does not keep that rule home" — while the
+    // directory ENTRY is sitting right there. Only lstat separates no-home-here from
+    // a broken one, and a broken one is malformed, never the carve-out.
+    const f = checkDoctrineMirrors(dir);
+    assert.equal(f.length, 1, 'a link that promises a rule home and delivers nothing must not inherit the ABSENT carve-out');
+    assert.match(f[0].msg, /is NOT a directory/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('doctrine mirrors: ENUMERATED, not a pair list — a nested rule and a brand-new rule are both compared', () => {
