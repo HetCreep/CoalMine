@@ -227,9 +227,20 @@ Bound by the 11 principles of the [Quantum Computer Spec](https://github.com/The
 
 ---
 
-## 🏭 Part of TheColliery
+## 🧭 Part of TheColliery
 
-CoalMine shares its engineering doctrine with [CoalTipple](https://github.com/TheColliery/CoalTipple) (model/effort routing), [CoalBoard](https://github.com/TheColliery/CoalBoard) (consensus & debate board), [CoalHearth](https://github.com/TheColliery/CoalHearth) (session warm-resume), [CoalFace](https://github.com/TheColliery/CoalFace) (fan-out discipline), [CoalWash](https://github.com/TheColliery/CoalWash) (memory defrag), and [CoalLedger](https://github.com/TheColliery/CoalLedger) (docs health): Phoenix-13 hooks (zero-dependency, no network, fail-silent, no child processes, deterministic), single-source-of-truth config schemas, and a strict no-overkill discipline. Install one and it stands alone; install all and they compose without conflict.
+CoalMine is the quality-safeguard canary suite of a family of sibling skills built to one engineering doctrine:
+
+- [CoalTipple](https://github.com/TheColliery/CoalTipple) — model/effort routing
+- [CoalBoard](https://github.com/TheColliery/CoalBoard) — consensus & debate board
+- [CoalHearth](https://github.com/TheColliery/CoalHearth) — session warm-resume
+- [CoalFace](https://github.com/TheColliery/CoalFace) — fan-out discipline
+- [CoalWash](https://github.com/TheColliery/CoalWash) — memory defrag
+- [CoalLedger](https://github.com/TheColliery/CoalLedger) — docs health
+
+Install one, it stands alone; install all, they compose without conflict.
+
+The shared doctrine: Phoenix-13 hooks (zero-dependency, no network, fail-silent, no child processes, deterministic), single-source-of-truth config schemas, and a strict no-overkill discipline. More at [TheColliery](https://github.com/TheColliery).
 
 ---
 
