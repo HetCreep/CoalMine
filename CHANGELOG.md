@@ -2,7 +2,7 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
-## [Unreleased]
+## [3.13.0] - 2026-07-27
 
 ### Added
 - **The size tripwire now honors a declared over-run** (`hooks/rot-canary-touch.js`): a source file crossing `tripwireMaxLines` with a top-of-file declaration comment — `// ponytail: <N> lines at declaration — <why>` (or the pre-existing `waiver:` idiom; the discriminator is the `<digits> lines` payload) — is no longer flagged. Implements the amended file-size rule (2026-07-26): **800 is a review signal, not a cap — the finding is an UNDECLARED over-run.** The N is history, deliberately never compared to the current count (a drifted number must not reopen the finding). The declaration must sit in the first 30 lines ("top-of-file"); it silences ONLY the size smell — merge-conflict detection and the `.touched` stop-scan recording are unchanged. An undeclared over-run is still flagged exactly as before. The declaration match is bounded to the first 2048 characters of a line (mirroring the conductor's `STAMP_WINDOW`): the pattern backtracks quadratically in line length, and a poison line was reachable at shipped defaults (a 99.2 KB file sits under the 100 KB scan cap) — measured 5424 ms unbounded through the real hook, against a Phoenix #3 budget of ≤100 ms including the scan. Bounded, the same fixture runs in ~59 ms, versus ~50 ms for a benign file of the same length.
