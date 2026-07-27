@@ -190,7 +190,18 @@ export function checkVersionPins(repo) {
   }
   const tplDir = path.join(repo, '.github', 'ISSUE_TEMPLATE');
   let names = [];
-  try { names = fs.readdirSync(tplDir).filter((f) => /\.ya?ml$/.test(f)); } catch { return out; }
+  // The same two-absences split as the doctrine mirror, and the stakes are higher: this
+  // check rides checkTracked = the COMMIT GATE. A repo with no `.github/ISSUE_TEMPLATE`
+  // is the COMMON case (a fresh clone, a partial copy, a test fixture) and must never
+  // start blocking commits — so ENOENT/ENOTDIR stays silent. But a directory we could
+  // not READ is not a directory with no templates: swallowing that passed the pin gate
+  // over templates never opened.
+  try { names = fs.readdirSync(tplDir).filter((f) => /\.ya?ml$/.test(f)); }
+  catch (e) {
+    if (e.code === 'ENOENT' || e.code === 'ENOTDIR') return out;
+    out.push({ level: 'FAIL', msg: `consistency: .github/ISSUE_TEMPLATE could not be enumerated (${e.code || e.message}) — cannot prove the version pins are current` });
+    return out;
+  }
   for (const name of names) {
     const file = path.join(tplDir, name);
     let lines;

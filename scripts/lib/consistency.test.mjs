@@ -110,6 +110,37 @@ test('version pins: a `version-pin:` line must match plugin.json; drift/missing 
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+// This check rides checkTracked = the COMMIT GATE, so both directions matter equally:
+// a repo with no issue templates is the COMMON case and must never start blocking
+// commits, while a directory we could not READ is not a directory with no templates.
+test('version pins: an UNENUMERABLE issue-template dir FAILs, an ABSENT one stays silent (this check rides the commit gate)', () => {
+  const dir = mkRepo();
+  const realReaddir = fs.readdirSync;
+  const tplDir = path.join(dir, '.github', 'ISSUE_TEMPLATE');
+  try {
+    fs.writeFileSync(path.join(dir, '.claude-plugin', 'plugin.json'), JSON.stringify({ version: '3.7.0', description: 'x' }));
+    assert.deepEqual(checkVersionPins(dir), [], 'no .github/ISSUE_TEMPLATE at all is the legitimate absence — never block a commit on it');
+
+    fs.mkdirSync(tplDir, { recursive: true });
+    fs.writeFileSync(path.join(tplDir, 'bug.yml'),
+      'name: bug\nbody:\n  - type: input\n    attributes:\n      placeholder: "v3.7.0"  # version-pin: tracks plugin.json\n');
+    assert.deepEqual(checkVersionPins(dir), [], 'control: a matching pin is clean while the dir can be read');
+
+    fs.readdirSync = (p, opts) => {
+      if (path.basename(String(p)) === 'ISSUE_TEMPLATE') {
+        const e = new Error('EACCES: permission denied, scandir'); e.code = 'EACCES'; throw e;
+      }
+      return realReaddir(p, opts);
+    };
+    const blind = checkVersionPins(dir);
+    assert.equal(blind.length, 1, 'an unreadable template dir must not pass the pin gate over templates never opened');
+    assert.match(blind[0].msg, /could not be enumerated/);
+  } finally {
+    fs.readdirSync = realReaddir;
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('doctrine mirrors: identical copies pass, a diverged copy fails', () => {
   const dir = mkRepo();
   try {
@@ -349,6 +380,54 @@ test('manifest integrity: clean install verifies, post-install tamper is caught'
     const missing = verifyAgainstManifest(dest);
     assert.ok(missing.findings.some((x) => /MISSING/.test(x.msg)));
   } finally { fs.rmSync(dest, { recursive: true, force: true }); }
+});
+
+// TWO swallows, and the amplifier is that this walk WRITES its blindness into a
+// persistent artifact: verifyAgainstManifest never walks the disk, it iterates only the
+// recorded keys, so a file omitted at install sits permanently outside the integrity net
+// and later tamper on it reports `ok` with no trace at either end. Every name reaching
+// this walk was JUST written successfully (install.mjs pushes on success), so there is no
+// legitimate-absence carve-out to preserve — any failure is a failure.
+test('manifest integrity: a tree the walk cannot READ aborts the manifest — never one with a silent hole', () => {
+  const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-sfc-blind-'));
+  const realReaddir = fs.readdirSync;
+  const realReadFile = fs.readFileSync;
+  try {
+    fs.mkdirSync(path.join(dest, 'alpha-canary', 'references'), { recursive: true });
+    const nested = path.join(dest, 'alpha-canary', 'references', 'method.md');
+    fs.writeFileSync(path.join(dest, 'alpha-canary', 'SKILL.md'), 'top\n');
+    fs.writeFileSync(nested, 'nested\n');
+    assert.deepEqual(
+      Object.keys(hashInstalledTree(dest, ['alpha-canary'])).sort(),
+      ['alpha-canary/SKILL.md', 'alpha-canary/references/method.md'],
+      'control: both files are recorded while the tree can be read',
+    );
+
+    // SWALLOW 1 — an unenumerable SUBDIRECTORY dropped the whole subtree from the manifest.
+    fs.readdirSync = (p, opts) => {
+      if (path.basename(String(p)) === 'references') {
+        const e = new Error('EACCES: permission denied, scandir'); e.code = 'EACCES'; throw e;
+      }
+      return realReaddir(p, opts);
+    };
+    assert.throws(() => hashInstalledTree(dest, ['alpha-canary']), /EACCES/,
+      'an unenumerable subtree must abort the manifest, not vanish from it');
+    fs.readdirSync = realReaddir;
+
+    // SWALLOW 2 — one unhashable FILE dropped just that file, same permanent effect.
+    fs.readFileSync = (p, opts) => {
+      if (String(p) === nested) {
+        const e = new Error('EACCES: permission denied, open'); e.code = 'EACCES'; throw e;
+      }
+      return realReadFile(p, opts);
+    };
+    assert.throws(() => hashInstalledTree(dest, ['alpha-canary']), /EACCES/,
+      'a file we just wrote but cannot hash must abort the manifest, not sit outside the integrity net');
+  } finally {
+    fs.readdirSync = realReaddir;
+    fs.readFileSync = realReadFile;
+    fs.rmSync(dest, { recursive: true, force: true });
+  }
 });
 
 test('manifest integrity: a manifest hash entry cannot escape the target dir', () => {

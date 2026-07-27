@@ -12,6 +12,13 @@
 // + recompute), and the repo side is covered separately by the git-signed
 // canonical + verify.mjs byte-compare. Defense in depth, not a silver bullet.
 //
+// SECOND CEILING, structural and unfixable by a better walk: a hash list proves the
+// RECORDED set only. A file ADDED to the target after install has no manifest entry,
+// so nothing looks for it and it is invisible to this check — detecting it would need
+// a directory walk at VERIFY time, which is a different design. That is exactly why a
+// file must never be dropped from the manifest at write time (see hashInstalledTree):
+// an omitted file is downgraded from "checked" to that same blind spot, silently.
+//
 // Pure, Node built-ins only.
 
 import fs from 'node:fs';
@@ -26,18 +33,33 @@ export function hashFile(p) {
 
 // Walk each installed skill dir and hash every file. Keys are POSIX-style
 // "<skill>/<relpath>" so the manifest is identical across OSes (determinism).
+//
+// DELIBERATELY UNGUARDED — a readdir or hash failure PROPAGATES, and the bare calls
+// below are the fix, not an oversight. This walk WRITES its result into a persistent
+// artifact, and `verifyAgainstManifest` never walks the disk: it iterates only the
+// recorded keys. So a file this walk skipped is not merely missed once — it sits
+// permanently OUTSIDE the integrity net, and later tamper on it reports `ok` with no
+// trace at either end. The miss direction is a false "verified clean", the worst
+// outcome an integrity check has.
+//
+// There is no legitimate-absence carve-out to preserve here, unlike the rule-home walk
+// in consistency.mjs: every name reaching this function was JUST written successfully
+// (install.mjs pushes onto `installed` only after installSkillDir returns), so an
+// ENOENT means something raced or lied about the copy. Any failure is a failure.
+//
+// The caller closes the loop: writeManifest's existing catch turns the throw into the
+// house `[warn] could not write install manifest: <reason>` + `process.exitCode = 1`,
+// and NO manifest is written. That is the right outcome — a missing manifest makes
+// verifyAgainstManifest report an honest SKIP, where a manifest with a silent hole
+// would report a clean pass forever.
 export function hashInstalledTree(destDir, skillNames) {
   const hashes = {};
   const walk = (abs, relParts) => {
-    let entries = [];
-    try { entries = fs.readdirSync(abs, { withFileTypes: true }); } catch { return; }
-    for (const e of entries) {
+    for (const e of fs.readdirSync(abs, { withFileTypes: true })) {
       const childAbs = path.join(abs, e.name);
       const childRel = [...relParts, e.name];
       if (e.isDirectory()) walk(childAbs, childRel);
-      else {
-        try { hashes[childRel.join('/')] = hashFile(childAbs); } catch {}
-      }
+      else hashes[childRel.join('/')] = hashFile(childAbs);
     }
   };
   for (const s of skillNames) walk(path.join(destDir, s), [s]);
