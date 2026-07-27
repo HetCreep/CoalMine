@@ -140,6 +140,16 @@ node /path/to/CoalMine/scripts/install.mjs <agent|all|PATH>
 
 ---
 
+## Commands
+
+| Command | What it does |
+|---|---|
+| **the 9 canaries** | See [The 9 Canaries](#-the-9-canaries) — each triggers on its own name/keywords (e.g. `/rot-canary`) or matching conversation context |
+| `/coalmine:stats` | Measurement dashboard — canary activity this session + rule-freshness status across the project's rules home |
+| `/coalmine:update` | Self-update — check for a newer CoalMine version and offer to apply it, or set how updates are handled |
+
+---
+
 ## 🔋 One button: install — the suite drives itself
 
 Installing is the power button. The agent conducts the canaries and asks for consent before running expensive tasks:
