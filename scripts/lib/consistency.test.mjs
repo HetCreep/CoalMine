@@ -291,8 +291,8 @@ test('doctrine mirrors: ENUMERATED, not a pair list — a nested rule and a bran
   try {
     const mk = (rel, body) => { fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
     // The live defect this replaced: the hard-coded list named 2 files, so common/,
-    // node/, typescript/ and RETIRED.md were never compared and drift read as clean.
-    for (const rel of ['domain/hooks-safety.md', 'common/coding-style.md', 'node/runtime.md', 'RETIRED.md']) {
+    // node/, typescript/ and every root-level file went uncompared and drift read as clean.
+    for (const rel of ['domain/hooks-safety.md', 'common/coding-style.md', 'node/runtime.md', 'index.md']) {
       mk(`.claude/rules/ecc/${rel}`, `RULE ${rel}\n`);
       mk(`.agents/rules/ecc/${rel}`, `RULE ${rel}\n`);
     }
@@ -312,9 +312,42 @@ test('doctrine mirrors: ENUMERATED, not a pair list — a nested rule and a bran
     assert.match(drift[0].msg, /common\/coding-style\.md.*DIVERGED/);
     fs.writeFileSync(path.join(dir, '.agents/rules/ecc/common/coding-style.md'), 'RULE common/coding-style.md\n');
 
-    // RETIRED.md is deliberately NOT exempt: never @imported is not "may disagree".
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// Replaces the old assertion that RETIRED.md "mirrors like any other rule". That policy
+// was RETIRED itself on 2026-07-27: `.claude/rules/**` is auto-loaded as a DIRECTORY, so
+// a tombstone ledger inside the tree is paid for in every session forever and
+// skill-authoring.md §6's whole point — retiring a dead rule costs nothing — collapsed.
+// The ledger now lives OUTSIDE both trees as a single un-mirrored copy, and that LOCATION
+// is the mechanism. Two legs, and the second is the sharper one: before this change a
+// one-sided tombstone was reported as UNMIRRORED, whose remedy ("add it to the other
+// tree") is now precisely the wrong move.
+test('doctrine mirrors: a tombstone ledger INSIDE a rule tree FAILs — mirrored (silent before) or one-sided (wrong remedy before)', () => {
+  const dir = mkRepo();
+  try {
+    const mk = (rel, body) => { fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
+    mk('.claude/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\n');
+    mk('.agents/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\n');
+    assert.deepEqual(checkDoctrineMirrors(dir), [], 'control: a tree with no tombstone is clean');
+
+    // LEG 1 — the INVISIBLE regression: identical copies in both trees mirror perfectly,
+    // so every content check agrees and the old gate said nothing at all.
+    mk('.claude/rules/ecc/RETIRED.md', 'tombstone\n');
+    mk('.agents/rules/ecc/RETIRED.md', 'tombstone\n');
+    const both = checkDoctrineMirrors(dir);
+    assert.equal(both.length, 1, 'a mirrored tombstone must be reported once, not pass because it agrees with itself');
+    assert.match(both[0].msg, /must NOT live inside a rule tree/);
+    for (const root of ['.claude/rules/ecc', '.agents/rules/ecc']) {
+      assert.ok(both[0].msg.includes(root), `${root} must be named so the reader knows where to delete it`);
+    }
+
+    // LEG 2 — one-sided: the finding must be the tombstone verdict, NOT the mirror one.
     fs.rmSync(path.join(dir, '.agents/rules/ecc/RETIRED.md'));
-    assert.match(checkDoctrineMirrors(dir)[0].msg, /RETIRED\.md.*UNMIRRORED/, 'RETIRED.md mirrors like any other rule — no carve-out');
+    const oneSided = checkDoctrineMirrors(dir);
+    assert.equal(oneSided.length, 1);
+    assert.match(oneSided[0].msg, /must NOT live inside a rule tree/);
+    assert.doesNotMatch(oneSided[0].msg, /UNMIRRORED/, 'never tell the reader to copy a tombstone into the other tree');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

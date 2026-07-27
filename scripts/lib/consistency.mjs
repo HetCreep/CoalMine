@@ -39,17 +39,29 @@ import { listSkills } from './render.mjs';
 // Comparison is CRLF-normalized, not raw bytes: a line-ending difference between two
 // checkouts is not doctrine drift.
 //
-// RETIRED.md mirrors like every other rule — deliberately NO exception. It is never
-// `@imported` (deleting a dead rule must cost zero always-loaded tokens), but "not
-// loaded" is not "may disagree": a tombstone ledger that tells the two populations
-// different things about what was retired is still two rulebooks. Both copies exist
-// and agree today, so the exception would buy nothing and cost a permanent carve-out.
+// THE TOMBSTONE LEDGER IS NOT A RULE and must not live in either tree — reversing this
+// file's own earlier "RETIRED.md mirrors like every other rule, deliberately NO
+// exception". That rested on "it is never `@imported`", which is true and IRRELEVANT:
+// `.claude/rules/**` is auto-loaded as a DIRECTORY, so the ledger was paid for in every
+// session and grew forever, collapsing skill-authoring.md §6's entire point — retiring a
+// dead rule must cost nothing. Since 2026-07-27 it is a SINGLE un-mirrored copy outside
+// both trees, and that LOCATION is the mechanism: one copy cannot diverge from itself,
+// which is exactly the property this check had to enforce while two copies existed.
+//
+// A tombstone found INSIDE a tree therefore FAILS, and neither existing verdict would
+// have said so: mirrored into both trees it agrees with itself and passes SILENTLY (an
+// invisible regression), and one-sided it reads as UNMIRRORED — whose remedy, "add it to
+// the other tree", is now precisely the wrong move. Scope limit, stated rather than
+// implied: this only sees a tombstone that came BACK inside a tree. Nothing here checks
+// that the ledger still exists at its new home — that lives outside the trees, and §6
+// accepts it as unguarded.
 //
 // NAMED ASYMMETRY (legitimate, not drift): `.agents/rules/coalmine-trigger.md` has no
 // `.claude` counterpart — it is the trigger table for agents that do not receive
 // triggers from the plugin, and Claude does. It sits OUTSIDE `ecc/`, so this
 // ecc-scoped walk never sees it; that placement IS the mechanism, not an oversight.
 const MIRROR_ROOTS = ['.claude/rules/ecc', '.agents/rules/ecc'];
+const TOMBSTONE = 'RETIRED.md';
 
 const norm = (s) => s.replace(/\r\n/g, '\n');
 
@@ -306,6 +318,11 @@ export function checkDoctrineMirrors(repo) {
   // see are the SAME defect (two populations, two rulebooks) pointed opposite ways.
   // Sorted so the gate's output is deterministic across platforms (Phoenix #8).
   for (const rel of [...new Set([...a.keys(), ...b.keys()])].sort()) {
+    if (rel === TOMBSTONE || rel.endsWith(`/${TOMBSTONE}`)) {
+      const at = [[a, MIRROR_ROOTS[0]], [b, MIRROR_ROOTS[1]]].filter(([m]) => m.has(rel)).map(([, r]) => `${r}/${rel}`);
+      out.push({ level: 'FAIL', msg: `consistency: ${at.join(' + ')} — a tombstone ledger must NOT live inside a rule tree (the whole tree is always-loaded, so retiring a rule would cost tokens forever). DELETE it here; its home is the single un-mirrored copy outside both trees.` });
+      continue;
+    }
     const [pa, pb] = [a.get(rel), b.get(rel)];
     if (!pa || !pb) {
       const [have, missing] = pa ? [MIRROR_ROOTS[0], MIRROR_ROOTS[1]] : [MIRROR_ROOTS[1], MIRROR_ROOTS[0]];
