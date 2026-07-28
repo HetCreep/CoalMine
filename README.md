@@ -132,7 +132,7 @@ node /path/to/CoalMine/scripts/install.mjs <agent|all|PATH>
 ```
 * Supported `<agent>`: `antigravity`, `cursor`, `codex`, `cline`, `copilot`, `windsurf`, `amp`, `goose`, `junie`, `gemini`, `kiro`, `augment` (for `claude`, prefer the plugin above) — see [Universal Agent Support](#-universal-agent-support) for target folders + choice-tool support.
 * `all` auto-detects and installs to all configured agents in the directory.
-* The installer sets up pre-commit/pre-push gates in `.git/hooks`, writes trigger rules, and generates `.coalmine.json` config.
+* The installer sets up pre-commit/pre-push gates where git actually reads hooks — your `core.hooksPath` if the repo sets one (husky, lefthook, a tracked `.githooks/`), otherwise `.git/hooks` — writes trigger rules, and generates `.coalmine.json` config.
 
 #### 3. Verify & Uninstall
 * **Verify:** `node /path/to/CoalMine/scripts/verify.mjs <agent|PATH>`

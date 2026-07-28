@@ -25,7 +25,13 @@ node scripts/test.mjs           # zero-dep unit + hermetic hook tests (node --te
 node scripts/consistency.mjs    # cross-doc counts, doctrine mirrors, well-formed stamps — on-demand, not gated
 ```
 
-The installer wires `verify.mjs` and the `node --test` unit suite into `.git/hooks` (pre-commit + pre-push), so a clone that ran `scripts/install.mjs` runs them on every commit. `consistency.mjs` is a separate on-demand check (cross-doc counts, doctrine mirrors, stamp formats) — run it yourself before a big rule/doc change; it is not part of the automatic gate.
+This repo's own gates are tracked in `.githooks/`. Enable them once per clone — a fresh clone is ungated until you do (check with `git config --get core.hooksPath`):
+
+```bash
+git config core.hooksPath .githooks
+```
+
+pre-commit and pre-push then run `scripts/test.mjs` and `scripts/verify.mjs` on every commit and push, plus the PowerShell parity tests when `pwsh` is on PATH. `consistency.mjs` is a separate on-demand check (cross-doc counts, doctrine mirrors, stamp formats) — run it yourself before a big rule/doc change; it is not part of the automatic gate.
 
 ### Development Rules
 * **`skills/_shared/` is the Single Source of Truth** for shared blocks (language header, escalation footer, orchestration). Edit there, then run `node scripts/build-plugin.mjs` to re-inject; never hand-edit the generated regions inside a skill.
@@ -51,7 +57,8 @@ The installer wires `verify.mjs` and the `node --test` unit suite into `.git/hoo
 |---|---|
 | `skills/<canary>/SKILL.md` | The 9 canary skills (the audits). |
 | `skills/_shared/` | Shared blocks injected into each skill at build time. |
-| `hooks/` | Phoenix-pure lifecycle hooks (rot-canary auto-scan, conductor). |
+| `hooks/` | Phoenix-pure lifecycle hooks that ship (rot-canary auto-scan, conductor). |
+| `.githooks/` | This repo's own pre-commit/pre-push gates — tracked, enabled via `core.hooksPath`. |
 | `commands/` | Slash-commands (`/coalmine:stats`, `/coalmine:update`). |
 | `scripts/` | `build-plugin`, `verify`, `consistency`, `install`, `configure` + `lib/`. |
 | `plugin/` | Generated Claude Code plugin distribution. |
