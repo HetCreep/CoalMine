@@ -5,25 +5,6 @@ AGENTS.md
 .claude/
 .agents/
 
-# Dependencies / build cruft
-node_modules/
-
-# Runtime state — a root machine config created only if CoalMine is installed INTO this repo; never ship
-# (the shipped factory template is platform-configs/.coalmine.json, which is NOT matched here)
-/.coalmine.json
-
 # Generated SkillSpector scan reports (provenance recorded in SECURITY.md; the raw report is not shipped)
 skillspector-*
 
-# OS / editor cruft
-.DS_Store
-Thumbs.db
-*.log
-*.swp
-
-# editor / env / tmp (preventive)
-.vscode/
-.idea/
-.env
-.env.*
-*.tmp
