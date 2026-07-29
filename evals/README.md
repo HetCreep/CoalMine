@@ -95,8 +95,8 @@ Five where the skill should fire, two where it should not.
 
 **Where the answer key comes from.** Every planted defect belongs to a class in
 rot-canary's own benchmark corpus — `silent-failure`, `resource-leak`,
-`dead-code`, `input-boundary`, `concurrency`, `doc-rot`, `clean-decoy`, six of
-its eight classes, under
+`dead-code`, `input-boundary`, `concurrency`, `doc-rot`, `clean-decoy`,
+`bug-prone` — all eight of its classes, under
 [`.github/benchmarks/CoalMine/fixtures/rot-canary`](https://github.com/TheColliery/.github/tree/main/benchmarks/CoalMine/fixtures/rot-canary).
 So the key is the skill's own declared detection taxonomy, not an invented
 rubric. Case 07 (over-trigger) is the one class with no corpus counterpart.
