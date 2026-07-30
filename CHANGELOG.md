@@ -2,7 +2,7 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
-## [Unreleased]
+## [3.14.0] - 2026-07-30
 
 ### Added
 - **`scanExcludePaths` — a lab-tooling scan-scope exclude for the session-end auto-scan** (USER standing rule: skip throwaway lab tooling, never skip shipped/tracked code). A new `String[]` config key of path fragments/wildcards (`*`), filtered out of the touched-files list `hooks/rot-canary-stop.js` builds — **before** the `autoScanFileCap` slice, so an excluded scratch file never consumes a cap slot a real file could use. When anything is skipped, the nudge appends a translated skip-count clause (all 5 languages) — anti-cry-wolf: the user sees autopilot is still running, not dead, rather than a silently shorter file list. Global + project `.coalmine.json` layers **UNION** (a project may only add exclusions, never drop a global one — the same safer-value-wins direction as `updateMode`), and fragment matching normalizes `\` to `/` first so a POSIX-style fragment (the documented, portable form) still matches a Windows-separated touched path. Matching runs through a **linear segment matcher** (split the fragment on `*`, walk the literal segments with `String.indexOf`) rather than a hand-built regex — the standard O(n) algorithm for `*`-only globs, chosen specifically because it has no backtracking and therefore no ReDoS surface, unlike an earlier internal iteration of this feature. PowerShell fallback twins do not implement this key (named divergence, `alt/powershell/README.md` — same precedent as `memoryDriftNudge` and the `os.tmpdir()` exclude). +9 hermetic tests (suite 141 → 150).
