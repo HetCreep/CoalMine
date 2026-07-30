@@ -86,6 +86,12 @@ function readCfgFile(file) {
 // via this merge, so a hook-side guard for IT would protect nothing — that half
 // of the old verdict stands.
 const SAFER_ENUM = { updateMode: ['off', 'remind', 'ask', 'auto'] }; // index 0 = safest
+// UNION-MERGE KEYS (hooks-safety.md section 9): a strArr key here is QUIETEN-only —
+// more entries can only REDUCE what a hook acts on, never escalate spend/consent — so
+// the project layer may ADD to the global layer's list, never silently drop an entry
+// from it by replacing the whole array. scanExcludePaths is a scan-scope exclude: a
+// project adding its own lab-tooling fragment must not erase a global one.
+const UNION_ARRAY_KEYS = ['scanExcludePaths'];
 let _cfg;
 function loadCfg() {
   if (_cfg !== undefined) return _cfg;
@@ -111,6 +117,12 @@ function loadCfg() {
         const pi = order.indexOf(projectCfg[key]);
         if (gi === -1 || pi === -1) continue; // unknown value: leave the shallow-merge result
         merged[key] = pi <= gi ? projectCfg[key] : globalCfg[key]; // project may not be LOUDER than global
+      }
+      // Same BOTH-layers-explicit guard as SAFER_ENUM above, but the safer direction
+      // for an array is UNION (dedup), not "pick one side" — either side may add.
+      for (const key of UNION_ARRAY_KEYS) {
+        if (!globalCfg || !projectCfg || !Array.isArray(globalCfg[key]) || !Array.isArray(projectCfg[key])) continue;
+        merged[key] = [...new Set([...globalCfg[key], ...projectCfg[key]])];
       }
       _cfg = merged;
     }
@@ -228,11 +240,40 @@ function sweepStale(canaryActive) {
   } catch {}
 }
 
+// scanExcludePaths (2026-07-30, USER standing rule: "skip lab tools, never skip
+// shipped code"): a path-fragment / lightweight-glob exclude for throwaway lab
+// tooling (scratch probes, one-shot harnesses) so it never consumes a slot the
+// touched-files auto-scan would rather give a real file. Deliberately NOT a full
+// glob engine (Phoenix #2: zero-dep, no npm glob lib) — a literal fragment is a
+// case-insensitive substring match against the touched file's resolved path,
+// and '*' is a wildcard (converted to `.*`) for a simple glob shape like
+// "**/scratchpad/**". This is a scan-SCOPE convenience, never a security
+// boundary: the user writes the fragment, so an over-broad one only costs one
+// extra skipped file — it cannot widen itself, and it cannot silently exempt
+// code the user didn't ask to exempt.
+function getScanExcludePaths() {
+  try {
+    const cfg = loadCfg();
+    if (cfg && Array.isArray(cfg.scanExcludePaths)) {
+      return cfg.scanExcludePaths.filter((x) => typeof x === 'string' && x);
+    }
+  } catch {}
+  return [];
+}
+function fragmentToRegExp(frag) {
+  const esc = frag.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+  return new RegExp(esc, 'i');
+}
+function matchesAnyExcludeFragment(filePath, fragments) {
+  return fragments.some((frag) => fragmentToRegExp(frag).test(filePath));
+}
+
 const TRANSLATIONS = {
   en: {
     smellPrefix: '\n\nTripwires flagged at edit time:\n',
     memoryDrift: '\n\nMemory-drift check: code changed this session but no MEMORY.md was updated — if this work is worth keeping, update the project MEMORY/status line + crystallize before ending. (Advisory; disable: memoryDriftNudge=false in .coalmine.json)',
     capNotice: '\n\n(Auto-scan capped at {N} files to prevent token leakage; remaining files can be scanned manually)',
+    scanExcludeNotice: '\n\n({N} file(s) skipped per scanExcludePaths — lab/throwaway tooling only, never shipped code; autopilot is still running)',
     reason: (list, smellText) =>
       'Code-health auto-check (session end): code files were edited this session. Before stopping, ' +
       'invoke the rot-canary skill at DEPTH=QUICK with SCOPE = these touched files + their direct callers:\n' +
@@ -243,6 +284,7 @@ const TRANSLATIONS = {
     smellPrefix: '\n\nสัญญาณเตือนความเสี่ยงที่พบขณะแก้ไข:\n',
     memoryDrift: '\n\nตรวจ memory-drift: เซสชันนี้แก้โค้ดแต่ไม่มีการอัพเดต MEMORY.md — ถ้างานนี้ควรเก็บ ให้อัพเดต MEMORY/status line ของโปรเจกต์ + crystallize ก่อนจบ (advisory; ปิด: ตั้ง memoryDriftNudge=false ใน .coalmine.json)',
     capNotice: '\n\n(จำกัดการสแกนอัตโนมัติที่ {N} ไฟล์หลักเพื่อป้องกันโทเค็นรั่วไหล คุณสามารถสั่งสแกนไฟล์ที่เหลือแบบแมนวลได้)',
+    scanExcludeNotice: '\n\n(ข้าม {N} ไฟล์ตาม scanExcludePaths — เฉพาะเครื่องมือแล็ป/ของชั่วคราว ไม่ใช่โค้ดที่ ship จริง ระบบยังทำงานปกติ)',
     reason: (list, smellText) =>
       'ระบบตรวจสอบสุขภาพโค้ดอัตโนมัติ (สิ้นสุดเซสชัน): มีการแก้ไขไฟล์โค้ดในเซสชันนี้ ก่อนที่คุณจะหยุดทำงาน ' +
       'โปรดเรียกใช้สกิล rot-canary ที่ DEPTH=QUICK โดยระบุ SCOPE = ไฟล์ที่แก้ไขเหล่านี้ + ไฟล์ที่เรียกใช้งานโดยตรง:\n' +
@@ -253,6 +295,7 @@ const TRANSLATIONS = {
     smellPrefix: '\n\n編集時に検出されたリスク警告:\n',
     memoryDrift: '\n\nMemory-driftチェック: このセッションでコードが変更されましたが MEMORY.md は更新されていません — 保持すべき作業なら、終了前にプロジェクトの MEMORY/status line を更新してください。(参考情報; 無効化: .coalmine.json で memoryDriftNudge=false)',
     capNotice: '\n\n(トークン漏洩を防ぐため、自動スキャンは主要{N}ファイルに制限されています。残りのファイルは手動でスキャンできます)',
+    scanExcludeNotice: '\n\n(scanExcludePaths により{N}ファイルをスキップ — ラボ/使い捨てツールのみが対象、出荷コードは対象外。自動チェックは正常に動作中)',
     reason: (list, smellText) =>
       'コードヘルス自動チェック（セッション終了）: このセッションでコードファイルが編集されました。終了する前に、' +
       'DEPTH=QUICKでrot-canaryスキルを実行し、SCOPE = これらの編集されたファイル + 直接的呼び出し元を指定してください:\n' +
@@ -263,6 +306,7 @@ const TRANSLATIONS = {
     smellPrefix: '\n\n编辑时标记的风险警告：\n',
     memoryDrift: '\n\nMemory-drift 检查：本会话修改了代码但未更新 MEMORY.md — 若此工作值得保留，请在结束前更新项目的 MEMORY/status line。（仅提示；停用: 在 .coalmine.json 设 memoryDriftNudge=false）',
     capNotice: '\n\n(为防止 Token 泄露，自动扫描限制为前 {N} 个主要文件；其余文件可手动扫描)',
+    scanExcludeNotice: '\n\n(根据 scanExcludePaths 跳过了 {N} 个文件 — 仅限实验室/一次性工具，绝不包括已发布代码；自动检查仍在正常运行)',
     reason: (list, smellText) =>
       '代码健康自动检查（会话结束）：此会话中编辑了代码文件。在停止之前，请运行 DEPTH=QUICK 的 rot-canary 技能，' +
       '并将 SCOPE 设置为这些被编辑的文件及其直接调用者：\n' +
@@ -273,6 +317,7 @@ const TRANSLATIONS = {
     smellPrefix: '\n\nAlertas de riesgo marcadas al editar:\n',
     memoryDrift: '\n\nComprobación memory-drift: se modificó código en esta sesión pero no se actualizó MEMORY.md — si este trabajo merece conservarse, actualice el MEMORY/status line del proyecto antes de terminar. (Consultivo; desactivar: memoryDriftNudge=false en .coalmine.json)',
     capNotice: '\n\n(Escaneo automático limitado a {N} archivos para evitar fugas de tokens; los archivos restantes se pueden escanear manualmente)',
+    scanExcludeNotice: '\n\n({N} archivo(s) omitido(s) según scanExcludePaths — solo herramientas de laboratorio/desechables, nunca código publicado; el autopiloto sigue funcionando)',
     reason: (list, smellText) =>
       'Autocomprobación de salud del código (fin de sesión): se editaron archivos de código en esta sesión. Antes de detenerse, ' +
       'invoque la habilidad rot-canary con DEPTH=QUICK y SCOPE = estos archivos modificados + sus llamadores directos:\n' +
@@ -365,7 +410,20 @@ function main() {
   // deleted this session (or a corrupt/garbage line) drops out of it. `files`
   // (recorded) still counts as "code moved" for the memory-drift check below;
   // `extant` gates the scan report. Empty extant with drift = the quiet-only case.
-  const extant = files.filter(fs.existsSync);
+  const extantRaw = files.filter(fs.existsSync);
+
+  // scanExcludePaths — filtered BEFORE the cap/slice logic below, so an excluded
+  // lab file never consumes a cap slot a real file could have used. `files`
+  // (recorded, unfiltered) still counts for the memory-drift check — an excluded
+  // file is a scan-scope decision only, not a "nothing moved" claim.
+  const excludeFrags = getScanExcludePaths();
+  let skippedCount = 0;
+  const extant = excludeFrags.length
+    ? extantRaw.filter((f) => {
+        if (matchesAnyExcludeFragment(f, excludeFrags)) { skippedCount++; return false; }
+        return true;
+      })
+    : extantRaw;
 
   // Memory-drift exit-gate — QUIET, non-reporting (revamped v3.12.3; USER: "it's NOT
   // a canary, it should NOT display and report"). It never rides the loud rot scan
@@ -432,8 +490,13 @@ function main() {
       }
     } catch {}
 
+    let skipNoticeText = '';
+    if (skippedCount) {
+      skipNoticeText = (t.scanExcludeNotice || '').replace('{N}', String(skippedCount));
+    }
+
     const list = scan.map((x) => '  - ' + x).join('\n');
-    reason = t.reason(list, smellText) + capNoticeText;
+    reason = t.reason(list, smellText) + capNoticeText + skipNoticeText;
   }
 
   // Acknowledgement marker — store the mtime of .touched when we started the check

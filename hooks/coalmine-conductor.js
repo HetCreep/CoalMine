@@ -66,6 +66,12 @@ function readCfgFile(file) {
 // via this merge, so a hook-side guard for IT would protect nothing — that half
 // of the old verdict stands.
 const SAFER_ENUM = { updateMode: ['off', 'remind', 'ask', 'auto'] }; // index 0 = safest
+// UNION-MERGE KEYS (hooks-safety.md section 9): a strArr key here is QUIETEN-only —
+// more entries can only REDUCE what a hook acts on, never escalate spend/consent — so
+// the project layer may ADD to the global layer's list, never silently drop an entry
+// from it by replacing the whole array. scanExcludePaths is a scan-scope exclude: a
+// project adding its own lab-tooling fragment must not erase a global one.
+const UNION_ARRAY_KEYS = ['scanExcludePaths'];
 let _cfg;
 function loadCfg() {
   if (_cfg !== undefined) return _cfg;
@@ -91,6 +97,12 @@ function loadCfg() {
         const pi = order.indexOf(projectCfg[key]);
         if (gi === -1 || pi === -1) continue; // unknown value: leave the shallow-merge result
         merged[key] = pi <= gi ? projectCfg[key] : globalCfg[key]; // project may not be LOUDER than global
+      }
+      // Same BOTH-layers-explicit guard as SAFER_ENUM above, but the safer direction
+      // for an array is UNION (dedup), not "pick one side" — either side may add.
+      for (const key of UNION_ARRAY_KEYS) {
+        if (!globalCfg || !projectCfg || !Array.isArray(globalCfg[key]) || !Array.isArray(projectCfg[key])) continue;
+        merged[key] = [...new Set([...globalCfg[key], ...projectCfg[key]])];
       }
       _cfg = merged;
     }

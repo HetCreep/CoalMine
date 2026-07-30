@@ -705,6 +705,66 @@ test("stop hook floors tempSweepStaleDays:0 to >=1 — must not delete this sess
   }
 });
 
+test('scanExcludePaths (2026-07-30): a matching touched file is dropped from the nudge, a non-matching one still surfaces, and the skip count is reported', () => {
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ scanExcludePaths: ['scratchpad'] }), 'utf8');
+    const kept = path.join(tmp, 'real-code.js');
+    const skipped = path.join(tmp, 'scratchpad-probe.js');
+    fs.writeFileSync(kept, 'x');
+    fs.writeFileSync(skipped, 'x');
+    const base = path.join(tmp, 'rot-canary-SE1');
+    fs.writeFileSync(base + '.touched', `${kept}\n${skipped}\n`);
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'SE1', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.decision, 'block');
+    assert.ok(out.reason.includes('real-code.js'), 'non-excluded file still surfaces in the nudge');
+    assert.ok(!out.reason.includes('scratchpad-probe.js'), 'excluded file must not appear in the nudge');
+    assert.ok(out.reason.includes('1 file(s) skipped'), 'skip clause reports the correct count — autopilot is still running, not dead');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('scanExcludePaths honors a * wildcard fragment (lightweight glob, not a full glob engine)', () => {
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ scanExcludePaths: ['*.scratch.js'] }), 'utf8');
+    const kept = path.join(tmp, 'probe.js');
+    const skipped = path.join(tmp, 'probe.scratch.js');
+    fs.writeFileSync(kept, 'x');
+    fs.writeFileSync(skipped, 'x');
+    const base = path.join(tmp, 'rot-canary-SE3');
+    fs.writeFileSync(base + '.touched', `${kept}\n${skipped}\n`);
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'SE3', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    const out = JSON.parse(r.stdout);
+    assert.ok(out.reason.includes('probe.js') && !out.reason.includes('probe.scratch.js'), 'the wildcard fragment matched only the intended file');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('scanExcludePaths: every touched file excluded + no memory-drift → the hook stays fully silent (never "capped at 0"-style empty nudge)', () => {
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ scanExcludePaths: ['probe'] }), 'utf8');
+    const skipped = path.join(tmp, 'probe.js');
+    fs.writeFileSync(skipped, 'x');
+    const base = path.join(tmp, 'rot-canary-SE4');
+    fs.writeFileSync(base + '.touched', skipped + '\n');
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'SE4', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '', 'nothing left to report and no drift — the hook emits nothing, not an empty-list nudge');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 // --- Two-level config (v3.9.0): global ~/.claude/.coalmine.json + project git-root file ---
 // The sandbox maps USERPROFILE/HOME to tmp, so the global layer is <tmp>/.claude/.coalmine.json
 // and the project layer is <tmp>/.coalmine.json (cwd = tmp, no .git → findGitRoot returns tmp).
@@ -748,6 +808,34 @@ test('merge drops __proto__/constructor/prototype keys (pollution cannot ride th
     assert.equal(r.status, 0);
     assert.ok(r.stdout.includes('[CoalMine]'), 'proto-shaped keys must be dropped at merge, never honored');
     assert.ok(!r.stdout.includes('offer /gold-standard ONCE'), 'the global layer keys still apply through the merge');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('scanExcludePaths merges as a UNION across global+project — a project list cannot silently drop a global exclusion (hooks-safety.md section 9)', () => {
+  const tmp = mkTmp();
+  try {
+    fs.mkdirSync(path.join(tmp, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, '.claude', '.coalmine.json'), JSON.stringify({ scanExcludePaths: ['global-lab'] }), 'utf8');
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ scanExcludePaths: ['project-lab'] }), 'utf8');
+
+    const kept = path.join(tmp, 'real.js');
+    const globalExcluded = path.join(tmp, 'global-lab-probe.js');
+    const projectExcluded = path.join(tmp, 'project-lab-probe.js');
+    fs.writeFileSync(kept, 'x');
+    fs.writeFileSync(globalExcluded, 'x');
+    fs.writeFileSync(projectExcluded, 'x');
+    const base = path.join(tmp, 'rot-canary-SE2');
+    fs.writeFileSync(base + '.touched', `${kept}\n${globalExcluded}\n${projectExcluded}\n`);
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'SE2', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    const out = JSON.parse(r.stdout);
+    assert.ok(out.reason.includes('real.js'), 'a non-excluded file still surfaces');
+    assert.ok(!out.reason.includes('global-lab-probe.js'), 'the GLOBAL exclusion must still apply even though the project set its own list (union, not override)');
+    assert.ok(!out.reason.includes('project-lab-probe.js'), 'the project exclusion applies too');
+    assert.ok(out.reason.includes('2 file(s) skipped'), 'both exclusions counted in the skip clause');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

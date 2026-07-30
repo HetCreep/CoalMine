@@ -11,7 +11,7 @@ description: >-
 Scan code for rot. Report CONFIRMED findings. Fix on request.
 
 ## Parameters
-- **SCOPE:** touched files (default) | diff | named files | whole repo. Touched-files scan is hybrid-capped: all if ≤ `autoScanFileCap`, else the `autoScanFileCapSlice` most-recently-modified files (warn the user).
+- **SCOPE:** touched files (default) | diff | named files | whole repo. Touched-files scan is hybrid-capped: all if ≤ `autoScanFileCap`, else the `autoScanFileCapSlice` most-recently-modified files (warn the user). A touched file matching `scanExcludePaths` (lab/throwaway tooling only — never shipped/tracked source) is dropped before the cap; the nudge notes the skip count.
 - **DEPTH:** QUICK (default) | DEEP
 
 ## Categories

@@ -68,6 +68,15 @@
   // # Default value: []
   "watchedExtensions": [],
 
+  // ## Path fragments/globs (* wildcard) skipped by the session-end auto-scan — for
+  // ## throwaway LAB TOOLING ONLY (scratch probes, one-shot harnesses). Shipped/tracked
+  // ## source is never excluded by this key. Filtered before the autoScanFileCap slice.
+  // ## Global + project layers UNION (a project may only ADD exclusions, never remove
+  // ## a global one).
+  // # Setting type: Array of Strings
+  // # Default value: []
+  "scanExcludePaths": [],
+
   // =========================================================================
   // SECTION 3: UPDATE & REVALIDATION CADENCES (ความถี่การอัปเดตกฎและคำนิยาม)
   // =========================================================================

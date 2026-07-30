@@ -178,6 +178,7 @@ Zero-config to start — and two config levels when you want them: a global `~/.
 | `memoryDriftNudge` | `true` | Quiet session-end advisory when code changed but MEMORY.md didn't — no report, never blocks (needs a root MEMORY.md) |
 | `defaultTier` | `auto` | Force an execution tier (`Light` \| `Standard` \| `Heavy` \| `auto`) |
 | `disabledCanaries` | `[]` | Canaries to disable (e.g. `["rot-canary"]` or `["all"]`) |
+| `scanExcludePaths` | `[]` | Path fragments/globs skipped by the session-end auto-scan — lab tooling only (scratch probes, one-shot harnesses); shipped/tracked source is never excluded by this key |
 
 Full key reference: every key + default lives in [`scripts/lib/config-schema.mjs`](scripts/lib/config-schema.mjs) and the commented template [`platform-configs/.coalmine.json`](platform-configs/.coalmine.json) — or run `node scripts/configure.mjs --help`.
 

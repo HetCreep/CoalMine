@@ -2,7 +2,7 @@
 
 The plugin's **default** hooks are cross-platform Node scripts in [`../../hooks/`](../../hooks/) and activate automatically when you install the plugin — that's the recommended path.
 
-These PowerShell versions are a **fallback** for Windows setups that don't have Node.js on `PATH` (e.g. the native installer of Claude Code without Node). Same trigger semantics and temp-file scheme, wired **manually** via your own `settings.json`. Known differences (deliberate, not port gaps): the stop-hook nudge is **English-only** here, while the Node version localizes to th/ja/zh/es; and these twins cover the code-rot **scan only** — the quiet memory-drift advisory (`memoryDriftNudge`), the `os.tmpdir()` scratch-space exclude, and the size-tripwire exemptions (test files + declared over-runs) are Node-hook-only.
+These PowerShell versions are a **fallback** for Windows setups that don't have Node.js on `PATH` (e.g. the native installer of Claude Code without Node). Same trigger semantics and temp-file scheme, wired **manually** via your own `settings.json`. Known differences (deliberate, not port gaps): the stop-hook nudge is **English-only** here, while the Node version localizes to th/ja/zh/es; and these twins cover the code-rot **scan only** — the quiet memory-drift advisory (`memoryDriftNudge`), the `os.tmpdir()` scratch-space exclude, the size-tripwire exemptions (test files + declared over-runs), and the `scanExcludePaths` lab-tooling scan-scope exclude are Node-hook-only.
 
 ## What they do
 
