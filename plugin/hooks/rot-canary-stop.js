@@ -254,7 +254,7 @@ function sweepStale(canaryActive) {
 // touched-files auto-scan would rather give a real file. Deliberately NOT a full
 // glob engine (Phoenix #2: zero-dep, no npm glob lib) — a literal fragment is a
 // case-insensitive substring match against the touched file's resolved path,
-// and '*' is a wildcard (converted to `.*`) for a simple glob shape like
+// and '*' is a wildcard (zero or more of anything) for a simple glob shape like
 // "**/scratchpad/**" — fragments use '/' as the portable separator (matched
 // against the touched path with '\' normalized to '/', so a POSIX-style
 // fragment works on a Windows-separated path too). This is a scan-SCOPE
@@ -273,24 +273,39 @@ function getScanExcludePaths() {
   } catch {}
   return [];
 }
-// ReDoS guard (H1, 2026-07-30): naive '*' -> '.*' substitution lets K consecutive
-// '*' compile to K consecutive '.*' groups, and NFAs backtrack catastrophically on
-// consecutive unbounded quantifiers — measured through the shipped hook, a 4-star
-// fragment against a ~180-char non-matching path HUNG for 18-30s (a regex .test()
-// call cannot be caught by try/catch, so this is a silent session-end hang, not a
-// crash). Semantically K consecutive '*' means exactly the same as one '*' (each
-// matches "zero or more of anything", so they collapse), so folding runs of '.*'
-// down to a single '.*' AFTER the wildcard substitution is behavior-neutral and
-// removes the adjacency that causes the blowup. Verified 0 mismatches across the
-// fragment set this key ships with (literal / '**' scoping / single '*' / mixed /
-// '?') and the fix drops the measured repro from ~30s to <1ms.
-function fragmentToRegExp(frag) {
-  const esc = frag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*').replace(/(?:\.\*)+/g, '.*');
-  return new RegExp(esc, 'i');
+// LINEAR glob matcher (H1 round 2, 2026-07-30) — REPLACES a regex-based approach
+// that stayed exploitable after the first ReDoS fix. Round 1 collapsed CONSECUTIVE
+// '*' into one '.*' (fixing "****ZZZ"), but a fragment with SEPARATED wildcards
+// ("a*a*a*...Z", the classic evil-regex shape) still compiles to multiple
+// non-adjacent '.*' groups with no collapse to catch — measured live: a 10-star
+// alternating fragment against a merely 30-char-longer non-matching path took
+// 13.5s, growing exponentially with slack. Regex backtracking is the wrong tool
+// for a '*'-only glob: this matcher never builds a regex at all. Split the
+// fragment on '*', then walk the non-empty literal segments greedily with
+// String.indexOf, advancing the search position past each match — the standard
+// linear-time algorithm for '*'-only wildcard matching (provably correct: since
+// '*' matches anything, the leftmost occurrence of the next segment can never
+// leave LESS room for the rest, only more, so greedy-leftmost never produces a
+// false negative). O(fragment length + path length), no backtracking, no regex
+// engine in the hot path — the ReDoS class is eliminated by construction, not
+// mitigated. A side effect: literal segments compare via plain substring, so a
+// literal '?' (or any other character) needs no escaping at all — it is never
+// regex-metachar-active in the first place.
+function matchesFragment(path, frag) {
+  const segments = frag.split('*');
+  if (segments.length === 1) return path.includes(segments[0]); // no '*': plain substring match
+  let pos = 0;
+  for (const seg of segments) {
+    if (seg === '') continue; // '**' / a leading or trailing '*' produce empty segments
+    const idx = path.indexOf(seg, pos);
+    if (idx === -1) return false;
+    pos = idx + seg.length;
+  }
+  return true;
 }
 function matchesAnyExcludeFragment(filePath, fragments) {
-  const normalized = filePath.replace(/\\/g, '/');
-  return fragments.some((frag) => fragmentToRegExp(frag).test(normalized));
+  const normalized = filePath.replace(/\\/g, '/').toLowerCase();
+  return fragments.some((frag) => matchesFragment(normalized, frag.toLowerCase()));
 }
 
 const TRANSLATIONS = {

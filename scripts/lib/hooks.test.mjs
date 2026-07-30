@@ -778,6 +778,36 @@ test('scanExcludePaths: consecutive "*" in a fragment cannot blow the latency bu
   }
 });
 
+test('scanExcludePaths: alternating "*" (the classic evil-regex shape) cannot blow the latency budget either (ReDoS bound; H1 round 2)', () => {
+  // Round 1's collapse-consecutive-'*' fix only closed the "many stars in a row"
+  // shape (the test above). A fragment with SEPARATED wildcards ("a*a*a*...ZZZ",
+  // the textbook evil-regex pattern) still compiled to multiple non-adjacent '.*'
+  // groups under the regex approach — measured live before this fix: a 10-star
+  // alternating fragment against a non-matching path with just 30 extra characters
+  // of slack took 13.5s, growing exponentially with slack. The linear segment
+  // matcher (matchesFragment) has no regex in its hot path at all, so this is now
+  // O(fragment length + path length) regardless of how the '*' are arranged.
+  const tmp = mkTmp();
+  try {
+    const frag = 'a*'.repeat(10) + 'ZZZ'; // 'ZZZ' as the improbable-by-chance marker (matches the sibling test's convention)
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ scanExcludePaths: [frag] }), 'utf8');
+    const f = path.join(tmp, 'a'.repeat(100) + '.js'); // no 'ZZZ' -> forces a full non-match scan
+    fs.writeFileSync(f, 'x');
+    const base = path.join(tmp, 'rot-canary-SE8');
+    fs.writeFileSync(base + '.touched', f + '\n');
+
+    const t0 = Date.now();
+    const r = runHook(STOP, JSON.stringify({ session_id: 'SE8', stop_hook_active: false }), tmp);
+    const ms = Date.now() - t0;
+    assert.equal(r.status, 0);
+    assert.ok(ms < 2000, `stop hook took ${ms} ms matching an alternating-"*" fragment — the linear-matcher bound is gone`);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.decision, 'block', 'the file does not contain "ZZZ" so it must not match — and must still surface in the nudge');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('scanExcludePaths fragments use "/" portably — a "/"-separated fragment still matches on a "\\"-separated touched path (M1)', () => {
   // The doc's own example ("**/scratchpad/**") compiled against an UN-normalized
   // Windows path (\-separated) silently failed to match — a Windows user following
