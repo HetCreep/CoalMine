@@ -261,7 +261,7 @@ function getScanExcludePaths() {
   return [];
 }
 function fragmentToRegExp(frag) {
-  const esc = frag.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+  const esc = frag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*');
   return new RegExp(esc, 'i');
 }
 function matchesAnyExcludeFragment(filePath, fragments) {

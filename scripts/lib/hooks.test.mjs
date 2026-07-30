@@ -748,6 +748,28 @@ test('scanExcludePaths honors a * wildcard fragment (lightweight glob, not a ful
   }
 });
 
+test('scanExcludePaths: a literal "?" in a fragment matches literally, never as a regex quantifier (regression)', () => {
+  // Before this fix, fragmentToRegExp escaped every regex metachar EXCEPT '?', so
+  // "notes?.js" compiled to /notes?\.js/i — 's' optional — and ALSO matched the
+  // unrelated "note.js", silently widening the exclude past what the user wrote.
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ scanExcludePaths: ['notes?.js'] }), 'utf8');
+    const unrelated = path.join(tmp, 'notes.js'); // must NOT match — 's' must not become optional
+    fs.writeFileSync(unrelated, 'x');
+    const base = path.join(tmp, 'rot-canary-SE5');
+    fs.writeFileSync(base + '.touched', unrelated + '\n');
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'SE5', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.decision, 'block', 'the unrelated file must still surface — a literal "?" fragment must not match it');
+    assert.ok(out.reason.includes('notes.js'), 'notes.js was wrongly excluded before the fix');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('scanExcludePaths: every touched file excluded + no memory-drift → the hook stays fully silent (never "capped at 0"-style empty nudge)', () => {
   const tmp = mkTmp();
   try {
