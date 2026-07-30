@@ -91,6 +91,14 @@ const SAFER_ENUM = { updateMode: ['off', 'remind', 'ask', 'auto'] }; // index 0 
 // the project layer may ADD to the global layer's list, never silently drop an entry
 // from it by replacing the whole array. scanExcludePaths is a scan-scope exclude: a
 // project adding its own lab-tooling fragment must not erase a global one.
+// PRECONDITION for any key added here: its factory default must be the EMPTY array.
+// The `!globalCfg || !projectCfg` guard below skips the union computation whenever
+// EITHER layer never set the key, falling back to the plain shallow-merge result —
+// that fallback is correct only because "layer didn't set it" and "layer set it to
+// []" are the same identity element for union. A future UNION key with a NON-empty
+// factory default would silently drop those default members whenever only one
+// layer sets the key explicitly (the other layer's "unset" is treated as [], not
+// as its factory default).
 const UNION_ARRAY_KEYS = ['scanExcludePaths'];
 let _cfg;
 function loadCfg() {
@@ -247,10 +255,15 @@ function sweepStale(canaryActive) {
 // glob engine (Phoenix #2: zero-dep, no npm glob lib) — a literal fragment is a
 // case-insensitive substring match against the touched file's resolved path,
 // and '*' is a wildcard (converted to `.*`) for a simple glob shape like
-// "**/scratchpad/**". This is a scan-SCOPE convenience, never a security
-// boundary: the user writes the fragment, so an over-broad one only costs one
-// extra skipped file — it cannot widen itself, and it cannot silently exempt
-// code the user didn't ask to exempt.
+// "**/scratchpad/**" — fragments use '/' as the portable separator (matched
+// against the touched path with '\' normalized to '/', so a POSIX-style
+// fragment works on a Windows-separated path too). This is a scan-SCOPE
+// convenience, never a security boundary: the user writes the fragment, so a
+// mistake stays SCOPED to what they wrote — it cannot silently exempt code the
+// user didn't ask to exempt. It CAN silently disable the WHOLE auto-scan if the
+// fragment is over-broad (a bare '*'/'**' matches every path) — the skip-count
+// clause in the nudge (below) is the visibility net for that case, not a
+// prevention.
 function getScanExcludePaths() {
   try {
     const cfg = loadCfg();
@@ -260,12 +273,24 @@ function getScanExcludePaths() {
   } catch {}
   return [];
 }
+// ReDoS guard (H1, 2026-07-30): naive '*' -> '.*' substitution lets K consecutive
+// '*' compile to K consecutive '.*' groups, and NFAs backtrack catastrophically on
+// consecutive unbounded quantifiers — measured through the shipped hook, a 4-star
+// fragment against a ~180-char non-matching path HUNG for 18-30s (a regex .test()
+// call cannot be caught by try/catch, so this is a silent session-end hang, not a
+// crash). Semantically K consecutive '*' means exactly the same as one '*' (each
+// matches "zero or more of anything", so they collapse), so folding runs of '.*'
+// down to a single '.*' AFTER the wildcard substitution is behavior-neutral and
+// removes the adjacency that causes the blowup. Verified 0 mismatches across the
+// fragment set this key ships with (literal / '**' scoping / single '*' / mixed /
+// '?') and the fix drops the measured repro from ~30s to <1ms.
 function fragmentToRegExp(frag) {
-  const esc = frag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*');
+  const esc = frag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\\*/g, '.*').replace(/(?:\.\*)+/g, '.*');
   return new RegExp(esc, 'i');
 }
 function matchesAnyExcludeFragment(filePath, fragments) {
-  return fragments.some((frag) => fragmentToRegExp(frag).test(filePath));
+  const normalized = filePath.replace(/\\/g, '/');
+  return fragments.some((frag) => fragmentToRegExp(frag).test(normalized));
 }
 
 const TRANSLATIONS = {

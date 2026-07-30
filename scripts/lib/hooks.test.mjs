@@ -748,10 +748,65 @@ test('scanExcludePaths honors a * wildcard fragment (lightweight glob, not a ful
   }
 });
 
-test('scanExcludePaths: a literal "?" in a fragment matches literally, never as a regex quantifier (regression)', () => {
+test('scanExcludePaths: consecutive "*" in a fragment cannot blow the latency budget (ReDoS bound; H1)', () => {
+  // Before this fix, K consecutive '*' compiled to K consecutive '.*' groups —
+  // catastrophic backtracking on a non-matching path. Measured through the shipped
+  // hook: a 4-star fragment against a ~180-char non-matching path HUNG 18-30s (a
+  // regex .test() hang cannot be caught by try/catch, so this was a silent
+  // session-end freeze, not a crash). Same shape as the size-tripwire ReDoS bound
+  // at hooks.test.mjs's poison-declaration test above — SHIPPED-DEFAULTS-reachable,
+  // any project .coalmine.json (untrusted, hooks-safety.md section 9) can plant it.
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ scanExcludePaths: ['****ZZZ'] }), 'utf8');
+    // Long, non-matching filename reproduces the backtracking shape; 150 'a's plus
+    // the sandbox tmp path comfortably clears the ~180-char repro length.
+    const f = path.join(tmp, 'a'.repeat(150) + '.js');
+    fs.writeFileSync(f, 'x');
+    const base = path.join(tmp, 'rot-canary-SE6');
+    fs.writeFileSync(base + '.touched', f + '\n');
+
+    const t0 = Date.now();
+    const r = runHook(STOP, JSON.stringify({ session_id: 'SE6', stop_hook_active: false }), tmp);
+    const ms = Date.now() - t0;
+    assert.equal(r.status, 0);
+    assert.ok(ms < 2000, `stop hook took ${ms} ms matching a consecutive-"*" fragment — the collapse-to-single-".*" bound is gone`);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.decision, 'block', 'the file does not contain "ZZZ" so it must not match — and must still surface in the nudge');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('scanExcludePaths fragments use "/" portably — a "/"-separated fragment still matches on a "\\"-separated touched path (M1)', () => {
+  // The doc's own example ("**/scratchpad/**") compiled against an UN-normalized
+  // Windows path (\-separated) silently failed to match — a Windows user following
+  // the example got a no-op exclusion with no error. path.join here uses the native
+  // separator, so this test exercises the real bug/fix on whichever platform runs it.
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ scanExcludePaths: ['**/scratchpad/**'] }), 'utf8');
+    fs.mkdirSync(path.join(tmp, 'scratchpad'), { recursive: true });
+    const f = path.join(tmp, 'scratchpad', 'probe.mjs');
+    fs.writeFileSync(f, 'x');
+    const base = path.join(tmp, 'rot-canary-SE7');
+    fs.writeFileSync(base + '.touched', f + '\n');
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'SE7', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '', 'the "/"-separated example fragment must exclude the file regardless of the OS path separator — nothing left to report, no drift');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('scanExcludePaths: a literal "?" in a fragment does not over-match (regression, negative arm — runs on every platform)', () => {
   // Before this fix, fragmentToRegExp escaped every regex metachar EXCEPT '?', so
   // "notes?.js" compiled to /notes?\.js/i — 's' optional — and ALSO matched the
   // unrelated "note.js", silently widening the exclude past what the user wrote.
+  // Split from the literal-match arm below on purpose (L2 / a repeat of the
+  // size-tripwire lesson: t.skip() marks the WHOLE test skipped, so a skippable
+  // leg sharing a test with a leg that runs hides the runnable leg's real pass).
   const tmp = mkTmp();
   try {
     fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ scanExcludePaths: ['notes?.js'] }), 'utf8');
@@ -765,6 +820,33 @@ test('scanExcludePaths: a literal "?" in a fragment matches literally, never as 
     const out = JSON.parse(r.stdout);
     assert.equal(out.decision, 'block', 'the unrelated file must still surface — a literal "?" fragment must not match it');
     assert.ok(out.reason.includes('notes.js'), 'notes.js was wrongly excluded before the fix');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('scanExcludePaths: a literal "?" in a fragment matches its literal target (regression, positive arm — capability-gated)', (t) => {
+  // '?' is a reserved character in Windows filenames, so a file literally named
+  // "notes?.js" cannot exist on this platform — only a Unix-like filesystem can
+  // prove the fragment ALSO matches its literal target, not just that it stopped
+  // over-matching (proven by the sibling test above, which runs everywhere).
+  // Own test, own visible skip — never folded into a test that also runs.
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ scanExcludePaths: ['notes?.js'] }), 'utf8');
+    let literalFile;
+    try {
+      literalFile = path.join(tmp, 'notes?.js');
+      fs.writeFileSync(literalFile, 'x');
+    } catch (e) {
+      t.skip(`cannot create a file literally named "notes?.js" on this volume (${e.code}) — this arm needs a Unix-like filesystem`);
+      return;
+    }
+    const base = path.join(tmp, 'rot-canary-SE5B');
+    fs.writeFileSync(base + '.touched', literalFile + '\n');
+    const r = runHook(STOP, JSON.stringify({ session_id: 'SE5B', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '', 'the fragment must match its own literal target — file excluded, nothing left to report, no drift');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

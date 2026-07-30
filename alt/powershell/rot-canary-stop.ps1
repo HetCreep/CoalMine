@@ -3,8 +3,9 @@
 # on the touched files. Loop-guarded (stop_hook_active), one-shot per edit-batch, kill-switchable.
 # NAMED DIVERGENCE from the Node twin (deliberate, not a port gap): this fallback covers the
 # code-rot SCAN only — it has neither the quiet memory-drift advisory (v3.12.0/v3.12.3, which
-# rides a Stop JSON channel this English-only text nudge does not emit) nor the os.tmpdir()
-# scratch-space exclude (v3.12.2). A Node-less box gets the scan; the rest stays Node-only.
+# rides a Stop JSON channel this English-only text nudge does not emit), the os.tmpdir()
+# scratch-space exclude (v3.12.2), nor the scanExcludePaths lab-tooling scan-scope exclude
+# (2026-07-30). A Node-less box gets the scan; the rest stays Node-only.
 $ErrorActionPreference = 'SilentlyContinue'
 
 function Get-RcMode {

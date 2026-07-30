@@ -71,6 +71,14 @@ const SAFER_ENUM = { updateMode: ['off', 'remind', 'ask', 'auto'] }; // index 0 
 // the project layer may ADD to the global layer's list, never silently drop an entry
 // from it by replacing the whole array. scanExcludePaths is a scan-scope exclude: a
 // project adding its own lab-tooling fragment must not erase a global one.
+// PRECONDITION for any key added here: its factory default must be the EMPTY array.
+// The `!globalCfg || !projectCfg` guard below skips the union computation whenever
+// EITHER layer never set the key, falling back to the plain shallow-merge result —
+// that fallback is correct only because "layer didn't set it" and "layer set it to
+// []" are the same identity element for union. A future UNION key with a NON-empty
+// factory default would silently drop those default members whenever only one
+// layer sets the key explicitly (the other layer's "unset" is treated as [], not
+// as its factory default).
 const UNION_ARRAY_KEYS = ['scanExcludePaths'];
 let _cfg;
 function loadCfg() {

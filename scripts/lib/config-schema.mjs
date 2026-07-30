@@ -24,7 +24,7 @@ export const CONFIG_SCHEMA = [
   { key: 'tripwireMaxLines', type: 'int', min: 1, max: 100000, flags: ['-n'], help: 'Line count that flags a source file as a smell; test files and files declaring the over-run (top-of-file "ponytail:/waiver: <N> lines" comment) are exempt (default: 800)' },
   { key: 'tempSweepStaleDays', type: 'int', min: 1, max: 3650, flags: ['-w'], help: 'Age in days before session temp files are swept (default: 7)' },
   { key: 'watchedExtensions', type: 'strArr', lower: true, flags: ['-e'], help: 'Comma-separated file extensions the touch hook watches (empty = defaults)' },
-  { key: 'scanExcludePaths', type: 'strArr', flags: ['--scan-exclude'], help: 'Comma-separated path fragments/globs (* wildcard) skipped by the session-end auto-scan — for throwaway lab tooling only (scratch probes, one-shot harnesses); shipped/tracked source is never excluded by this key (default: [])' },
+  { key: 'scanExcludePaths', type: 'strArr', flags: ['--scan-exclude'], help: 'Comma-separated path fragments/globs (* wildcard, / separator on every OS) skipped by the session-end auto-scan — for throwaway lab tooling only (scratch probes, one-shot harnesses); shipped/tracked source is never excluded by this key (default: [])' },
   { key: 'ruleRevalidateDays', type: 'int', min: 1, max: 3650, flags: ['-v', '--antivirusStalenessDays'], help: 'Days before general rules need re-validation (default: 90)' },
   { key: 'platformRuleRevalidateDays', type: 'int', min: 1, max: 3650, flags: ['-g'], help: 'Days before platform/model rules need re-validation (default: 30)' },
   { key: 'definitionRevalidateDays', type: 'int', min: 1, max: 3650, flags: ['-j'], help: 'Days before general reference definitions are stale (default: 90)' },
