@@ -22,7 +22,7 @@ Keep the gates green before and after editing:
 node scripts/build-plugin.mjs   # re-inject the _shared regions into each skill + rebuild plugin/
 node scripts/verify.mjs         # validate config, plugin sync, and version pins
 node scripts/test.mjs           # zero-dep unit + hermetic hook tests (node --test)
-node scripts/consistency.mjs    # cross-doc counts, doctrine mirrors, well-formed stamps — on-demand, not gated
+node scripts/consistency.mjs    # cross-doc counts, doctrine mirrors, well-formed stamps — gated via .githooks, not CI
 ```
 
 This repo's own gates are tracked in `.githooks/`. Enable them once per clone — a fresh clone is ungated until you do (check with `git config --get core.hooksPath`):
@@ -31,7 +31,7 @@ This repo's own gates are tracked in `.githooks/`. Enable them once per clone �
 git config core.hooksPath .githooks
 ```
 
-pre-commit and pre-push then run `scripts/test.mjs` and `scripts/verify.mjs` on every commit and push, plus the PowerShell parity tests when `pwsh` is on PATH. `consistency.mjs` is a separate on-demand check (cross-doc counts, doctrine mirrors, stamp formats) — run it yourself before a big rule/doc change; it is not part of the automatic gate.
+pre-commit and pre-push then run `scripts/test.mjs`, `scripts/verify.mjs`, and `scripts/consistency.mjs` on every commit and push, plus the PowerShell parity tests when `pwsh` is on PATH. `consistency.mjs`'s doctrine-mirror check compares `.claude/rules/ecc/`/`.agents/rules/ecc/` at a resolved base — this repo's own root if it carries both trees, else its parent directory if that's where they live (the umbrella, `TheColliery/`, on the layout CoalMine ships from), else it silently compares nothing (a standalone clone with no rule home has nothing to check). It stays out of `verify.mjs`/CI on purpose — CI checks out only this repo, with no umbrella sibling to find.
 
 ### Development Rules
 * **`skills/_shared/` is the Single Source of Truth** for shared blocks (language header, escalation footer, orchestration). Edit there, then run `node scripts/build-plugin.mjs` to re-inject; never hand-edit the generated regions inside a skill.
@@ -70,7 +70,7 @@ pre-commit and pre-push then run `scripts/test.mjs` and `scripts/verify.mjs` on 
 
 ## 🚀 Releasing (Maintainers)
 
-Bump the version in `.claude-plugin/plugin.json` → add a `CHANGELOG.md` entry → ensure `verify.mjs` and the test suite pass (run `node scripts/consistency.mjs` too — on-demand, not gated, but cheap insurance before a release) → commit → create a signed git tag (`vX.Y.Z`) → push `--follow-tags` → publish a GitHub Release for the stable tag.
+Bump the version in `.claude-plugin/plugin.json` → add a `CHANGELOG.md` entry → ensure `verify.mjs`, the test suite, and `consistency.mjs` pass (all three run automatically on commit/push once `.githooks/` is enabled, per above) → commit → create a signed git tag (`vX.Y.Z`) → push `--follow-tags` → publish a GitHub Release for the stable tag.
 
 ---
 

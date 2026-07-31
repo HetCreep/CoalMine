@@ -13,7 +13,13 @@ if [ -f scripts/verify.mjs ]; then
     pwsh -NoProfile -File scripts/lib/ps-config.test.ps1 || exit 1
     pwsh -NoProfile -File scripts/lib/ps-hooks.test.ps1 || exit 1
   fi
-  node scripts/verify.mjs
+  node scripts/verify.mjs || exit 1
+  # Doctrine-mirror + stamp check (machine-local rule homes, not required to exist —
+  # see consistency.mjs's resolveMirrorBase: checks this repo, else its parent
+  # directory if that's where the umbrella rule trees live, else stays a silent
+  # no-op). Kept out of verify.mjs's checkTracked deliberately (CI has no umbrella
+  # sibling to find); run here so it still fires on every local commit.
+  node scripts/consistency.mjs
   exit $?
 fi
 exit 0

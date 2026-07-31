@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { checkCanaryCount, checkConductorCanaryCount, checkAgentCount, checkVersionPins, checkDoctrineMirrors, checkRuleStamps } from './consistency.mjs';
+import { checkCanaryCount, checkConductorCanaryCount, checkAgentCount, checkVersionPins, checkDoctrineMirrors, checkRuleStamps, resolveMirrorBase, checkAll } from './consistency.mjs';
 import { hashInstalledTree, verifyAgainstManifest, MANIFEST_NAME } from './manifest.mjs';
 
 function mkRepo() {
@@ -374,6 +374,148 @@ test('doctrine mirrors: the two absences are DIFFERENT — whole tree absent is 
     assert.equal(reverse.length, 1);
     assert.match(reverse[0].msg, /agents-only\.md.*MISSING from \.claude/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// C1 (2026-07-31 umbrella governance audit): checkDoctrineMirrors(repo) is correct
+// code, but CoalMine's OWN repo root carries neither rule tree — the real trees live
+// one directory up, at the umbrella (`TheColliery/`, CoalMine's parent on the dev
+// layout this repo ships from). Handed `repo` alone, the check took the legitimate
+// "absent tree" carve-out on every single run and never once compared the umbrella's
+// real files — 0 findings whether they agreed or diverged. resolveMirrorBase fixes
+// this by widening to the parent ONLY when the repo itself does not carry a COMPLETE
+// local pair (both trees) — see the M2 ruling above resolveMirrorBase's definition.
+test('doctrine mirrors: C1 fix — the repo-rooted check is blind to a diverged PARENT tree; resolveMirrorBase catches it', () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-c1-parent-'));
+  const repo = path.join(parent, 'CoalMine');
+  fs.mkdirSync(repo, { recursive: true });
+  try {
+    const mk = (base, rel, body) => { fs.mkdirSync(path.join(base, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(base, rel), body); };
+
+    // The umbrella tree lives at the PARENT of `repo`, not inside it. Plant a genuine
+    // divergence there — a FIXTURE, never the live rule trees.
+    mk(parent, '.claude/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\n');
+    mk(parent, '.agents/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\nPOISON\n');
+
+    // RED, reproducing the live bug: `repo` carries neither tree, so the unresolved
+    // check takes the absent carve-out and reports clean — even though its parent
+    // genuinely diverges one level up.
+    assert.deepEqual(checkDoctrineMirrors(repo), [], 'repo-rooted check is blind to the parent — this IS the C1 vacuity, reproduced');
+
+    // GREEN: resolveMirrorBase widens to the parent (repo has neither tree, the parent
+    // has both) and the SAME comparison function now catches the drift.
+    const base = resolveMirrorBase(repo);
+    assert.equal(base, parent, 'resolveMirrorBase must widen to the parent when the repo itself carries neither tree');
+    const found = checkDoctrineMirrors(base);
+    assert.equal(found.length, 1, 'the fix must catch the divergence the old root missed');
+    assert.match(found[0].msg, /DIVERGED/);
+  } finally { fs.rmSync(parent, { recursive: true, force: true }); }
+});
+
+test('doctrine mirrors: resolveMirrorBase prefers a repo-local tree over the parent — widen, never override', () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-c1-local-'));
+  const repo = path.join(parent, 'room');
+  try {
+    const mk = (base, rel, body) => { fs.mkdirSync(path.join(base, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(base, rel), body); };
+    // BOTH trees at repo (M2: a genuine local mirror adoption has both sides by
+    // construction — that is what earns repo-local precedence, not one alone).
+    mk(repo, '.claude/rules/ecc/x.md', 'LOCAL\n');
+    mk(repo, '.agents/rules/ecc/x.md', 'LOCAL\n');
+    // The parent ALSO happens to carry a tree — must never be preferred over the
+    // repo's own (a room that mirrors org rules locally is checked against itself).
+    mk(parent, '.claude/rules/ecc/x.md', 'DIFFERENT\n');
+    assert.equal(resolveMirrorBase(repo), repo, 'a repo carrying BOTH its own trees is never overridden by an ancestor');
+  } finally { fs.rmSync(parent, { recursive: true, force: true }); }
+});
+
+// M2 (2026-07-31 INSPECT): a LONE stray tree at repo (e.g. a gitignored `mkdir` under
+// `.claude/` — the phantom-slug class, hooks-safety.md §8) must NOT be trusted as "repo
+// is authoritative" — that would suppress the parent-widen and silently re-create the
+// exact C1 vacuity through an accidental path. Only BOTH trees present locally qualify.
+test('doctrine mirrors: resolveMirrorBase — a LONE stray tree at repo does not suppress the parent-widen (M2)', () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-m2-'));
+  const repo = path.join(parent, 'CoalMine');
+  try {
+    const mk = (base, rel, body) => { fs.mkdirSync(path.join(base, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(base, rel), body); };
+    // repo carries ONLY .claude — no .agents counterpart. A stray, not an adoption.
+    mk(repo, '.claude/rules/ecc/stray.md', 'STRAY\n');
+    // The parent carries a genuine, FULLY mirrored (here: diverged) pair — the real
+    // umbrella tree this fix exists to reach.
+    mk(parent, '.claude/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\n');
+    mk(parent, '.agents/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\nPOISON\n');
+
+    assert.equal(resolveMirrorBase(repo), parent, 'a lone local tree must not pin the base to repo and hide the real umbrella pair');
+    const found = checkDoctrineMirrors(resolveMirrorBase(repo));
+    assert.equal(found.length, 1, 'the umbrella divergence must still be caught, not masked by the stray local tree');
+    assert.match(found[0].msg, /DIVERGED/);
+  } finally { fs.rmSync(parent, { recursive: true, force: true }); }
+});
+
+test('doctrine mirrors: resolveMirrorBase stays at repo when neither repo nor parent carries a tree (a standalone clone)', () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-c1-standalone-'));
+  const repo = path.join(parent, 'CoalMine');
+  fs.mkdirSync(repo, { recursive: true });
+  try {
+    assert.equal(resolveMirrorBase(repo), repo, 'no umbrella sibling — falls through to the honest absent carve-out, never a fabricated base');
+    assert.deepEqual(checkDoctrineMirrors(resolveMirrorBase(repo)), [], 'genuinely nothing to compare stays silent');
+  } finally { fs.rmSync(parent, { recursive: true, force: true }); }
+});
+
+// H1 (2026-07-31 INSPECT, BLOCKING): the three tests above call resolveMirrorBase and
+// checkDoctrineMirrors DIRECTLY — none of them proves the two are actually WIRED
+// TOGETHER inside checkAll, the only real caller. Mutation-tested: reverting checkAll
+// to `checkDoctrineMirrors(repo)` left the whole suite green (21/0) before this test
+// existed — a composition-layer regression with no red anywhere. `.some()`, not a
+// length check: other checks (canary count, version pins, ...) legitimately FAIL on a
+// bare two-level fixture with no skills/plugin.json, so an exact findings.length would
+// be wrong for reasons unrelated to the mirror wiring this test exists to prove.
+// Also proves M1 in the same fixture: the DIVERGED finding must name the resolved base.
+test('checkAll: wires resolveMirrorBase into checkDoctrineMirrors — a parent divergence surfaces through checkAll itself (H1), naming the base (M1)', () => {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-h1-'));
+  const repo = path.join(parent, 'CoalMine');
+  fs.mkdirSync(repo, { recursive: true });
+  try {
+    const mk = (base, rel, body) => { fs.mkdirSync(path.join(base, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(base, rel), body); };
+    mk(parent, '.claude/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\n');
+    mk(parent, '.agents/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\nPOISON\n');
+
+    const findings = checkAll(repo);
+    const mirrorFail = findings.find((f) => /DIVERGED/.test(f.msg));
+    assert.ok(mirrorFail, 'checkAll must surface the parent divergence — this is the composition layer H1 found unguarded');
+    assert.ok(mirrorFail.msg.includes(parent), 'M1: a FAIL at the widened base must name it — the blocked reader needs it more than a PASS reader does');
+  } finally { fs.rmSync(parent, { recursive: true, force: true }); }
+});
+
+// L1 (2026-07-31 INSPECT): a symlink/junction AT the rule-home position used to be
+// FOLLOWED by `statSync` and reported as a legitimate directory, so its target's `.md`
+// files — anywhere on disk, not just under repo/parent — were read and reported as
+// doctrine. `kind()` now lstats first and refuses ANY symlink at that exact path,
+// dangling or live, the same way walkMd already refuses to follow one NESTED in the
+// tree. Junction is the unprivileged Windows shim (a plain symlink needs Developer
+// Mode); the type arg is ignored on POSIX — PROBED, never assumed from process.platform.
+test('doctrine mirrors: a LIVE symlink at a rule home is refused, not followed to content outside repo/parent (L1)', (t) => {
+  const dir = mkRepo();
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-l1-outside-'));
+  try {
+    const mk = (rel, body) => { fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
+    mk('.claude/rules/ecc/domain/hooks-safety.md', 'DOCTRINE\n');
+    fs.mkdirSync(path.join(dir, '.agents/rules'), { recursive: true });
+    // A REAL directory, outside both `dir` and its parent, with content that must
+    // never be read as doctrine.
+    fs.mkdirSync(path.join(outside, 'ecc'), { recursive: true });
+    fs.writeFileSync(path.join(outside, 'ecc', 'planted.md'), 'NOT DOCTRINE\n');
+    try {
+      fs.symlinkSync(path.join(outside, 'ecc'), path.join(dir, '.agents/rules/ecc'), 'junction');
+    } catch (e) {
+      t.skip(`this volume cannot create a link (${e.code}) — this leg runs where one can`);
+      return;
+    }
+    const found = checkDoctrineMirrors(dir);
+    assert.equal(found.length, 1, 'a live symlink at a rule home must be refused, not walked as a legitimate directory');
+    assert.match(found[0].msg, /is NOT a directory/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(outside, { recursive: true, force: true });
+  }
 });
 
 test('rule stamps: well-formed passes, malformed fails, unstamped ignored', () => {

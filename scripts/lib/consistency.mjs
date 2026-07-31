@@ -65,6 +65,57 @@ const TOMBSTONE = 'RETIRED.md';
 
 const norm = (s) => s.replace(/\r\n/g, '\n');
 
+// WHERE the two doctrine rule homes actually live is NOT always `repo`. CoalMine
+// itself carries neither tree — its own rules load via the up-tree `@import` walk
+// from the UMBRELLA (`TheColliery/`), CoalMine's *parent* directory on the layout
+// this repo is developed from (a plain subdirectory, not a git submodule — the
+// umbrella carries no `.git`, no CI, no gate of its own). Handed `repo` alone,
+// `checkDoctrineMirrors(repo)` always hit CoalMine's own absent trees and took the
+// legitimate-absence carve-out on EVERY run — 0 findings whether the umbrella's real
+// trees agreed or diverged, because it never looked at them (2026-07-31 umbrella
+// governance audit, finding "C1").
+//
+// Resolve the base to compare BEFORE calling checkDoctrineMirrors, so the pure
+// comparison function keeps its simple, fully-tested contract (compare these two
+// tree roots under a base) — the topology decision lives here, once:
+//   1. `repo` itself, if it carries BOTH trees (a room that mirrors org rules
+//      locally — the design this file's checks were originally written for).
+//   2. `repo`'s parent, if it carries EITHER tree (this dev layout: CoalMine as a
+//      plain child directory of TheColliery). Widens coverage only, never narrows it.
+//   3. Otherwise `repo` — a published, standalone CoalMine clone with no umbrella
+//      sibling genuinely has nothing to compare, and stays on the tri-state's honest
+//      "absent" path rather than reporting false coverage.
+//
+// RULED (M2, 2026-07-31 INSPECT): step 1 requires BOTH trees, not "either", and this
+// is a deliberate answer to a real ambiguity — "one tree present here, its counterpart
+// missing" is NOT the legitimate whole-tree-absence case for THIS decision (which base
+// to trust as authoritative). A single stray tree (e.g. a gitignored `mkdir` under
+// `.claude/` — the phantom-slug class, hooks-safety.md §8) is not evidence of a genuine
+// local mirror adoption; trusting it here would PIN the base to `repo` and suppress
+// the parent-widen, silently re-creating the exact C1 vacuity through an accidental
+// path instead of the direct one already fixed. A genuine local adoption has both
+// sides by construction (that is the whole point of a mirror pair) — only that
+// qualifies as "repo is authoritative". This does NOT reclassify anything inside
+// checkDoctrineMirrors itself: once a base IS chosen, a whole counterpart tree absent
+// under THAT base is still the legitimate silent case its own tri-state already
+// grants — that classification is unchanged and correct on its own terms.
+export function resolveMirrorBase(repo) {
+  // isDirectory, not bare existsSync (L1, 2026-07-31 INSPECT): existsSync is true for
+  // a plain FILE too, which would widen candidacy to a base that cannot possibly hold
+  // a rule tree. isDirectory follows a symlink (same as the historical `statSync`
+  // behavior) — a symlink-only "tree" can still be picked as a candidate base here,
+  // but checkDoctrineMirrors's own `kind()` refuses to walk through it (lstat-based,
+  // 'notdir') and reports a FAIL rather than silently trusting it, so this stays safe.
+  const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
+  const hasTree = (base, r) => isDir(path.join(base, r));
+  const hasBoth = (base) => MIRROR_ROOTS.every((r) => hasTree(base, r));
+  const hasEither = (base) => MIRROR_ROOTS.some((r) => hasTree(base, r));
+  if (hasBoth(repo)) return repo;
+  const parent = path.dirname(repo);
+  if (parent !== repo && hasEither(parent)) return parent;
+  return repo;
+}
+
 // Recursive .md walk yielding { abs, rel } with a POSIX-style rel key so the two
 // trees compare on the same spelling on Windows. Symlinked directories are not
 // followed (`isDirectory()` is false for a link) — no cycle risk, and a rule home
@@ -282,17 +333,23 @@ export function checkDoctrineMirrors(repo) {
   // at .agents/rules/ecc silently bypassed the whole check while .claude held rules.
   // ENOENT/ENOTDIR = the home really is not there. Anything else (EACCES, EPERM, EIO)
   // means we could not TELL, which is not the same as knowing it is absent.
+  //
+  // lstat FIRST, never stat — a rule home must be a PLAIN directory, never a link, so
+  // ANY symlink/junction at this exact path is 'notdir' regardless of what it points
+  // to. This subsumes the old dangling-link handling (lstat succeeds on a dangling
+  // link too) and additionally closes a hole `statSync` left open: a LIVE symlink
+  // resolving to a real directory used to be FOLLOWED and reported as a legitimate
+  // 'dir', so its target's `.md` files — possibly outside both `repo` and the
+  // resolved parent (see resolveMirrorBase) — were read and reported as doctrine.
+  // `walkMd` already refuses to follow a symlinked directory NESTED inside the tree
+  // (Dirent#isDirectory() does not follow links); this gives the ROOT the same
+  // refusal, so the whole walk is symlink-free by one consistent rule, not two.
   const kind = (p) => {
-    try { return fs.statSync(p).isDirectory() ? 'dir' : 'notdir'; }
-    catch (e) {
-      if (e.code !== 'ENOENT' && e.code !== 'ENOTDIR') return 'unreadable';
-      // ENOENT with the directory ENTRY still on disk = a DANGLING link: something
-      // claims the rule home and delivers nothing. `statSync` FOLLOWS the link and
-      // reports the missing TARGET, so only `lstat` separates "no home here" from "a
-      // broken one" — and a broken one is malformed, the same fail-OPEN bypass as the
-      // regular-file case above wearing a different entry type.
-      try { fs.lstatSync(p); return 'notdir'; } catch { return 'absent'; }
-    }
+    let st;
+    try { st = fs.lstatSync(p); }
+    catch (e) { return (e.code === 'ENOENT' || e.code === 'ENOTDIR') ? 'absent' : 'unreadable'; }
+    if (st.isSymbolicLink()) return 'notdir';
+    return st.isDirectory() ? 'dir' : 'notdir';
   };
   const kinds = [kind(claudeRoot), kind(agentsRoot)];
   for (const [i, k] of kinds.entries()) {
@@ -403,6 +460,24 @@ export function checkTracked(repo) {
 }
 
 // Every check, for the on-demand consistency CLI (includes machine-local rule home).
+// checkDoctrineMirrors runs against resolveMirrorBase(repo), NOT repo directly — see
+// the C1 comment above resolveMirrorBase. checkRuleStamps still reads `repo` as-is:
+// it has the identical vacuity (scans repo/.claude/rules + repo/.agents/rules, both
+// absent for CoalMine) but that is a separate, unreported-here finding — not fixed
+// in this pass, out of the C1 scope this function's other half addresses.
+//
+// M1 (2026-07-31 INSPECT): when the base widened to the parent, every mirror finding
+// gets the resolved base appended. The PASS-side message already names the base (see
+// scripts/consistency.mjs); a FAIL is the one that actually blocks a commit, and the
+// person being blocked needs to know WHERE the diverged file lives more than the
+// person seeing PASS needs to know nothing diverged — a bare relative fragment like
+// ".agents/rules/ecc/x.md" points nowhere inside CoalMine once the real check ran one
+// directory up. checkDoctrineMirrors itself stays untouched (still just "compare two
+// roots"); the disclosure lives here, next to the topology decision that makes it necessary.
 export function checkAll(repo) {
-  return [...checkCanaryCount(repo), ...checkConductorCanaryCount(repo), ...checkAgentCount(repo), ...checkVersionPins(repo), ...checkJsoncRegexSync(repo), ...checkDoctrineMirrors(repo), ...checkRuleStamps(repo)];
+  const mirrorBase = resolveMirrorBase(repo);
+  const mirrorFindings = checkDoctrineMirrors(mirrorBase).map((f) => (
+    mirrorBase === repo ? f : { ...f, msg: `${f.msg} [checked at ${mirrorBase}]` }
+  ));
+  return [...checkCanaryCount(repo), ...checkConductorCanaryCount(repo), ...checkAgentCount(repo), ...checkVersionPins(repo), ...checkJsoncRegexSync(repo), ...mirrorFindings, ...checkRuleStamps(repo)];
 }

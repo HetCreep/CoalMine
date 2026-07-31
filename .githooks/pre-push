@@ -13,7 +13,9 @@ if [ -f scripts/verify.mjs ]; then
     pwsh -NoProfile -File scripts/lib/ps-config.test.ps1 || exit 1
     pwsh -NoProfile -File scripts/lib/ps-hooks.test.ps1 || exit 1
   fi
-  node scripts/verify.mjs
+  node scripts/verify.mjs || exit 1
+  # Doctrine-mirror + stamp check — see the matching comment in .githooks/pre-commit.
+  node scripts/consistency.mjs
   exit $?
 fi
 exit 0
