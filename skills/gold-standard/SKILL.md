@@ -88,18 +88,17 @@ Correctness · Security · Performance · UX/DX · Docs/onboarding · Testing/CI
 
 Dedup: P5 restated at the RE-VALIDATE tombstone · P9 restated at the CONSISTENCY sub-bullet · P11 restated in both Method §1 and Discipline — one row each, two mentions.
 
-## Degrade paths (D1–D7, declared)
+## Degrade paths (D1–D6, declared)
 | # | branch | condition | lane |
 |---|---|---|---|
 | D1 | mark **N-A** with justification, never guess | sandbox/network blocks an external lookup | universal |
 | D2 | unjustified N-A scores as ❌, not skipped | N-A given with no justification | universal |
 | D3 | degrade to model tier + reasoning depth, never fake parallelism | no capability lever for the target tier on this host | universal |
 | D4 | fixed at Light, no tier question, no sub-agents | Hook Context (auto-triggered) | Hook only |
-| D5 | offer the fix menu after the report | Hook Context, interactive (user present) | Hook only |
-| D6 | report-only, no fix offered | Hook Context, non-interactive (no user present) | Hook only |
-| D7 | fall back to a numbered text menu | host has no question tool | universal |
+| D5 | report-only, no fix offered | Hook Context, interactive or non-interactive — this skill defines no Fix mode section, so the footer's deferral resolves to report-only either way | Hook only |
+| D6 | fall back to a numbered text menu | host has no question tool | universal |
 
-D3 restated at four sites — the general clause, the Standard row's "(else single-agent)", the Heavy row's "if supported", and the Heavy-specific "escalate by model + reasoning only" — one row, four mentions. D4–D7 come from the shared Escalation footer below (Agent lane has no equivalent for D4–D6 — tier is asked, see G1, never degraded; D7 applies in either lane, wherever `ask_question` would fire). The Freshness cap (scope already audited this session → cap at Light) is a tier-selection modifier on G1, not a degrade branch — no capability lever is missing and there is no unhappy path, so it stays out of D.
+D3 restated at four sites — the general clause, the Standard row's "(else single-agent)", the Heavy row's "if supported", and the Heavy-specific "escalate by model + reasoning only" — one row, four mentions. D4–D6 come from the shared Escalation footer below (Agent lane has no equivalent for D4/D5 — tier is asked, see G1, never degraded; D6 applies in either lane, wherever `ask_question` would fire). The Freshness cap (scope already audited this session → cap at Light) is a tier-selection modifier on G1, not a degrade branch — no capability lever is missing and there is no unhappy path, so it stays out of D.
 
 ## Output — 5 locations, declared
 (the AUDIT report only — FILL writes rules, RE-VALIDATE writes a tombstone, self error-report files an issue: none of those are part of this list)
