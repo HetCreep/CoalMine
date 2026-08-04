@@ -15,8 +15,10 @@
 // silent carve-out, and never a false "nothing changed": not a git repo (or git absent),
 // and no tag reachable (the common CI shape: actions/checkout defaults to a shallow,
 // single-commit fetch with no tag history unless fetch-depth:0/fetch-tags is set — see
-// .github/workflows/ci.yml, which sets neither, so this SKIP fires on EVERY CI run today —
-// the gate is local-only in practice until that changes, a separate, out-of-scope press).
+// .github/workflows/ci.yml, which as of 940a0f9 sets fetch-depth: 0 so a tag IS reachable
+// there. That is a fact about the checkout step's inputs, not a measured CI result — this
+// repo does not push on every change, so whether the SKIP still fires in practice is
+// unconfirmed until a real CI run is read; do not read this comment as proof either way).
 // "Could not tell" is not "clean" — this room already paid for that conflation twice in
 // consistency.mjs (`isDir`, `walkMd`); the miss direction here is a missed CHANGELOG entry,
 // not a false clean bill, so a visible skip is the correct degrade, not a defect to eliminate.

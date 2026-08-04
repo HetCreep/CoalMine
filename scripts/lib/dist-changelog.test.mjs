@@ -75,7 +75,7 @@ test('checkDistChangelog: not a git repository degrades to a visible SKIP, never
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('checkDistChangelog: a git repo with NO tags degrades to a visible SKIP naming why (the CI shallow-checkout shape)', () => {
+test('checkDistChangelog: a git repo with NO tags degrades to a visible SKIP naming why (the no-tag-reachable case, e.g. a shallow checkout)', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-distchangelog-notag-'));
   try {
     git(['init', '-q', '-b', 'main'], dir);
