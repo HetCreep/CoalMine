@@ -53,13 +53,42 @@ export function resolveLastTag(repo) {
   return tags[0] ?? null;
 }
 
-// Non-empty section body between a "## [Unreleased]" heading and the next "## " heading
-// (or EOF). A bare heading with nothing under it does not count as documented.
-function unreleasedBody(lines, headingIdx) {
+// `git diff` (any form) is blind to files with no INDEX entry at all — a brand-new,
+// never-`git add`-ed file under plugin/ is invisible to it, not just "shows as unchanged"
+// but genuinely never inspected (INSPECT MEDIUM, 2026-08-04: measured silent before this
+// fix, the exact shape `build-plugin.mjs` produces the moment a NEW skill directory is
+// added — the single most common reason plugin/ ever grows a file). `git status
+// --porcelain`/`ls-files --others` DO see it. Returns the raw spawn result rather than a
+// boolean, so a git error can carry the same error detail the tracked-diff check below
+// already surfaces, instead of a generic "unknown git error" the caller cannot improve on.
+function checkUntracked(repo) {
+  return git(['ls-files', '--others', '--exclude-standard', '--', ...DIST_PATHS], repo);
+}
+
+// Non-empty section body between a top "## [...]" heading and the next "## " heading (or
+// EOF). Heading-agnostic by design — used for BOTH "[Unreleased]" and a sibling version
+// heading (INSPECT MEDIUM, 2026-08-04): a bare heading with nothing under it does not
+// count as documented, regardless of which of the two shapes it is.
+function sectionBody(lines, headingIdx) {
   const rest = lines.slice(headingIdx + 1);
   const nextIdx = rest.findIndex((l) => /^##\s/.test(l));
   const body = nextIdx === -1 ? rest : rest.slice(0, nextIdx);
   return body.join('\n').trim();
+}
+
+// Plain dotted-numeric compare (X.Y.Z) — this room's own tags are always bare SemVer with
+// no pre-release/build suffix, so a full SemVer parser would be solving a problem that
+// does not exist here. A non-numeric segment parses as 0 rather than throwing, so a
+// malformed heading compares as the LOWEST possible value (fails the "newer" test) instead
+// of crashing the gate. Returns >0 if a is newer, <0 if older, 0 if equal.
+function compareVersions(a, b) {
+  const pa = a.split('.').map((n) => Number.parseInt(n, 10) || 0);
+  const pb = b.split('.').map((n) => Number.parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const diff = (pa[i] || 0) - (pb[i] || 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
 }
 
 export function checkDistChangelog(repo) {
@@ -78,7 +107,18 @@ export function checkDistChangelog(repo) {
   if (diff.status !== 0 && diff.status !== 1) {
     return [{ level: 'FAIL', msg: `dist-changelog: could not diff the dist against ${tag}: ${(diff.stderr || diff.error?.message || 'unknown git error').trim()}` }];
   }
-  const distChanged = diff.status === 1;
+  let distChanged = diff.status === 1;
+
+  // `git diff` alone is blind to untracked new files (see checkUntracked above) — check
+  // separately, but only when the tracked diff itself found nothing, so a genuine tracked
+  // change never depends on this second call succeeding.
+  if (!distChanged) {
+    const untracked = checkUntracked(repo);
+    if (untracked.status !== 0) {
+      return [{ level: 'FAIL', msg: `dist-changelog: could not check for untracked dist files: ${(untracked.stderr || untracked.error?.message || 'unknown git error').trim()}` }];
+    }
+    distChanged = untracked.stdout.trim().length > 0;
+  }
   if (!distChanged) return [];
 
   let changelog;
@@ -97,7 +137,7 @@ export function checkDistChangelog(repo) {
   const tagVersion = tag.replace(/^v/, '');
 
   if (heading.toLowerCase() === 'unreleased') {
-    if (unreleasedBody(lines, headingIdx).length === 0) {
+    if (sectionBody(lines, headingIdx).length === 0) {
       return [{ level: 'FAIL', msg: `dist-changelog: plugin/ dist differs from ${tag} but the [Unreleased] section is empty — add an entry documenting the change` }];
     }
     return [];
@@ -107,7 +147,19 @@ export function checkDistChangelog(repo) {
     return [{ level: 'FAIL', msg: `dist-changelog: plugin/ dist differs from ${tag} but CHANGELOG.md's top heading is still [${heading}] — add an [Unreleased] entry (or a new version heading) documenting the change` }];
   }
 
-  // A version heading for a version OTHER than the last tag (presumably newer) already
-  // documents the change — a release in progress that updated CHANGELOG ahead of tagging.
+  // A version heading OTHER than the tag's own only counts as documentation if it is
+  // BOTH non-empty and genuinely newer (INSPECT MEDIUM, 2026-08-04) — the comment this
+  // replaces said "presumably newer" and never checked either half. An empty `## [1.1.0]`
+  // or an OLDER `## [0.9.0]` must not silently pass just because the string differs from
+  // the tag's own.
+  if (sectionBody(lines, headingIdx).length === 0) {
+    return [{ level: 'FAIL', msg: `dist-changelog: plugin/ dist differs from ${tag} but the top heading [${heading}] has no content — add an entry documenting the change` }];
+  }
+  if (compareVersions(heading, tagVersion) <= 0) {
+    return [{ level: 'FAIL', msg: `dist-changelog: plugin/ dist differs from ${tag} but the top heading [${heading}] is not newer than the last tag — add an [Unreleased] entry (or a version above ${tagVersion}) documenting the change` }];
+  }
+
+  // Non-empty and genuinely newer than the last tag — a release in progress that updated
+  // CHANGELOG ahead of tagging.
   return [];
 }

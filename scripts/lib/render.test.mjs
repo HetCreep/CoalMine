@@ -151,3 +151,70 @@ test('verify.mjs negative path: stale dist fails, clean copy passes', () => {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+// INSPECT task #38, HIGH: dist-changelog's own 11 unit tests all call checkDistChangelog
+// directly — none of them proves it is actually WIRED into verify.mjs. Reverting the 2.8
+// block to `const findings = [];` left the whole suite green (167/165/0/2) with nothing to
+// catch it. This asserts the COMPOSITION, the same way the stale-dist test above asserts
+// verify.mjs's dist-sync composition rather than just render.mjs's own rendering logic.
+//
+// Needs a REAL git repo with a real tag (the plain fs.cpSync copy above has no .git at
+// all, so checkDistChangelog would only ever hit the "not a git repository" SKIP there) —
+// a second, separate tmp fixture, git-initialized and tagged to match the copied
+// CHANGELOG.md's own top heading (`v3.14.0`, this room's real last tag at fixture-build
+// time) so the heading-vs-tag compare exercises the same real branch it does live.
+//
+// The dist mutation bumps `version` in BOTH `.claude-plugin/plugin.json` and its
+// `plugin/` copy identically — keeps verify.mjs's own source-vs-dist sync check green
+// (same technique proven clean at the live tree during this task's manual RED-first
+// probe) so only checkDistChangelog's tag-diff fires, isolating the wiring assertion
+// from every OTHER thing verify.mjs checks.
+test('verify.mjs 2.8 dist-changelog: a dist change with no CHANGELOG entry fails the WHOLE gate — proves the wiring, not just the module', () => {
+  const tmp = mkTmp('cm-verify-distchangelog-');
+  try {
+    for (const d of ['skills', 'plugin', 'scripts', '.claude-plugin', 'hooks', 'agents', 'commands', 'alt']) {
+      fs.cpSync(path.join(repo, d), path.join(tmp, d), { recursive: true });
+    }
+    fs.copyFileSync(path.join(repo, 'CHANGELOG.md'), path.join(tmp, 'CHANGELOG.md'));
+
+    const git = (args) => {
+      const r = spawnSync('git', args, { cwd: tmp, encoding: 'utf8' });
+      if (r.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${r.stderr || r.error?.message}`);
+      return r.stdout;
+    };
+    git(['init', '-q', '-b', 'main']);
+    git(['config', 'user.email', 'test@test.invalid']);
+    git(['config', 'user.name', 'Test']);
+    git(['config', 'commit.gpgsign', 'false']);
+    // A machine-global tag.gpgSign/tag.forceSignAnnotated would force a bare `git tag
+    // <name>` into an annotated, signed tag needing a message, failing non-interactively
+    // with "fatal: no tag message?" — the exact fixture defect INSPECT's own RED-first
+    // run hit in dist-changelog.test.mjs before it was fixed there. Same guard here.
+    git(['config', 'tag.gpgSign', 'false']);
+    git(['config', 'tag.forceSignAnnotated', 'false']);
+    git(['add', '-A']);
+    git(['commit', '-q', '-m', 'baseline']);
+    git(['tag', 'v3.14.0']);
+
+    const run = () => spawnSync(process.execPath, [path.join(tmp, 'scripts', 'verify.mjs')], { encoding: 'utf8' });
+
+    const clean = run();
+    assert.equal(clean.status, 0, `freshly-tagged copy must PASS, got:\n${clean.stdout}${clean.stderr}`);
+    assert.match(clean.stdout, /dist-changelog:\s*\n\s*ok/, 'the 2.8 block must be present and green on a clean copy');
+
+    const bump = (p) => fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace('"3.14.0"', '"3.14.0-redprobe"'));
+    bump(path.join(tmp, '.claude-plugin', 'plugin.json'));
+    bump(path.join(tmp, 'plugin', '.claude-plugin', 'plugin.json'));
+
+    const withoutEntry = run();
+    assert.equal(withoutEntry.status, 1, 'a dist change with no CHANGELOG entry must fail the WHOLE gate, not just the module in isolation');
+    assert.match(withoutEntry.stdout, /FAIL dist-changelog: plugin\/ dist differs from v3\.14\.0 but CHANGELOG\.md's top heading is still \[3\.14\.0\]/);
+
+    const changelog = fs.readFileSync(path.join(tmp, 'CHANGELOG.md'), 'utf8');
+    fs.writeFileSync(path.join(tmp, 'CHANGELOG.md'), changelog.replace('## [3.14.0]', '## [Unreleased]\n\n### Fixed\n- test entry\n\n## [3.14.0]'));
+    const withEntry = run();
+    assert.match(withEntry.stdout, /dist-changelog:\s*\n\s*ok/, 'documenting it in [Unreleased] clears the SAME composition-level check');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});

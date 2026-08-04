@@ -147,6 +147,50 @@ test('checkDistChangelog: dist changed + a NEW version heading (not Unreleased, 
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+// INSPECT MEDIUM (2026-08-04): the final branch trusted ANY non-Unreleased, non-tag
+// heading unconditionally — an EMPTY newer heading and a non-empty OLDER heading both
+// passed silently. Split into the two probes the reviewer actually ran (Q1, Q2).
+test('checkDistChangelog: a non-tag version heading with an EMPTY body still FAILs (INSPECT Q1)', () => {
+  const dir = mkTaggedRepo();
+  try {
+    fs.writeFileSync(path.join(dir, 'plugin', 'skills', 'a.md'), 'skill A, EDITED\n');
+    fs.writeFileSync(path.join(dir, 'CHANGELOG.md'), '# Changelog\n\n## [1.1.0] - 2026-02-01\n\n## [1.0.0] - 2026-01-01\n\n### Added\n- first release\n');
+    const found = checkDistChangelog(dir);
+    assert.equal(found.length, 1);
+    assert.equal(found[0].level, 'FAIL');
+    assert.match(found[0].msg, /the top heading \[1\.1\.0\] has no content/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('checkDistChangelog: a non-tag version heading that is OLDER than the tag still FAILs even with a real body (INSPECT Q2)', () => {
+  const dir = mkTaggedRepo();
+  try {
+    fs.writeFileSync(path.join(dir, 'plugin', 'skills', 'a.md'), 'skill A, EDITED\n');
+    fs.writeFileSync(path.join(dir, 'CHANGELOG.md'), '# Changelog\n\n## [0.9.0] - 2025-12-01\n\n### Fixed\n- an old, unrelated entry\n\n## [1.0.0] - 2026-01-01\n\n### Added\n- first release\n');
+    const found = checkDistChangelog(dir);
+    assert.equal(found.length, 1);
+    assert.equal(found[0].level, 'FAIL');
+    assert.match(found[0].msg, /the top heading \[0\.9\.0\] is not newer than the last tag/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// INSPECT MEDIUM (2026-08-04): `git diff` never sees a file with no INDEX entry — an
+// UNTRACKED new file under plugin/ (the shape build-plugin.mjs produces for a brand-new
+// skill directory) was silently invisible. `git add` makes it tracked, which was already
+// correctly caught — this probes the gap BEFORE that point.
+test('checkDistChangelog: an UNTRACKED new file under plugin/ is caught, not silently invisible (INSPECT MEDIUM)', () => {
+  const dir = mkTaggedRepo();
+  try {
+    fs.mkdirSync(path.join(dir, 'plugin', 'skills', 'brand-new-canary'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'plugin', 'skills', 'brand-new-canary', 'SKILL.md'), 'a whole new skill\n');
+    // Deliberately NOT `git add`-ed — this is the exact untracked shape `git commit -a`
+    // walks straight past (it stages tracked modifications only, never new files).
+    const found = checkDistChangelog(dir);
+    assert.equal(found.length, 1, 'an untracked new dist file must not be a silent clean bill');
+    assert.equal(found[0].level, 'FAIL');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('checkDistChangelog: a version bump to the repo-root plugin.json ALONE (before any dist rebuild) is caught too', () => {
   const dir = mkTaggedRepo();
   try {
