@@ -18,6 +18,8 @@ Standing rule — active every response. No invocation needed for routine use.
 | G3 | entanglement hand-off | after the findings, cross-domain | `ask_question`, once | `ask_question`, once |
 | G4 | self error-report | skill misbehaves | offer, never auto-submit | offer, never auto-submit |
 
+Hook cells assume an interactive session (G2–G4 need a user to answer); non-interactive Hook fires D1 instead of G2, and offers nothing for G3/G4.
+
 ## What to verify (not memory)
 - **CRITICAL** (always fetch or flag — P2): API/SDK call signatures · library versions & deprecations · CVEs/security advisories · auth/crypto specs · LLM model IDs & params
 - **MEDIUM** (verify when unsure): package names · config keys · CLI flags · protocol specs
@@ -57,17 +59,19 @@ The shared footer's `never fix without a chosen option` does not apply here — 
 ## Degrade paths (D1–D4, declared)
 | # | branch | condition | lane |
 |---|---|---|---|
-| D1 | log as `⚠️ UNVERIFIED`, continue, never block | non-interactive, source unfetchable | universal |
-| D2 | degrade to model tier + reasoning depth, never fake parallelism | no capability lever for the target tier on this host | universal |
+| D1 | log as `⚠️ UNVERIFIED`, continue, never block | non-interactive, source unfetchable | Hook only |
+| D2 | degrade to model tier + reasoning depth, never fake parallelism | no capability lever for the target tier on this host | Agent only |
 | D3 | fall back to a numbered text menu | host has no question tool | universal |
 | D4 | fixed at Light, no tier question, no sub-agents | Hook Context (auto-triggered) | Hook only |
 
-D2 restated at four sites — the general clause, the Standard row's "(else single-agent)", the Heavy row's "if supported", and the Heavy-specific "escalate by model + reasoning only" — one row, four mentions. The Freshness cap (scope already audited this session → cap at Light) is a tier-selection modifier on G1, not a degrade branch — no capability lever is missing and there is no unhappy path, so it stays out of D. Hook cells assume an interactive session; the footer's Fix-mode-dependent offer clause is vacuous here either way (no Fix mode section to defer to).
+Lane audit, condition by condition: **D1 → Hook only** — its condition is "non-interactive", and Agent Context is interactive by definition (the footer's own Agent Context paragraph), so D1 can never fire there. **D2 → Agent only** — D4 fixes Hook at Light unconditionally, and Light needs no capability lever (it is the baseline: single agent, no sub-agents), so a Standard/Heavy lever gap can only arise where a non-Light tier is ever attempted, which is Agent (via G1) alone. **D3 stays universal** — it fires wherever `ask_question` would fire, which is Agent (always) and Hook (when interactive, per G2–G4's own footnote above) — the same both-lanes shape already established for those gates, not a new one. **D4 stays Hook only**, unconditional for the whole Hook lane. D2 restated at four sites — the general clause, the Standard row's "(else single-agent)", the Heavy row's "if supported", and the Heavy-specific "escalate by model + reasoning only" — one row, four mentions. The Freshness cap (scope already audited this session → cap at Light) is a tier-selection modifier on G1, not a degrade branch — no capability lever is missing and there is no unhappy path, so it stays out of D. The footer's Fix-mode-dependent offer clause is vacuous here either way (no Fix mode section to defer to).
 
-## Output — 3 annotation forms, declared
+## Output — 2 locations, declared
+A location is a place this skill **writes** something a reader can see; the absence of an annotation is not one.
 - Verified: `✅ [claim] — source: [link/file]`
 - Unverified: `⚠️ unverified — check [exact source]`
-- Stable fact: no annotation needed
+
+Stable fact: no annotation is written — not a location, not counted above.
 
 ## AUTHORITATIVE vs DIVERSE
 - **AUTHORITATIVE** (one ground truth): API/version/config/spec → go to the actual source code or official docs.
