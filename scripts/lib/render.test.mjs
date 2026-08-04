@@ -175,7 +175,13 @@ test('verify.mjs 2.8 dist-changelog: a dist change with no CHANGELOG entry fails
     for (const d of ['skills', 'plugin', 'scripts', '.claude-plugin', 'hooks', 'agents', 'commands', 'alt']) {
       fs.cpSync(path.join(repo, d), path.join(tmp, d), { recursive: true });
     }
-    fs.copyFileSync(path.join(repo, 'CHANGELOG.md'), path.join(tmp, 'CHANGELOG.md'));
+    // A SELF-CONTAINED fixture CHANGELOG — not copied from the live repo. Copying it
+    // silently coupled this test to the live CHANGELOG.md's own top heading staying
+    // "## [3.14.0]" forever; the moment a real [Unreleased] section is opened for
+    // legitimate work (exactly what this gate tells a developer to do), the fixture's
+    // planted dist change takes the legitimate-pass branch and this assertion breaks —
+    // the first person who follows the gate's own prescribed remedy breaks the suite.
+    fs.writeFileSync(path.join(tmp, 'CHANGELOG.md'), '# Changelog\n\n## [3.14.0] - 2026-01-01\n\n### Added\n- baseline\n');
 
     const git = (args) => {
       const r = spawnSync('git', args, { cwd: tmp, encoding: 'utf8' });
