@@ -5,7 +5,7 @@ All notable changes to CoalMine are documented here. Format follows [Keep a Chan
 ## [Unreleased]
 
 ### Fixed
-- **`rot-canary`'s fix-mode section never ordered the agent to read `.coalmine.json`** — it made the fix menu conditional on `autoFixMode` and called the config "standing consent" without a step to actually read it, or a stated fallback when the file is absent. Added the missing rail: read `.coalmine.json` at the repo root before deciding fix mode; absent → all keys default (`autoFixMode` = `interactive`). Found by the first variance walk of a CoalMine canary (`SKILL-VARIANCE-WALK.md` §Run 34).
+- **`rot-canary`'s fix-mode section never ordered the agent to read `.coalmine.json`, and a first attempt at the rail got the config's own cascade wrong.** The section made the fix menu conditional on `autoFixMode` and called the config "standing consent" without a step to actually read it, or a stated fallback when the file is absent. Added the missing rail: read the global `~/.claude/.coalmine.json` then the project `<gitroot>/.coalmine.json` (project wins per key, matching every other consumer of this file) before deciding fix mode; neither present → `autoFixMode` = `interactive`. A same-day fix corrected the rail's first wording, which claimed a bare repo-root read with "absent → every key defaults" — false whenever a global config exists, which would have silently overridden a user's standing `autoFixMode: off`/`safe` back to `interactive`. Found by an internal variance walk of a CoalMine canary.
 
 ## [3.14.0] - 2026-07-30
 
