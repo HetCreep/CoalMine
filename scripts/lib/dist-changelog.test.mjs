@@ -113,7 +113,8 @@ test('checkDistChangelog: dist CHANGED with no CHANGELOG update FAILs (RED case)
     const found = checkDistChangelog(dir);
     assert.equal(found.length, 1);
     assert.equal(found[0].level, 'FAIL');
-    assert.match(found[0].msg, /plugin\/ dist differs from v1\.0\.0 but CHANGELOG\.md's top heading is still \[1\.0\.0\]/);
+    assert.match(found[0].msg, /plugin\/ dist differs from v1\.0\.0 .*CHANGELOG\.md's top heading is still \[1\.0\.0\]/);
+    assert.match(found[0].msg, /plugin\/skills\/a\.md/, 'the FAIL must name the actual changed path, not just "something differs" (INSPECT cry-wolf follow-up)');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -188,6 +189,22 @@ test('checkDistChangelog: an UNTRACKED new file under plugin/ is caught, not sil
     const found = checkDistChangelog(dir);
     assert.equal(found.length, 1, 'an untracked new dist file must not be a silent clean bill');
     assert.equal(found[0].level, 'FAIL');
+    assert.match(found[0].msg, /brand-new-canary\/SKILL\.md/, 'the FAIL must name the actual untracked path, not just "something differs"');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// INSPECT cry-wolf follow-up (2026-08-04): naming every changed path is only safe if a
+// legitimate large rebuild (many real dist files at once) cannot print a wall of them.
+test('checkDistChangelog: a FAIL message with more than the cap of changed paths shows "+N more", never an unbounded wall', () => {
+  const dir = mkTaggedRepo();
+  try {
+    for (let i = 0; i < 7; i++) {
+      fs.writeFileSync(path.join(dir, 'plugin', 'skills', `new-${i}.md`), `skill ${i}\n`);
+    }
+    const found = checkDistChangelog(dir);
+    assert.equal(found.length, 1);
+    assert.match(found[0].msg, /\+2 more/, '7 changed paths, cap 5, must show exactly "+2 more"');
+    assert.equal((found[0].msg.match(/new-\d\.md/g) || []).length, 5, 'exactly 5 paths are named, not all 7');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 

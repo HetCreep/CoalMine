@@ -8,3 +8,9 @@ AGENTS.md
 # Generated SkillSpector scan reports (provenance recorded in SECURITY.md; the raw report is not shipped)
 skillspector-*
 
+# Editor/OS junk — untracked, so it can otherwise sit inside plugin/ and trip the
+# dist-vs-CHANGELOG gate (scripts/lib/dist-changelog.mjs) with no real dist change behind it
+.DS_Store
+*.swp
+Thumbs.db
+

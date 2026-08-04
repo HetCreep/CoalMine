@@ -208,7 +208,7 @@ test('verify.mjs 2.8 dist-changelog: a dist change with no CHANGELOG entry fails
 
     const withoutEntry = run();
     assert.equal(withoutEntry.status, 1, 'a dist change with no CHANGELOG entry must fail the WHOLE gate, not just the module in isolation');
-    assert.match(withoutEntry.stdout, /FAIL dist-changelog: plugin\/ dist differs from v3\.14\.0 but CHANGELOG\.md's top heading is still \[3\.14\.0\]/);
+    assert.match(withoutEntry.stdout, /FAIL dist-changelog: plugin\/ dist differs from v3\.14\.0 .*CHANGELOG\.md's top heading is still \[3\.14\.0\]/);
 
     const changelog = fs.readFileSync(path.join(tmp, 'CHANGELOG.md'), 'utf8');
     fs.writeFileSync(path.join(tmp, 'CHANGELOG.md'), changelog.replace('## [3.14.0]', '## [Unreleased]\n\n### Fixed\n- test entry\n\n## [3.14.0]'));

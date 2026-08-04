@@ -78,9 +78,11 @@ function sectionBody(lines, headingIdx) {
 
 // Plain dotted-numeric compare (X.Y.Z) — this room's own tags are always bare SemVer with
 // no pre-release/build suffix, so a full SemVer parser would be solving a problem that
-// does not exist here. A non-numeric segment parses as 0 rather than throwing, so a
-// malformed heading compares as the LOWEST possible value (fails the "newer" test) instead
-// of crashing the gate. Returns >0 if a is newer, <0 if older, 0 if equal.
+// does not exist here. `Number.parseInt` reads as far as it can (`'1-rc1'` -> 1, not 0 —
+// it does NOT reject a non-numeric TAIL, only a segment with no leading digit at all, e.g.
+// 'rc1' -> NaN -> 0), so a malformed heading degrades to whatever leading digits it has,
+// or to 0 if it has none — either way it fails the "newer" test rather than crashing the
+// gate. Returns >0 if a is newer, <0 if older, 0 if equal.
 function compareVersions(a, b) {
   const pa = a.split('.').map((n) => Number.parseInt(n, 10) || 0);
   const pb = b.split('.').map((n) => Number.parseInt(n, 10) || 0);
@@ -89,6 +91,16 @@ function compareVersions(a, b) {
     if (diff !== 0) return diff;
   }
   return 0;
+}
+
+// Caps the FAIL message's path list so a legitimate large rebuild (many real dist files)
+// never prints a wall — but always names at least the first few, because the reader who
+// needs to tell "editor junk" from "a real dist change" needs the ACTUAL paths, not just
+// "plugin/ differs" (INSPECT MEDIUM cry-wolf follow-up, 2026-08-04).
+function formatPaths(paths, cap = 5) {
+  const shown = paths.slice(0, cap).join(', ');
+  const rest = paths.length - cap;
+  return rest > 0 ? `${shown}, +${rest} more` : shown;
 }
 
 export function checkDistChangelog(repo) {
@@ -101,50 +113,55 @@ export function checkDistChangelog(repo) {
     return [{ level: 'SKIP', msg: 'dist-changelog: no version tag reachable (e.g. a shallow CI checkout with no tag history — actions/checkout fetches neither by default) — cannot establish a baseline; skipped (a missed CHANGELOG entry, never a false clean bill)' }];
   }
 
-  // `git diff --quiet <tag> -- <paths>` — exit 0 = clean, exit 1 = a real diff, anything
-  // else (bad revision, corrupt repo) is an error this check must not swallow as "clean".
-  const diff = git(['diff', '--quiet', tag, '--', ...DIST_PATHS], repo);
-  if (diff.status !== 0 && diff.status !== 1) {
+  // `git diff --name-only <tag> -- <paths>` — exit 0 always (unlike `--quiet`, this form
+  // signals via STDOUT, not the exit code); a non-zero status is a genuine error (bad
+  // revision, corrupt repo) this check must not swallow as "clean". `--name-only` doubles
+  // as the path list every FAIL message below names, per INSPECT's cry-wolf follow-up
+  // (2026-08-04): detecting "something differs" is not enough, the reader needs to see
+  // WHAT, or a real dist change and a stray editor-junk file read identically.
+  const diff = git(['diff', '--name-only', tag, '--', ...DIST_PATHS], repo);
+  if (diff.status !== 0) {
     return [{ level: 'FAIL', msg: `dist-changelog: could not diff the dist against ${tag}: ${(diff.stderr || diff.error?.message || 'unknown git error').trim()}` }];
   }
-  let distChanged = diff.status === 1;
+  let changedPaths = diff.stdout.split(/\r?\n/).filter(Boolean);
 
   // `git diff` alone is blind to untracked new files (see checkUntracked above) — check
   // separately, but only when the tracked diff itself found nothing, so a genuine tracked
   // change never depends on this second call succeeding.
-  if (!distChanged) {
+  if (changedPaths.length === 0) {
     const untracked = checkUntracked(repo);
     if (untracked.status !== 0) {
       return [{ level: 'FAIL', msg: `dist-changelog: could not check for untracked dist files: ${(untracked.stderr || untracked.error?.message || 'unknown git error').trim()}` }];
     }
-    distChanged = untracked.stdout.trim().length > 0;
+    changedPaths = untracked.stdout.split(/\r?\n/).filter(Boolean);
   }
-  if (!distChanged) return [];
+  if (changedPaths.length === 0) return [];
+  const paths = formatPaths(changedPaths);
 
   let changelog;
   try {
     changelog = fs.readFileSync(path.join(repo, 'CHANGELOG.md'), 'utf8');
   } catch (e) {
-    return [{ level: 'FAIL', msg: `dist-changelog: plugin/ dist differs from ${tag} but CHANGELOG.md is unreadable: ${e.message}` }];
+    return [{ level: 'FAIL', msg: `dist-changelog: plugin/ dist differs from ${tag} (${paths}) but CHANGELOG.md is unreadable: ${e.message}` }];
   }
 
   const lines = changelog.split(/\r?\n/);
   const headingIdx = lines.findIndex((l) => /^##\s*\[/.test(l));
   if (headingIdx === -1) {
-    return [{ level: 'FAIL', msg: `dist-changelog: plugin/ dist differs from ${tag} but CHANGELOG.md has no version heading — add an [Unreleased] section documenting the change` }];
+    return [{ level: 'FAIL', msg: `dist-changelog: plugin/ dist differs from ${tag} (${paths}) but CHANGELOG.md has no version heading — add an [Unreleased] section documenting the change` }];
   }
   const heading = lines[headingIdx].match(/^##\s*\[([^\]]+)\]/)[1].trim();
   const tagVersion = tag.replace(/^v/, '');
 
   if (heading.toLowerCase() === 'unreleased') {
     if (sectionBody(lines, headingIdx).length === 0) {
-      return [{ level: 'FAIL', msg: `dist-changelog: plugin/ dist differs from ${tag} but the [Unreleased] section is empty — add an entry documenting the change` }];
+      return [{ level: 'FAIL', msg: `dist-changelog: plugin/ dist differs from ${tag} (${paths}) but the [Unreleased] section is empty — add an entry documenting the change` }];
     }
     return [];
   }
 
   if (heading === tagVersion) {
-    return [{ level: 'FAIL', msg: `dist-changelog: plugin/ dist differs from ${tag} but CHANGELOG.md's top heading is still [${heading}] — add an [Unreleased] entry (or a new version heading) documenting the change` }];
+    return [{ level: 'FAIL', msg: `dist-changelog: plugin/ dist differs from ${tag} (${paths}) but CHANGELOG.md's top heading is still [${heading}] — add an [Unreleased] entry (or a new version heading) documenting the change` }];
   }
 
   // A version heading OTHER than the tag's own only counts as documentation if it is
@@ -153,10 +170,10 @@ export function checkDistChangelog(repo) {
   // or an OLDER `## [0.9.0]` must not silently pass just because the string differs from
   // the tag's own.
   if (sectionBody(lines, headingIdx).length === 0) {
-    return [{ level: 'FAIL', msg: `dist-changelog: plugin/ dist differs from ${tag} but the top heading [${heading}] has no content — add an entry documenting the change` }];
+    return [{ level: 'FAIL', msg: `dist-changelog: plugin/ dist differs from ${tag} (${paths}) but the top heading [${heading}] has no content — add an entry documenting the change` }];
   }
   if (compareVersions(heading, tagVersion) <= 0) {
-    return [{ level: 'FAIL', msg: `dist-changelog: plugin/ dist differs from ${tag} but the top heading [${heading}] is not newer than the last tag — add an [Unreleased] entry (or a version above ${tagVersion}) documenting the change` }];
+    return [{ level: 'FAIL', msg: `dist-changelog: plugin/ dist differs from ${tag} (${paths}) but the top heading [${heading}] is not newer than the last tag — add an [Unreleased] entry (or a version above ${tagVersion}) documenting the change` }];
   }
 
   // Non-empty and genuinely newer than the last tag — a release in progress that updated
