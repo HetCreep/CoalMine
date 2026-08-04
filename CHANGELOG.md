@@ -2,6 +2,11 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [Unreleased]
+
+### Fixed
+- **`rot-canary`'s fix-mode section never ordered the agent to read `.coalmine.json`** — it made the fix menu conditional on `autoFixMode` and called the config "standing consent" without a step to actually read it, or a stated fallback when the file is absent. Added the missing rail: read `.coalmine.json` at the repo root before deciding fix mode; absent → all keys default (`autoFixMode` = `interactive`). Found by the first variance walk of a CoalMine canary (`SKILL-VARIANCE-WALK.md` §Run 34).
+
 ## [3.14.0] - 2026-07-30
 
 ### Added
