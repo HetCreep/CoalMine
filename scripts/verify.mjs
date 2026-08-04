@@ -16,6 +16,7 @@ import { CONFIG_SCHEMA, validateValue } from './lib/config-schema.mjs';
 import { stripJsonc } from './lib/jsonc.mjs';
 import { REGION_TARGETS, extractRegion } from './lib/shared-regions.mjs';
 import { checkTracked } from './lib/consistency.mjs';
+import { checkDistChangelog } from './lib/dist-changelog.mjs';
 import { verifyAgainstManifest } from './lib/manifest.mjs';
 import { descriptionCapCheck, DESC_CAP } from './lib/desc-cap.mjs';
 
@@ -124,6 +125,21 @@ try {
   if (findings.length === 0) pass('cross-document facts agree (counts + version pins)');
   else for (const f of findings) fail(f.msg);
 } catch (e) { fail(`consistency check crashed: ${e.message}`); }
+
+// 2.8 dist-vs-CHANGELOG (task #38): did the shipped dist change since the last version tag,
+// and if so, does CHANGELOG.md document it? Keys on the DIST, never on "any file changed" —
+// a doc-only commit must stay silent (scripts-quality.md section 3). Both named absences
+// (no git repo, no tag reachable — e.g. a shallow CI checkout) degrade to a visible,
+// non-blocking line, never a silent carve-out and never a false clean bill.
+console.log('dist-changelog:');
+try {
+  const findings = checkDistChangelog(repo);
+  if (findings.length === 0) pass('plugin/ dist matches the last tag, or the change is documented');
+  else for (const f of findings) {
+    if (f.level === 'SKIP') console.log('  --   ' + f.msg);
+    else fail(f.msg);
+  }
+} catch (e) { fail(`dist-changelog check crashed: ${e.message}`); }
 
 // 3. hooks present
 console.log('hooks:');
