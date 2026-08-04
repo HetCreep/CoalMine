@@ -1,6 +1,13 @@
 <!-- coalmine: verified 2026-06-12 · revalidate 90d · definition file for source-grounding -->
 # Source-grounding — authoritative source map
 
+## Why the source hierarchy ranks this way
+1. **Source code / spec / RFC** — primary ground truth: the implementation or the standard itself, nothing between you and the fact.
+2. **Official/vendor docs** — authoritative secondary: maintained by the source, but a step removed from the code/spec that defines the actual behavior.
+3. **Multiple reputable third-party sources** — triangulated: no single author's mistake, but still an interpretation layer.
+4. **Single blog** — weak: one author, no editorial check, no accountability if wrong; corroborate before citing (P4 in `SKILL.md`).
+5. **Training memory** — weakest for volatile facts: frozen at training time, with no way to know how stale it already is.
+
 ## Where ground truth lives, per claim type
 | Claim type | Primary source | Secondary |
 |---|---|---|
