@@ -62,7 +62,7 @@ The shared footer's `never fix without a chosen option` does not apply here — 
 | D3 | fall back to a numbered text menu | host has no question tool | universal |
 | D4 | fixed at Light, no tier question, no sub-agents | Hook Context (auto-triggered) | Hook only |
 
-Hook cells assume an interactive session; the footer's Fix-mode-dependent offer clause is vacuous here either way (no Fix mode section to defer to).
+D2 restated at four sites — the general clause, the Standard row's "(else single-agent)", the Heavy row's "if supported", and the Heavy-specific "escalate by model + reasoning only" — one row, four mentions. The Freshness cap (scope already audited this session → cap at Light) is a tier-selection modifier on G1, not a degrade branch — no capability lever is missing and there is no unhappy path, so it stays out of D. Hook cells assume an interactive session; the footer's Fix-mode-dependent offer clause is vacuous here either way (no Fix mode section to defer to).
 
 ## Output — 3 annotation forms, declared
 - Verified: `✅ [claim] — source: [link/file]`
