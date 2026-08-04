@@ -20,7 +20,7 @@ Keep the gates green before and after editing:
 
 ```bash
 node scripts/build-plugin.mjs   # re-inject the _shared regions into each skill + rebuild plugin/
-node scripts/verify.mjs         # validate config, plugin sync, and version pins
+node scripts/verify.mjs         # validate config, plugin sync, version pins, and dist-vs-CHANGELOG coverage
 node scripts/test.mjs           # zero-dep unit + hermetic hook tests (node --test)
 node scripts/consistency.mjs    # cross-doc counts, doctrine mirrors, well-formed stamps — gated via .githooks, not CI
 ```
@@ -32,6 +32,8 @@ git config core.hooksPath .githooks
 ```
 
 pre-commit and pre-push then run `scripts/test.mjs`, `scripts/verify.mjs`, and `scripts/consistency.mjs` on every commit and push, plus the PowerShell parity tests when `pwsh` is on PATH. `consistency.mjs`'s doctrine-mirror check compares `.claude/rules/ecc/`/`.agents/rules/ecc/` at a resolved base — this repo's own root if it carries both trees, else its parent directory if that's where they live (the umbrella, `TheColliery/`, on the layout CoalMine ships from), else it silently compares nothing (a standalone clone with no rule home has nothing to check). It stays out of `verify.mjs`/CI on purpose — CI checks out only this repo, with no umbrella sibling to find.
+
+`verify.mjs` also gates a missing `CHANGELOG.md` entry when the shipped `plugin/` dist changes (task #38) — but only on your own clone today: it needs a reachable version tag as its baseline, and `.github/workflows/ci.yml`'s checkout step takes git's shallow default (no `fetch-depth`/`fetch-tags`), so the check finds no tag and silently SKIPs on every CI run. The local pre-commit/pre-push gate is the one that actually catches a missing entry right now.
 
 ### Development Rules
 * **`skills/_shared/` is the Single Source of Truth** for shared blocks (language header, escalation footer, orchestration). Edit there, then run `node scripts/build-plugin.mjs` to re-inject; never hand-edit the generated regions inside a skill.
