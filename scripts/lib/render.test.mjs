@@ -208,7 +208,18 @@ test('verify.mjs 2.8 dist-changelog: a dist change with no CHANGELOG entry fails
     assert.equal(clean.status, 0, `freshly-tagged copy must PASS, got:\n${clean.stdout}${clean.stderr}`);
     assert.match(clean.stdout, /dist-changelog:\s*\n\s*ok/, 'the 2.8 block must be present and green on a clean copy');
 
-    const bump = (p) => fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace('"3.14.0"', '"3.14.0-redprobe"'));
+    // Derive the version to mutate from the FIXTURE'S OWN copied plugin.json rather than a
+    // hardcoded literal — a literal must coincidentally match whatever the live repo currently
+    // ships, and it silently no-ops (0 replacements, no dist change planted) the moment the
+    // live version moves past it. Reading it back at fixture-build time keeps this test correct
+    // at any live version, forever.
+    const liveVersion = JSON.parse(fs.readFileSync(path.join(tmp, '.claude-plugin', 'plugin.json'), 'utf8')).version;
+    const marker = `"${liveVersion}"`;
+    const bump = (p) => {
+      const content = fs.readFileSync(p, 'utf8');
+      assert.ok(content.includes(marker), `expected ${p} to contain ${marker} before bumping`);
+      fs.writeFileSync(p, content.replace(marker, `"${liveVersion}-redprobe"`));
+    };
     bump(path.join(tmp, '.claude-plugin', 'plugin.json'));
     bump(path.join(tmp, 'plugin', '.claude-plugin', 'plugin.json'));
 
