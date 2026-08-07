@@ -57,14 +57,14 @@ Non-interactive runs: log unfetchable claims as `⚠️ UNVERIFIED` and continue
 The shared footer's `never fix without a chosen option` does not apply here — this skill defines no Fix mode section, so that clause resolves vacuously; not counted above.
 
 ## Degrade paths (D1–D4, declared)
-| # | branch | condition | lane |
-|---|---|---|---|
-| D1 | log as `⚠️ UNVERIFIED`, continue, never block | non-interactive, source unfetchable | Hook only |
-| D2 | degrade to model tier + reasoning depth, never fake parallelism | no capability lever for the target tier on this host | Agent only |
-| D3 | fall back to a numbered text menu | host has no question tool | universal |
-| D4 | fixed at Light, no tier question, no sub-agents | Hook Context (auto-triggered) | Hook only |
+| # | branch | fires when: |
+|---|---|---|
+| D1 | log as `⚠️ UNVERIFIED`, continue, never block | non-interactive, source unfetchable |
+| D2 | degrade to model tier + reasoning depth, never fake parallelism | no capability lever for the target tier on this host |
+| D3 | fall back to a numbered text menu | host has no question tool |
+| D4 | fixed at Light, no tier question, no sub-agents | Hook Context (auto-triggered) |
 
-Lane audit, condition by condition: **D1 → Hook only** — its condition is "non-interactive", and Agent Context is interactive by definition (the footer's own Agent Context paragraph), so D1 can never fire there. **D2 → Agent only** — D4 fixes Hook at Light unconditionally, and Light needs no capability lever (it is the baseline: single agent, no sub-agents), so a Standard/Heavy lever gap can only arise where a non-Light tier is ever attempted, which is Agent (via G1) alone. **D3 stays universal** — it fires wherever `ask_question` would fire, which is Agent (always) and Hook (when interactive, per G2–G4's own footnote above) — the same both-lanes shape already established for those gates, not a new one. **D4 stays Hook only**, unconditional for the whole Hook lane. D2 restated at four sites — the general clause, the Standard row's "(else single-agent)", the Heavy row's "if supported", and the Heavy-specific "escalate by model + reasoning only" — one row, four mentions. The Freshness cap (scope already audited this session → cap at Light) is a tier-selection modifier on G1, not a degrade branch — no capability lever is missing and there is no unhappy path, so it stays out of D. The footer's Fix-mode-dependent offer clause is vacuous here either way (no Fix mode section to defer to).
+This ledger deliberately diverges from skill-authoring.md §3b's column-or-separate-ledger rule for lane-applicability — `gold-standard` keeps a lane column, but here a column asserting a lane value that contradicted its own row's condition text measured worse than no column at all (`SKILL-VARIANCE-WALK.md` §Run 43: a bimodal Hook-Q4 split, the pre-registered key matching neither camp). D2 is restated at four sites in the shared partials — the general clause, the Standard row's "(else single-agent)", the Heavy row's "if supported", and the Heavy-specific "escalate by model + reasoning only" — all one row. D3 is stated once, in the shared Escalation footer's question-tool list ("…none → numbered text menu"). Neither is a new branch. D4's own branch text is restated verbatim in the footer's Hook Context line — same row, not a new one. The Freshness cap (scope already audited this session → cap at Light) is a tier-selection modifier on G1, not a degrade branch. The footer's Fix-mode-dependent offer clause is not a fifth branch — this skill defines no Fix mode section, so it never fires.
 
 ## Output — 2 locations, declared
 A location is a place this skill **writes** something a reader can see; the absence of an annotation is not one.
