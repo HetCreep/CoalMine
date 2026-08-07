@@ -32,6 +32,8 @@ In Agent Context, after the report, present via `ask_question`:
 
 Severity: CRITICAL (swallowed error with state mutation) · HIGH (missing stack trace in error logs) · MEDIUM (unstructured log in API boundary) · LOW (minor trace gaps)
 
+<!-- SHARED:REPORTING_FOOTER -->
+
 <!-- SHARED:ORCHESTRATION -->
 
 <!-- SHARED:ESCALATION_FOOTER -->

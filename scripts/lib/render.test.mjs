@@ -18,6 +18,7 @@ const SHARED = {
   languageHeader: 'LANG-HEADER',
   orchestration: 'ORCH {{LIGHT_INTENT}}|{{STANDARD_INTENT}}|{{HEAVY_INTENT}}',
   escalationFooter: 'ESC-FOOTER',
+  reportingFooter: 'REPORT-FOOTER',
 };
 
 function mkTmp(prefix) {
@@ -30,11 +31,13 @@ test('inject replaces every SHARED marker', () => {
     'body',
     '<!-- SHARED:ORCHESTRATION -->',
     '<!-- SHARED:ESCALATION_FOOTER -->',
+    '<!-- SHARED:REPORTING_FOOTER -->',
   ].join('\n');
   const out = inject(src, SHARED, { lightIntent: 'L', standardIntent: 'S', heavyIntent: 'H' });
   assert.ok(!out.includes('<!-- SHARED:'), 'no unresolved markers may remain');
   assert.ok(out.includes('LANG-HEADER'));
   assert.ok(out.includes('ESC-FOOTER'));
+  assert.ok(out.includes('REPORT-FOOTER'));
 });
 
 test('inject fills intent placeholders from meta', () => {

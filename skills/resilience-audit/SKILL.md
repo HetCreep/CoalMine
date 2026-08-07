@@ -47,6 +47,8 @@ Ordering/atomicity findings · Summary (counts + top fixes) · Not assessed
 
 Severity: CRITICAL (data loss/corruption/silent-success) · HIGH (crash/hang/partial-no-recovery) · MEDIUM (poor degradation/missing retry) · LOW (cosmetic)
 
+<!-- SHARED:REPORTING_FOOTER -->
+
 <!-- SHARED:ORCHESTRATION -->
 
 <!-- SHARED:ESCALATION_FOOTER -->

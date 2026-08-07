@@ -7,6 +7,7 @@ Each partial below is injected into every `skills/*/SKILL.md` template wherever 
 | `language-header.md` | `<!-- SHARED:LANGUAGE_HEADER -->` | all 9 templates |
 | `orchestration.md` | `<!-- SHARED:ORCHESTRATION -->` | all 9 templates |
 | `escalation-footer.md` | `<!-- SHARED:ESCALATION_FOOTER -->` | all 9 templates |
+| `reporting-footer.md` | `<!-- SHARED:REPORTING_FOOTER -->` | 7 of 9 templates — every canary whose Output is a per-defect `file`/`line`/severity table; not `gold-standard` (a 5-part audit report, no per-defect rows) or `source-grounding` (verified/unverified annotations, no `file`/`line`/severity) |
 
 `orchestration.md` additionally contains `{{LIGHT_INTENT}}`, `{{STANDARD_INTENT}}`, `{{HEAVY_INTENT}}` placeholders, filled per skill from that skill's `skill-meta.json`.
 
@@ -31,5 +32,5 @@ Every skill template follows this section order; new skills copy it exactly:
 3. Core sections (skill-specific: categories/checklist/acts)
 4. `references/` pointer line(s) — every skill ships a `references/` dir for per-stack depth
 5. `## Discipline`
-6. `## Fix mode (choice-gated)` (or report-only note) → `## Output` + severity scale
+6. `## Fix mode (choice-gated)` (or report-only note) → `## Output` + severity scale → `<!-- SHARED:REPORTING_FOOTER -->` (only if Output is a per-defect `file`/`line`/severity table — skip for a non-finding-shaped Output like `gold-standard`'s audit report)
 7. `## Escalation — Scope & Model Quality` → tier table → `<!-- SHARED:ORCHESTRATION -->` → `<!-- SHARED:ESCALATION_FOOTER -->`

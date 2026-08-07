@@ -194,7 +194,7 @@ Full series matrix + the must-fail set: [Permission Matrix](https://github.com/T
 
 ## 📝 Ultra-Short Summary Format
 
-Canaries report in a lean shape (one-line verdict + severity table of confirmed findings) to save tokens:
+Canaries report in a lean shape (one-line verdict + severity table of confirmed findings) to save tokens. Seven canaries (all but `gold-standard`/`source-grounding`, whose output isn't per-defect) call Claude Code's `ReportFindings` panel when it's callable — click-to-file, fix-lifecycle tracking, no chat duplication; the table below is the fallback wherever the panel tool isn't available:
 ```text
 | # | path:line | category | severity | finding | evidence |
 ```

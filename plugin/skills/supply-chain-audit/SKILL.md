@@ -50,6 +50,10 @@ NEVER auto-fix: dep version bump, lockfile regen (re-resolves entire transitive 
 `| package | direct/transitive | issue | severity | advisory | fixed-in | action |`
 Build+artifact checklist · Summary (counts + top fixes) · Not scanned
 
+For `ReportFindings`: `file` = the manifest/lockfile path that named the package (`packageManifests`, or the inferred one); `line` is best-effort (the pin/version line if easily found) or omitted and named imprecise per the shared reporting rail — never fabricate a line.
+
+**Reporting:** call `ReportFindings` when callable — `file`/`line` MUST be the defect site, never the enclosing function; an unresolvable line reports your best guess and is named imprecise in the wrap-up, never dropped and never faked. Severity prefixed in `summary` (e.g. `[HIGH] …`), ranked most-severe first, SUSPECTED as `verdict: PLAUSIBLE`; chat then carries only the wrap-up line (counts · coverage gaps · overflow past 32 · any imprecise-line findings) + the fix menu, never a restatement of findings. Not callable → the table above, unchanged. An Apply-fixes click = consent to the safe-fix class only, composing with (never bypassing) the fix-mode discipline; after any fix round, re-report the same findings with `outcome: fixed`/`skipped`/`no_change_needed` — a round that skips this is unfinished.
+
 ## Escalation — Scope & Model Quality
 
 Tiers are **capability targets**, not platform commands — resolve each to your host's nearest lever. No lever for one? **Degrade gracefully — never fake parallelism you can't do**; escalate via model tier + reasoning depth instead.

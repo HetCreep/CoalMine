@@ -50,6 +50,10 @@ NEVER auto-fix: dep version bump, lockfile regen (re-resolves entire transitive 
 `| package | direct/transitive | issue | severity | advisory | fixed-in | action |`
 Build+artifact checklist · Summary (counts + top fixes) · Not scanned
 
+For `ReportFindings`: `file` = the manifest/lockfile path that named the package (`packageManifests`, or the inferred one); `line` is best-effort (the pin/version line if easily found) or omitted and named imprecise per the shared reporting rail — never fabricate a line.
+
+<!-- SHARED:REPORTING_FOOTER -->
+
 <!-- SHARED:ORCHESTRATION -->
 
 <!-- SHARED:ESCALATION_FOOTER -->

@@ -12,6 +12,7 @@ Scan code for rot. Report CONFIRMED findings. Fix on request.
 
 ## Parameters
 - **SCOPE:** touched files (default) | diff | named files | whole repo. Touched-files scan is hybrid-capped: all if ≤ `autoScanFileCap`, else the `autoScanFileCapSlice` most-recently-modified files (warn the user). A touched file matching `scanExcludePaths` (lab/throwaway tooling only — never shipped/tracked source) is dropped before the cap; the nudge notes the skip count.
+- **FILE TYPES:** code only by default, matching `watchedExtensions` (source files — never docs/prose/config-prose, CoalLedger's axis). Name non-code files explicitly to include them.
 - **DEPTH:** QUICK (default) | DEEP
 
 ## Categories
@@ -51,6 +52,8 @@ NEVER auto-fix: live/reachable path · logic change · "API looks wrong" (ground
 Then: SUSPECTED list · coverage gaps · counts + top 3 to fix.
 
 Severity: CRITICAL (data loss/security/crash on normal path) · HIGH (real bug/leak on reachable path) · MEDIUM (dead/dup/unwired) · LOW (style/doc rot)
+
+<!-- SHARED:REPORTING_FOOTER -->
 
 ## Cadence
 Stop hook → auto QUICK on the session's touched files (report only), hybrid-capped per `.coalmine.json` (see Parameters). Manual whole-repo DEEP sweep when needed. Auto-wiring is platform-dependent — read `references/cadence.md` before claiming auto-scan works on the current platform.

@@ -37,6 +37,8 @@ In Agent Context, after the report, present via `ask_question`:
 
 Severity: CRITICAL (breaking DB schema mutation / breaking API change) · HIGH (serialization type change) · MEDIUM (unmapped new required env key) · LOW (missing deprecation doc)
 
+<!-- SHARED:REPORTING_FOOTER -->
+
 <!-- SHARED:ORCHESTRATION -->
 
 <!-- SHARED:ESCALATION_FOOTER -->

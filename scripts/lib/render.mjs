@@ -20,6 +20,7 @@ export function loadShared(sharedDir) {
     languageHeader:   fs.readFileSync(path.join(sharedDir, 'language-header.md'),   'utf8').trimEnd(),
     orchestration:    fs.readFileSync(path.join(sharedDir, 'orchestration.md'),      'utf8').trimEnd(),
     escalationFooter: fs.readFileSync(path.join(sharedDir, 'escalation-footer.md'),  'utf8').trimEnd(),
+    reportingFooter:  fs.readFileSync(path.join(sharedDir, 'reporting-footer.md'),   'utf8').trimEnd(),
     // Verbatim (no trimEnd): the body must land byte-identical at every target so
     // verify.mjs can byte-compare each skill's references/escalation.md to it.
     sharedReferences: Object.fromEntries(
@@ -39,7 +40,8 @@ export function inject(content, shared, meta = {}) {
   return content
     .replace(/<!-- SHARED:LANGUAGE_HEADER -->/g,   () => shared.languageHeader)
     .replace(/<!-- SHARED:ORCHESTRATION -->/g,       () => orchestration)
-    .replace(/<!-- SHARED:ESCALATION_FOOTER -->/g,   () => shared.escalationFooter);
+    .replace(/<!-- SHARED:ESCALATION_FOOTER -->/g,   () => shared.escalationFooter)
+    .replace(/<!-- SHARED:REPORTING_FOOTER -->/g,    () => shared.reportingFooter);
 }
 
 export function listSkills(skillsSrc) {

@@ -32,6 +32,8 @@ In Agent Context, after the report, present via `ask_question`:
 
 Severity: CRITICAL (un-mockable external write/network call) · HIGH (SRP violation blocking unit testing) · MEDIUM (time/env coupling) · LOW (minor static dependency)
 
+<!-- SHARED:REPORTING_FOOTER -->
+
 <!-- SHARED:ORCHESTRATION -->
 
 <!-- SHARED:ESCALATION_FOOTER -->
