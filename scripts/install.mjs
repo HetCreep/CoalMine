@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { loadShared as loadSharedFrom, listSkills, installSkillDir } from './lib/render.mjs';
 import { TARGETS, detectPresentAgents } from './lib/targets.mjs';
 import { MANIFEST_NAME, hashInstalledTree } from './lib/manifest.mjs';
-import { projectConfigCandidates } from './lib/config-paths.mjs';
+import { projectConfigCandidates, ownDirDefault } from './lib/config-paths.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const skillsSrc = path.join(repo, 'skills');
@@ -438,8 +438,12 @@ function copyDefaultConfig() {
   // (existence check + fresh-install write target) changed: a project already
   // configured anywhere (own-dir, another known agent dir, or the LEGACY root
   // dotfile) is left alone; a never-configured project now gets the NEW shape
-  // (.claude/coal/coalmine.json) instead of the retired root dotfile, so a
-  // fresh install stops perpetuating the shape this campaign is migrating off.
+  // instead of the retired root dotfile, so a fresh install stops
+  // perpetuating the shape this campaign is migrating off. The write target
+  // is ownDirDefault (INSPECT MEDIUM 2, 2026-08-08), not a bare candidates[0]
+  // — a project that already has `.agents/`/`.gemini/` on disk gets its
+  // config there, never a foreign `.claude/`; only a project with NO agent
+  // dir at all gets `.claude/coal/coalmine.json`.
   console.log('\nConfiguring settings...');
   // Self-pollution guard: running the installer from the CoalMine source repo itself
   // (cwd === repo) would drop an untracked-but-not-ignored config at the repo
@@ -456,7 +460,7 @@ function copyDefaultConfig() {
       console.log(`  settings file already exists at ${existing}`);
       return;
     }
-    const configDest = candidates[0]; // own-dir (.claude/coal/coalmine.json) — new installs get the new shape
+    const configDest = ownDirDefault(process.cwd()); // whichever agent dir the project already has — new installs get the new shape
     fs.mkdirSync(path.dirname(configDest), { recursive: true });
     fs.copyFileSync(path.join(repo, 'platform-configs', '.coalmine.json'), configDest);
     console.log(`  created default settings → ${configDest}`);

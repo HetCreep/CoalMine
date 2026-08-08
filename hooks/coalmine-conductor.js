@@ -64,20 +64,39 @@ function findGitRoot(startDir) {
 //      `.gemini` (first FOUND wins).
 //   3. LEGACY: <project>/.<skill-dotfile>.json at the project root (today's
 //      shape) — read normally, no breakage for an existing user.
-// WRITE target = where the config was found; absent everywhere, the running
-// agent's own dir. Hooks never perform this move on a READ (Phoenix #5, no
-// side effects) — the move-on-CONFIG-WRITE half lives in configure.mjs and
-// install.mjs (scripts/lib/config-paths.mjs), which are the only writers.
+// WRITE target = where the config was found; absent everywhere, the FIRST
+// agent dir the project already has ON DISK (`.claude` -> `.agents` ->
+// `.gemini`), never a bare "own dir" default — a project that only uses
+// `.agents`/`.gemini` must not get a foreign `.claude/` planted into it. No
+// agent dir present at all -> the running agent's own dir (`.claude`), same
+// as before this fix. Hooks never perform this move on a READ (Phoenix #5,
+// no side effects) — the move-on-CONFIG-WRITE half lives in configure.mjs
+// and install.mjs (scripts/lib/config-paths.mjs), which are the only writers.
 const AGENT_DIR_ORDER = ['.claude', '.agents', '.gemini'];
 function projectConfigCandidates(root) {
   const candidates = AGENT_DIR_ORDER.map((d) => path.join(root, d, 'coal', 'coalmine.json'));
   candidates.push(path.join(root, '.coalmine.json')); // LEGACY, always last
   return candidates;
 }
+// Fresh-default path when NO config exists anywhere (kept in sync by hand
+// with scripts/lib/config-paths.mjs's own copy, INSPECT MEDIUM 2, 2026-08-08):
+// the first AGENT_DIR_ORDER entry that already exists as a directory on
+// disk, else `.claude` -- never a bare candidates[0], which would plant a
+// foreign `.claude/` into a project that only uses `.agents`/`.gemini`. This
+// hook never WRITES the project config (Phoenix #5) -- projectConfigPath
+// below calls this only to know what a fresh-install READ resolves to (a
+// missing file there is treated as absent, same as any other candidate).
+function isDirMarker(p) {
+  try { return fs.statSync(p).isDirectory(); } catch { return false; }
+}
+function ownDirDefault(root) {
+  const dir = AGENT_DIR_ORDER.find((d) => isDirMarker(path.join(root, d))) ?? AGENT_DIR_ORDER[0];
+  return path.join(root, dir, 'coal', 'coalmine.json');
+}
 function projectConfigPath(root) {
   const candidates = projectConfigCandidates(root);
   for (const c of candidates) { if (fs.existsSync(c)) return c; }
-  return candidates[0]; // nothing found anywhere -- own-dir is both the read and write target
+  return ownDirDefault(root); // nothing found anywhere -- own-dir is both the read and write target
 }
 
 // One BOM- and comment-tolerant JSONC read. Strips // and /* */ comments outside

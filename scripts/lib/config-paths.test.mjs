@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { AGENT_DIR_ORDER, projectConfigCandidates, projectConfigPath } from './config-paths.mjs';
+import { AGENT_DIR_ORDER, projectConfigCandidates, projectConfigPath, ownDirDefault } from './config-paths.mjs';
 
 function sandbox() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'cm-cfgpaths-'));
@@ -66,6 +66,48 @@ test('projectConfigPath: nothing exists anywhere -> the own-dir (.claude) path i
   const root = sandbox();
   try {
     assert.strictEqual(projectConfigPath(root), path.join(root, '.claude', 'coal', 'coalmine.json'));
+  } finally { clean(root); }
+});
+
+// ownDirDefault (INSPECT MEDIUM 2, 2026-08-08): the fresh-default / migration
+// write target must not always be `.claude` — it must nest under whichever
+// agent dir the PROJECT already has on disk.
+test('ownDirDefault: no agent dir exists at all -> .claude (unchanged default for a never-configured project)', () => {
+  const root = sandbox();
+  try {
+    assert.strictEqual(ownDirDefault(root), path.join(root, '.claude', 'coal', 'coalmine.json'));
+  } finally { clean(root); }
+});
+
+test('ownDirDefault: only .gemini/ exists on disk -> the config nests under .gemini, never a foreign .claude', () => {
+  const root = sandbox();
+  try {
+    fs.mkdirSync(path.join(root, '.gemini'), { recursive: true });
+    assert.strictEqual(ownDirDefault(root), path.join(root, '.gemini', 'coal', 'coalmine.json'));
+  } finally { clean(root); }
+});
+
+test('ownDirDefault: only .agents/ exists (no .claude) -> the config nests under .agents', () => {
+  const root = sandbox();
+  try {
+    fs.mkdirSync(path.join(root, '.agents'), { recursive: true });
+    assert.strictEqual(ownDirDefault(root), path.join(root, '.agents', 'coal', 'coalmine.json'));
+  } finally { clean(root); }
+});
+
+test('ownDirDefault: a FILE named .gemini (not a directory) does not count as the agent dir existing', () => {
+  const root = sandbox();
+  try {
+    fs.writeFileSync(path.join(root, '.gemini'), 'not a directory', 'utf8');
+    assert.strictEqual(ownDirDefault(root), path.join(root, '.claude', 'coal', 'coalmine.json'));
+  } finally { clean(root); }
+});
+
+test('projectConfigPath: nothing found anywhere but the project already has a .gemini/ dir -> falls back to .gemini, not .claude', () => {
+  const root = sandbox();
+  try {
+    fs.mkdirSync(path.join(root, '.gemini'), { recursive: true });
+    assert.strictEqual(projectConfigPath(root), path.join(root, '.gemini', 'coal', 'coalmine.json'));
   } finally { clean(root); }
 });
 

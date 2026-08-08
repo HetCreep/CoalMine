@@ -7,7 +7,7 @@ import os from 'os';
 import path from 'path';
 import { CONFIG_SCHEMA, validateValue } from './lib/config-schema.mjs';
 import { stripJsonc } from './lib/jsonc.mjs';
-import { projectConfigCandidates, projectConfigPath } from './lib/config-paths.mjs';
+import { projectConfigPath, ownDirDefault } from './lib/config-paths.mjs';
 
 // The three per-agent-dir shapes were added by the namespace campaign
 // (#69+#39, owner-designated 2026-08-08) alongside the LEGACY dotfile: a
@@ -119,12 +119,15 @@ function main() {
   // #69+#39, owner-designated 2026-08-08 — see lib/config-paths.mjs for the
   // full precedence): own-dir -> other known agent dirs -> LEGACY root
   // dotfile. WRITE goes back to wherever the config was found, EXCEPT a
-  // config found at the LEGACY location migrates to the running agent's own
-  // dir on this write (move-on-CONFIG-WRITE-only — Phoenix #5, a hook never
-  // performs this move on a mere read; configure.mjs is a CLI script the
-  // user/agent explicitly runs). A config found at another new-shape
-  // candidate (e.g. `.agents/coal/coalmine.json`) is NOT force-migrated
-  // between agent dirs — it is written back where it already lives.
+  // config found at the LEGACY location migrates on this write (INSPECT
+  // MEDIUM 2, 2026-08-08: to ownDirDefault, the first agent dir the project
+  // ALREADY HAS on disk, never a bare `.claude` — a project that only uses
+  // `.agents`/`.gemini` must not get a foreign `.claude/` planted into it) —
+  // move-on-CONFIG-WRITE-only (Phoenix #5, a hook never performs this move on
+  // a mere read; configure.mjs is a CLI script the user/agent explicitly
+  // runs). A config found at another new-shape candidate (e.g.
+  // `.agents/coal/coalmine.json`) is NOT force-migrated between agent dirs —
+  // it is written back where it already lives.
   const globalIdx = args.indexOf('--global');
   const isGlobal = globalIdx !== -1;
   if (isGlobal) args.splice(globalIdx, 1);
@@ -135,7 +138,7 @@ function main() {
     : projectConfigPath(projectRoot);
   const writePath = isGlobal
     ? readPath
-    : (readPath === legacyPath ? projectConfigCandidates(projectRoot)[0] : readPath);
+    : (readPath === legacyPath ? ownDirDefault(projectRoot) : readPath);
 
   let cfg = {};
   let hadComments = false;

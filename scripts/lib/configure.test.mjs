@@ -63,6 +63,21 @@ test('configure fails loud (exit 1) when the existing legacy config is malformed
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('configure migrating a LEGACY config in a project that already has .agents/ (no .claude) lands the migration at .agents, never a foreign .claude (INSPECT MEDIUM 2, 2026-08-08)', () => {
+  const dir = freshProject();
+  try {
+    fs.mkdirSync(path.join(dir, '.agents')); // the project already uses this agent dir, never Claude Code
+    fs.writeFileSync(path.join(dir, LEGACY_REL), JSON.stringify({ language: 'en' }), 'utf8');
+    const r = spawnSync(process.execPath, [CONFIGURE, '--language', 'th'], { cwd: dir, encoding: 'utf8', timeout: 60000 });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const migrated = path.join(dir, '.agents', 'coal', 'coalmine.json');
+    assert.ok(fs.existsSync(migrated), 'the legacy config migrates under the agent dir the project ALREADY has');
+    assert.strictEqual(JSON.parse(fs.readFileSync(migrated, 'utf8')).language, 'th');
+    assert.ok(!fs.existsSync(path.join(dir, NEW_REL)), 'no foreign .claude/ is planted into a project that only ever used .agents');
+    assert.ok(!fs.existsSync(path.join(dir, LEGACY_REL)), 'the legacy root config is removed after the migrating write');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('configure found at another new-shape candidate (.agents) writes back THERE, never force-migrated to .claude', () => {
   const dir = freshProject();
   try {
