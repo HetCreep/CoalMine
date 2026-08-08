@@ -2,6 +2,11 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [Unreleased]
+
+### Fixed
+- **Stop hook's `hookSpecificOutput.additionalContext` forced a phantom second turn that discarded a `-p --output-format json` session's `result` field (board #82, one-flock class, CoalLedger `78905f1` shipped the proven fix shape first).** `hooks/rot-canary-stop.js`'s memory-drift note now emits via `systemMessage` instead — the note still reaches the session transcript / an interactive user, with no forced second turn. **Scoped to the Stop call site only** (`rot-canary-stop.js:625`): `hooks/coalmine-conductor.js`'s identical `hookSpecificOutput.additionalContext` shape is SessionStart/UserPromptSubmit, confirmed unaffected by the platform's own behavior and deliberately untouched. Firing conditions unchanged (`memoryDriftNudge`, the `.memmoved`/root-`MEMORY.md` gate). Regression-guarded: the hermetic Stop-hook tests now assert `systemMessage` present AND `hookSpecificOutput` absent.
+
 ## [3.16.0] - 2026-08-09
 
 ### Added

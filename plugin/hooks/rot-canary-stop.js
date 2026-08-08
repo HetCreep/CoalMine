@@ -537,8 +537,10 @@ function main() {
   // Stop. Detection is UNCHANGED — a recorded code edit this session with no MEMORY.md
   // edit (.memmoved absent) — gated by the project using the MEMORY.md convention (root
   // MEMORY.md exists; read-only probe, Phoenix #10) and the memoryDriftNudge off-switch
-  // (default ON). At emit the note rides the QUIET model-only additionalContext channel,
-  // decoupled from the scan report; a drift-only stop surfaces it alone (no block).
+  // (default ON). At emit the note rides `systemMessage` (board #82, 2026-08-08 — the
+  // prior `hookSpecificOutput.additionalContext` shape forces a phantom second turn on
+  // Stop that discards a `-p` session's `result` field; SessionStart/UserPromptSubmit
+  // are unaffected, only Stop). A drift-only stop surfaces it alone (no block).
   // NAMED ceiling: the check is SESSION-GLOBAL, not per-repo — a MEMORY.md edit in ANY
   // repo satisfies the drift check for a code edit in another.
   let driftText = '';
@@ -616,13 +618,18 @@ function main() {
   // channel, so emit the explicit no-op `{}` (the side effects above still ran; AG
   // users reach findings via the manual /rot-canary path — CoalMine never blocks on
   // AG). On CC: the scan report rides the loud blocking `reason`; the memory-drift
-  // reminder rides the QUIET model-only hookSpecificOutput.additionalContext (a field
-  // in the same sanctioned Stop JSON block, never the loud block, never a fix menu). A
-  // drift-only stop (no extant files) emits the quiet note ALONE, with no decision:block.
+  // reminder rides `systemMessage` (board #82, 2026-08-08 — a Stop hook returning
+  // `hookSpecificOutput.additionalContext` forces the platform into a phantom second
+  // turn that DISCARDS a `-p --output-format json` session's `result` field; a plain
+  // `systemMessage` string surfaces to the session transcript / an interactive user
+  // instead, with no second-turn side effect. Confirmed safe/unaffected: the identical
+  // `additionalContext` shape on SessionStart/UserPromptSubmit — coalmine-conductor.js —
+  // is a DIFFERENT event and is NOT touched by this fix). A drift-only stop (no extant
+  // files) emits the note ALONE, with no decision:block.
   if (process.argv[2]) { process.stdout.write('{}\n'); return; }
   const out = {};
   if (reason) { out.decision = 'block'; out.reason = reason; }
-  if (driftText) { out.hookSpecificOutput = { hookEventName: 'Stop', additionalContext: driftText.trim() }; }
+  if (driftText) { out.systemMessage = driftText.trim(); }
   process.stdout.write(JSON.stringify(Object.keys(out).length ? out : {}));
 }
 

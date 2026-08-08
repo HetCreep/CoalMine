@@ -1415,7 +1415,7 @@ test('touch hook records a MEMORY.md edit as .memmoved marker, never into .touch
   }
 });
 
-test('stop hook routes the memory-drift note to the QUIET additionalContext channel, decoupled from the loud scan report', () => {
+test('stop hook routes the memory-drift note to systemMessage, decoupled from the loud scan report (board #82: additionalContext at Stop eats -p results)', () => {
   const tmp = mkTmp();
   try {
     fs.writeFileSync(path.join(tmp, 'MEMORY.md'), '# project memory\n'); // project root uses the convention
@@ -1427,11 +1427,14 @@ test('stop hook routes the memory-drift note to the QUIET additionalContext chan
     assert.equal(out.decision, 'block', 'scan report still blocks');
     assert.ok(out.reason.includes('rot-canary'), 'scan report still asks to invoke rot-canary');
     assert.ok(!out.reason.includes('memoryDriftNudge'), 'drift note is NOT welded into the loud report');
-    // The drift note rides the QUIET model-only additionalContext channel, decoupled...
-    assert.ok(out.hookSpecificOutput && out.hookSpecificOutput.additionalContext.includes('memoryDriftNudge'),
-      'drift note lands in the quiet additionalContext channel');
+    // The drift note rides systemMessage, decoupled from the loud `reason` block...
+    assert.ok(out.systemMessage && out.systemMessage.includes('memoryDriftNudge'),
+      'drift note lands in systemMessage');
     // ...as a soft reminder, carrying no scan / fix-menu framing of its own.
-    assert.ok(!out.hookSpecificOutput.additionalContext.includes('DEPTH=QUICK'), 'quiet note carries no scan/fix-menu framing');
+    assert.ok(!out.systemMessage.includes('DEPTH=QUICK'), 'note carries no scan/fix-menu framing');
+    // Regression guard for board #82: hookSpecificOutput.additionalContext at Stop
+    // forces a phantom second turn that discards a -p session's result — must be gone.
+    assert.equal(out.hookSpecificOutput, undefined, 'never hookSpecificOutput on Stop (board #82)');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -1450,8 +1453,9 @@ test('stop hook drift-only case (code edited then deleted, no MEMORY update) emi
     const out = JSON.parse(r.stdout);
     assert.equal(out.decision, undefined, 'no blocking decision when the only signal is drift');
     assert.equal(out.reason, undefined, 'no loud scan report when nothing extant to scan');
-    assert.ok(out.hookSpecificOutput && out.hookSpecificOutput.additionalContext.includes('memoryDriftNudge'),
-      'the quiet drift note is emitted alone');
+    assert.ok(out.systemMessage && out.systemMessage.includes('memoryDriftNudge'),
+      'the drift note is emitted alone');
+    assert.equal(out.hookSpecificOutput, undefined, 'never hookSpecificOutput on Stop (board #82)');
     assert.ok(!r.stdout.includes('DEPTH=QUICK'), 'no scan/fix-menu framing anywhere');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });

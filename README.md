@@ -158,7 +158,7 @@ Installing is the power button. The agent conducts the canaries and asks for con
 |---|---|---|
 | **gold-standard** | Offered once on new projects, and again when a rule's `revalidate` date passes | Run now / Queue / Skip |
 | **rot-canary** | Auto-scans touched files at session end (QUICK); findings end with a fix menu | Choose a fix option |
-| **memory-drift advisory** | Quietly reminds the agent at session end when code changed but no MEMORY.md update was recorded — not part of the scan report, never blocks; needs a root MEMORY.md, off via `memoryDriftNudge=false` | Update MEMORY + crystallize if worth keeping |
+| **memory-drift advisory** | One quiet `systemMessage` (reaches the session transcript and an interactive user) at session end when code changed but no MEMORY.md update was recorded — not part of the scan report, never blocks; needs a root MEMORY.md, off via `memoryDriftNudge=false` | Update MEMORY + crystallize if worth keeping |
 | **Specialists** | Offered when conversation enters their domain (deps, schemas, async, loops, etc.) | Accept / Skip |
 | **source-grounding** | Always-on background fact verification | — |
 
