@@ -168,7 +168,10 @@ Installing is the power button. The agent conducts the canaries and asks for con
 
 ## ⚙️ Configure (.coalmine.json)
 
-Zero-config to start — and two config levels when you want them: a global `~/.claude/.coalmine.json` overlaid per key by the project `<gitroot>/.coalmine.json` (project wins), so a globally-installed CoalMine can be tuned or **shut off per project** — a project that doesn't need it stops loading (and burning tokens) there (`disabledCanaries: ["all"]` is the full off-switch; `enableConductor: false` silences only the session-start conductor, leaving rot-canary's auto-scan running). The installer generates the per-project file; write the global layer with `node scripts/configure.mjs --global <flags>`. The high-impact keys:
+Zero-config to start — and two config levels when you want them: a global `~/.claude/.coalmine.json` overlaid per key by the project config (project wins), so a globally-installed CoalMine can be tuned or **shut off per project** — a project that doesn't need it stops loading (and burning tokens) there (`disabledCanaries: ["all"]` is the full off-switch; `enableConductor: false` silences only the session-start conductor, leaving rot-canary's auto-scan running).
+
+<!-- namespace-campaign rail: this wording is copied verbatim into every sibling room's README Configure section, one flock -->
+**Where the per-project config lives — the read order (identical across the series, one flock):** (1) `<project>/.<the running agent's own dir>/coal/coalmine.json` — the dir of the agent actually executing (Claude Code: `.claude`); (2) other known agent dirs, fixed order `.claude` → `.agents` → `.gemini` (first found wins); (3) LEGACY: `<project>/.coalmine.json` at the project root (the pre-2026-08-08 shape) — still read normally, no breakage for an existing config. The installer generates the default at the new own-dir home for a never-configured project (an existing config at any candidate, including the legacy path, is left alone); `node scripts/configure.mjs` writes back wherever the config was found, migrating a legacy-location config to the new own-dir home on that write (nothing is auto-moved on a mere read). Write the global layer with `node scripts/configure.mjs --global <flags>`. The high-impact keys:
 
 | Key | Default | What it does |
 |---|---|---|

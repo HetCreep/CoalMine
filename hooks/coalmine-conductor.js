@@ -20,11 +20,24 @@ const CONDUCTOR_TAIL = [
 ];
 
 // <coalmine-shared: node-config> — synced from hooks/_shared/node-config.js by build-plugin; edit the partial, not this block
+// The three per-agent-dir shapes were added by the namespace campaign
+// (#69+#39, owner-designated 2026-08-08) alongside the LEGACY dotfile: a
+// project configured ONLY through the new shape (no `.git` present) would
+// otherwise match nothing and fall through to the raw `startDir` fallback —
+// the exact per-subdir-scatter class hooks-safety.md §8 (the phantom-slug
+// law) already names for a wrongly-anchored state root. Additive-only: each
+// new marker can only make the walk stop LOWER/narrower, `.git` is checked
+// first and still wins wherever it is present.
+const ROOT_MARKERS = [
+  '.git',
+  '.claude/coal/coalmine.json', '.agents/coal/coalmine.json', '.gemini/coal/coalmine.json',
+  '.coalmine.json',
+];
+
 function findGitRoot(startDir) {
   let dir = path.resolve(startDir);
   while (true) {
-    const gitPath = path.join(dir, '.git');
-    if (fs.existsSync(gitPath)) {
+    if (ROOT_MARKERS.some((m) => fs.existsSync(path.join(dir, m)))) {
       return dir;
     }
     const parent = path.dirname(dir);
@@ -34,6 +47,37 @@ function findGitRoot(startDir) {
     dir = parent;
   }
   return startDir;
+}
+
+// Namespace campaign (#69+#39, owner-designated 2026-08-08). Per-project
+// config lives under an agent dir, never bare at the project root any more.
+// THE READ ORDER IS A RAIL — identical wording in every room's readCfg
+// comment and README Configure section, one flock:
+//   1. <project>/.<the running agent's OWN dir>/coal/<skill>.json — the dir
+//      of the agent actually executing. CoalMine activates ONLY through
+//      Claude Code's own hook system (SessionStart/PostToolUse/Stop, plus the
+//      AG/Gemini/FileCopy adapters riding these SAME files); it has no other
+//      running-agent identity to branch on, so for THIS room "own dir" is
+//      always `.claude` and collapses onto the first entry of step 2 below
+//      rather than needing a separate check.
+//   2. Other known agent dirs, fixed order: `.claude` -> `.agents` ->
+//      `.gemini` (first FOUND wins).
+//   3. LEGACY: <project>/.<skill-dotfile>.json at the project root (today's
+//      shape) — read normally, no breakage for an existing user.
+// WRITE target = where the config was found; absent everywhere, the running
+// agent's own dir. Hooks never perform this move on a READ (Phoenix #5, no
+// side effects) — the move-on-CONFIG-WRITE half lives in configure.mjs and
+// install.mjs (scripts/lib/config-paths.mjs), which are the only writers.
+const AGENT_DIR_ORDER = ['.claude', '.agents', '.gemini'];
+function projectConfigCandidates(root) {
+  const candidates = AGENT_DIR_ORDER.map((d) => path.join(root, d, 'coal', 'coalmine.json'));
+  candidates.push(path.join(root, '.coalmine.json')); // LEGACY, always last
+  return candidates;
+}
+function projectConfigPath(root) {
+  const candidates = projectConfigCandidates(root);
+  for (const c of candidates) { if (fs.existsSync(c)) return c; }
+  return candidates[0]; // nothing found anywhere -- own-dir is both the read and write target
 }
 
 // One BOM- and comment-tolerant JSONC read. Strips // and /* */ comments outside
@@ -52,7 +96,10 @@ function readCfgFile(file) {
 }
 
 // Two-level cached read of .coalmine.json: the global ~/.claude/.coalmine.json
-// overlaid per key by the project <gitroot>/.coalmine.json (project wins).
+// overlaid per key by the project config (project wins). Per-project config
+// now lives under an agent dir (namespace campaign #69+#39, owner-designated
+// 2026-08-08) — see `projectConfigPath`'s own header above for the full read
+// order and the LEGACY root-dotfile fallback it still honors.
 // __proto__/constructor/prototype keys are dropped at merge (an untrusted
 // project config must not pollute the prototype). Cached — one disk pass per
 // invocation (Phoenix #3: budget the work, not the process).
@@ -86,7 +133,7 @@ function loadCfg() {
   _cfg = null;
   try {
     const globalCfg = readCfgFile(path.join(os.homedir(), '.claude', '.coalmine.json'));
-    const projectCfg = readCfgFile(path.join(findGitRoot(process.cwd()), '.coalmine.json'));
+    const projectCfg = readCfgFile(projectConfigPath(findGitRoot(process.cwd())));
     if (globalCfg || projectCfg) {
       const merged = {};
       for (const src of [globalCfg, projectCfg]) {
@@ -121,12 +168,18 @@ function loadCfg() {
 
 // --- Self-update: persistent once-per-window throttle stamp -----------------
 // Mirrors rot-canary-stop's deterministic sweep gate (Phoenix #8: no randomness,
-// the date itself is the only sanctioned time input). The stamp is an ISO date
-// at ~/.claude/.coalmine-update-check; the conductor reads it to decide if a
-// KIND 1 update nudge is due, then rewrites it to today's date so the nudge
-// fires at most once per updateCheckDays (no re-nag). Sandbox-compliant
-// (Phoenix #10): only ~/.claude is touched.
-const UPDATE_STAMP = '.coalmine-update-check';
+// the date itself is the only sanctioned time input). The stamp is an ISO date;
+// the conductor reads it to decide if a KIND 1 update nudge is due, then
+// rewrites it to today's date so the nudge fires at most once per
+// updateCheckDays (no re-nag). Sandbox-compliant (Phoenix #10): only ~/.claude
+// is touched.
+//
+// Namespace campaign (#39, owner-designated 2026-08-08): the stamp lives at
+// ~/.claude/coal/coalmine/update-check, migrated off the pre-campaign root
+// dotfile the same read-new/fallback-old + write-new/delete-old shape
+// CoalWash's caliper.mjs already shipped for its own equivalent stamp.
+const UPDATE_STAMP_NAME = 'update-check';
+const OLD_UPDATE_STAMP_NAME = '.coalmine-update-check';
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 // Today as YYYY-MM-DD in UTC — deterministic for a given calendar day, no TZ drift
@@ -145,15 +198,21 @@ function dayDiff(a, b) {
 }
 
 function updateStampPath() {
-  return path.join(os.homedir(), '.claude', UPDATE_STAMP);
+  return path.join(os.homedir(), '.claude', 'coal', 'coalmine', UPDATE_STAMP_NAME);
+}
+function oldUpdateStampPath() {
+  return path.join(os.homedir(), '.claude', OLD_UPDATE_STAMP_NAME);
 }
 
+// Read the update-check date: the new location, else the pre-campaign root
+// stamp (migration read). null when neither exists / is unreadable.
 function readUpdateStamp() {
-  try {
-    return fs.readFileSync(updateStampPath(), 'utf8').trim();
-  } catch {
-    return null;
+  for (const p of [updateStampPath(), oldUpdateStampPath()]) {
+    try {
+      return fs.readFileSync(p, 'utf8').trim();
+    } catch { /* try the next location */ }
   }
+  return null;
 }
 
 // Due when there is no stamp, a corrupt stamp, or the window has elapsed.
@@ -164,16 +223,20 @@ function updateDue(stamp, today, days) {
   return d >= days;
 }
 
-// Crash-safe write: write to a temp sibling then atomically rename over the stamp,
-// so a kill mid-write can never leave a half-written (then unparseable) stamp.
+// Crash-safe write: write to a temp sibling then atomically rename over the
+// stamp, so a kill mid-write can never leave a half-written (then
+// unparseable) stamp. Writes the NEW location, then best-effort deletes the
+// old root stamp (no-old-version-leftover) — write-new/delete-old, mirroring
+// CoalWash's writeUpdateStamp exactly.
 function writeUpdateStamp(today) {
   try {
-    const dir = path.join(os.homedir(), '.claude');
+    const final = updateStampPath();
+    const dir = path.dirname(final);
     try { fs.mkdirSync(dir, { recursive: true }); } catch {}
-    const final = path.join(dir, UPDATE_STAMP);
     const tmp = final + '.tmp';
     fs.writeFileSync(tmp, today, 'utf8');
     fs.renameSync(tmp, final);
+    try { fs.rmSync(oldUpdateStampPath(), { force: true }); } catch { /* best-effort */ }
   } catch {}
 }
 
@@ -474,10 +537,11 @@ function main() {
   // (self-update) is skipped, stamp write included: its directives drive
   // `claude plugin update` / configure.mjs — CC plugin machinery, a wrong
   // instruction on a file-copy install — and firing would consume the shared
-  // ~/.claude/.coalmine-update-check stamp, throttling a co-installed real CC's
-  // own nudge for ~updateCheckDays (the same exclusion AG and Gemini already
-  // make). KIND 2 (local, platform-neutral) still rides. Exact-match BEFORE the
-  // generic-truthy AG branch, same ordering rule as Gemini: a named mode must
+  // update-check stamp (~/.claude/coal/coalmine/update-check), throttling a
+  // co-installed real CC's own nudge for ~updateCheckDays (the same exclusion
+  // AG and Gemini already make). KIND 2 (local, platform-neutral) still rides.
+  // Exact-match BEFORE the generic-truthy AG branch, same ordering rule as
+  // Gemini: a named mode must
   // never fall through into the AG shape.
   const fileCopy = process.argv[2] === 'FileCopy';
 

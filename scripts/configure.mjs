@@ -7,12 +7,28 @@ import os from 'os';
 import path from 'path';
 import { CONFIG_SCHEMA, validateValue } from './lib/config-schema.mjs';
 import { stripJsonc } from './lib/jsonc.mjs';
+import { projectConfigCandidates, projectConfigPath } from './lib/config-paths.mjs';
+
+// The three per-agent-dir shapes were added by the namespace campaign
+// (#69+#39, owner-designated 2026-08-08) alongside the LEGACY dotfile: a
+// project configured ONLY through the new shape (no `.git` present) would
+// otherwise match nothing and fall through to the raw `startDir` fallback —
+// the same per-subdir-scatter class hooks/_shared/node-config.js's own
+// widened findGitRoot exists to close (this file keeps its own local copy,
+// consistent with the existing split between the two — a CJS hook cannot
+// import this ESM script's lib, so the logic is duplicated, not shared).
+// Additive-only: each new marker can only make the walk stop LOWER/narrower,
+// `.git` is checked first and still wins wherever it is present.
+const ROOT_MARKERS = [
+  '.git',
+  '.claude/coal/coalmine.json', '.agents/coal/coalmine.json', '.gemini/coal/coalmine.json',
+  '.coalmine.json',
+];
 
 function findGitRoot(startDir) {
   let dir = path.resolve(startDir);
   while (true) {
-    const gitPath = path.join(dir, '.git');
-    if (fs.existsSync(gitPath)) {
+    if (ROOT_MARKERS.some((m) => fs.existsSync(path.join(dir, m)))) {
       return dir;
     }
     const parent = path.dirname(dir);
@@ -35,7 +51,7 @@ function printHelp() {
     const flags = [`--${spec.key}`, ...(spec.flags || [])].join(', ');
     lines.push(`  ${flags.padEnd(48)} ${spec.help}`);
   }
-  lines.push(`  ${'--global'.padEnd(48)} Write ~/.claude/.coalmine.json (the global layer) instead of the project git-root file`);
+  lines.push(`  ${'--global'.padEnd(48)} Write ~/.claude/.coalmine.json (the global layer) instead of the project config`);
   lines.push(`  ${'--help, -h'.padEnd(48)} Show this help message`);
   lines.push('');
   lines.push('Examples:');
@@ -97,19 +113,35 @@ function main() {
   }
 
   // --global targets the global layer (~/.claude/.coalmine.json); default targets
-  // the project git-root file. Hooks merge the two per key, project wins.
+  // the project config. Hooks merge the two per key, project wins.
+  //
+  // Per-project READ follows projectConfigPath's rail (namespace campaign
+  // #69+#39, owner-designated 2026-08-08 — see lib/config-paths.mjs for the
+  // full precedence): own-dir -> other known agent dirs -> LEGACY root
+  // dotfile. WRITE goes back to wherever the config was found, EXCEPT a
+  // config found at the LEGACY location migrates to the running agent's own
+  // dir on this write (move-on-CONFIG-WRITE-only — Phoenix #5, a hook never
+  // performs this move on a mere read; configure.mjs is a CLI script the
+  // user/agent explicitly runs). A config found at another new-shape
+  // candidate (e.g. `.agents/coal/coalmine.json`) is NOT force-migrated
+  // between agent dirs — it is written back where it already lives.
   const globalIdx = args.indexOf('--global');
   const isGlobal = globalIdx !== -1;
   if (isGlobal) args.splice(globalIdx, 1);
-  const configPath = isGlobal
+  const projectRoot = findGitRoot(process.cwd());
+  const legacyPath = path.join(projectRoot, '.coalmine.json');
+  const readPath = isGlobal
     ? path.join(os.homedir(), '.claude', '.coalmine.json')
-    : path.join(findGitRoot(process.cwd()), '.coalmine.json');
+    : projectConfigPath(projectRoot);
+  const writePath = isGlobal
+    ? readPath
+    : (readPath === legacyPath ? projectConfigCandidates(projectRoot)[0] : readPath);
 
   let cfg = {};
   let hadComments = false;
   // Read once via try/catch (no existsSync precheck) so there is no check-to-use gap.
   let rawConfig = null;
-  try { rawConfig = fs.readFileSync(configPath, 'utf8').replace(/^\uFEFF/, ''); } catch {}
+  try { rawConfig = fs.readFileSync(readPath, 'utf8').replace(/^\uFEFF/, ''); } catch {}
   if (rawConfig !== null) {
     try {
       const content = rawConfig;
@@ -148,10 +180,10 @@ function main() {
       // run continues from defaults (the old config is backed up where possible).
       process.exitCode = 1;
       try {
-        fs.copyFileSync(configPath, configPath + '.bak');
-        console.warn('Warning: existing .coalmine.json is malformed — backed it up to .coalmine.json.bak and rebuilding.');
+        fs.copyFileSync(readPath, readPath + '.bak');
+        console.warn(`Warning: existing config is malformed — backed it up to ${readPath}.bak and rebuilding.`);
       } catch {
-        console.warn('Warning: existing .coalmine.json is malformed. Overwriting.');
+        console.warn('Warning: existing config is malformed. Overwriting.');
       }
     }
   }
@@ -179,12 +211,22 @@ function main() {
   }
 
   try {
-    fs.mkdirSync(path.dirname(configPath), { recursive: true });
-    fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2) + '\n', 'utf8');
+    fs.mkdirSync(path.dirname(writePath), { recursive: true });
+    fs.writeFileSync(writePath, JSON.stringify(cfg, null, 2) + '\n', 'utf8');
+    // Move-on-CONFIG-WRITE-only (no-old-version-leftover): the legacy root
+    // file is removed only AFTER the new-home write above succeeded, and only
+    // when this write actually migrated it (readPath was the legacy file and
+    // writePath moved away from it). Best-effort — a failed delete here still
+    // leaves a correctly-written new config; the stray legacy file is simply
+    // not cleaned up this run.
+    if (readPath === legacyPath && writePath !== legacyPath) {
+      try { fs.rmSync(legacyPath, { force: true }); } catch {}
+      console.log(`Migrated the project config from ${legacyPath} to ${writePath}.`);
+    }
     if (hadComments) {
       console.warn('Note: inline comments were stripped (this tool writes plain JSON). Every key stays documented in platform-configs/.coalmine.json.');
     }
-    console.log(`Successfully updated configuration in: ${configPath}`);
+    console.log(`Successfully updated configuration in: ${writePath}`);
     console.log(JSON.stringify(cfg, null, 2));
   } catch (e) {
     console.error(`Error: Failed to write to config file: ${e.message}`);

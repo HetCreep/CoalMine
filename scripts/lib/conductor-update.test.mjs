@@ -21,7 +21,13 @@ import { fileURLToPath } from 'node:url';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const CONDUCTOR = path.join(repo, 'hooks', 'coalmine-conductor.js');
-const STAMP_REL = path.join('.claude', '.coalmine-update-check');
+// LEGACY (pre-namespace-campaign) stamp location + the new one it migrated to
+// (#39, owner-designated 2026-08-08). writeStamp() below still plants the
+// LEGACY location — every test that pre-seeds a stamp then runs the real
+// conductor is thereby also proving the read-new-fallback-old migration read,
+// for free, without needing a dedicated fixture per test.
+const OLD_STAMP_REL = path.join('.claude', '.coalmine-update-check');
+const NEW_STAMP_REL = path.join('.claude', 'coal', 'coalmine', 'update-check');
 
 function runConductor(tmp, input = '') {
   // TEMP/TMP/TMPDIR → sandbox tmp; USERPROFILE/HOME → sandbox tmp so os.homedir()
@@ -50,9 +56,18 @@ function isoDaysAgo(n) {
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
+// Mirrors readUpdateStamp: new location first, LEGACY fallback — so an
+// assertion made AFTER running the conductor sees wherever the real stamp
+// actually landed (new, if this run fired; the pre-seeded legacy location
+// unchanged, if it did not).
 function readStamp(tmp) {
-  try { return fs.readFileSync(path.join(tmp, STAMP_REL), 'utf8').trim(); } catch { return null; }
+  for (const rel of [NEW_STAMP_REL, OLD_STAMP_REL]) {
+    try { return fs.readFileSync(path.join(tmp, rel), 'utf8').trim(); } catch { /* try next */ }
+  }
+  return null;
 }
+// Plants a stamp at the LEGACY location — simulates a pre-namespace-campaign
+// install, so every precondition set up this way exercises the fallback read.
 function writeStamp(tmp, iso) {
   const dir = path.join(tmp, '.claude');
   fs.mkdirSync(dir, { recursive: true });
@@ -276,6 +291,38 @@ test('a corrupt stamp self-heals (treated as due) and is overwritten with a vali
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 
+// --- Namespace campaign (#39, owner-designated 2026-08-08): update-check stamp
+// migration to ~/.claude/coal/coalmine/update-check, read-new-fallback-old /
+// write-new-drop-old, mirroring CoalWash's caliper.mjs (updateStampPath) ---
+test('namespace migration: a LEGACY-only stamp is read via fallback, and firing relocates it to coal/coalmine/ + deletes the old root stamp', () => {
+  const tmp = mkProject({ updateMode: 'ask', updateCheckDays: 14 });
+  try {
+    writeStamp(tmp, isoDaysAgo(20)); // legacy location only, elapsed window
+    assert.ok(fs.existsSync(path.join(tmp, OLD_STAMP_REL)), 'precondition: legacy stamp exists');
+    assert.ok(!fs.existsSync(path.join(tmp, NEW_STAMP_REL)), 'precondition: no new-location stamp yet');
+
+    const r = runConductor(tmp);
+    assert.equal(r.status, 0);
+    assert.ok(r.stdout.includes('CoalMine self-update (ask'), 'the fallback-read stamp was seen as due');
+
+    assert.ok(fs.existsSync(path.join(tmp, NEW_STAMP_REL)), 'write relocated the stamp to coal/coalmine/');
+    assert.equal(fs.readFileSync(path.join(tmp, NEW_STAMP_REL), 'utf8').trim(), todayISO(), 'new-location stamp holds today');
+    assert.ok(!fs.existsSync(path.join(tmp, OLD_STAMP_REL)), 'legacy root stamp deleted (no-old-version-leftover)');
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
+test('namespace migration: neither stamp location exists -> readUpdateStamp reads null, treated as due', () => {
+  const tmp = mkProject(); // no config, no pre-seeded stamp anywhere
+  try {
+    assert.ok(!fs.existsSync(path.join(tmp, OLD_STAMP_REL)));
+    assert.ok(!fs.existsSync(path.join(tmp, NEW_STAMP_REL)));
+    const r = runConductor(tmp);
+    assert.equal(r.status, 0);
+    assert.ok(r.stdout.includes('CoalMine self-update (ask'), 'no stamp anywhere -> due (default updateMode is ask)');
+    assert.ok(fs.existsSync(path.join(tmp, NEW_STAMP_REL)), 'a fresh install writes directly to the new location');
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
 // --- M1: updateMode safer-value-wins guard (two-level config) ---
 // No PS conductor exists (Node-only), so this behavioral coverage lives here.
 // An explicit GLOBAL choice may not be escalated by an untrusted project config
@@ -315,6 +362,30 @@ test('updateMode safer-value-wins: global-only "off" (no project override) stays
     const r = runConductor(tmp);
     assert.equal(r.status, 0);
     assert.ok(!r.stdout.includes('self-update'), 'global off with no project override stays off');
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
+// Clamp-unchanged regression (namespace campaign #69+#39, owner-designated
+// 2026-08-08): the safer-value-wins guard applies identically no matter WHICH
+// read-order candidate supplied the project value — only the file's ADDRESS
+// moved, the clamp semantics did not. mkProject() plants the project value at
+// the LEGACY location (still the every-other-M1-test shape above); this test
+// plants it at the NEW own-dir location instead.
+function writeProjectAtNewLocation(tmp, cfg) {
+  const dir = path.join(tmp, '.claude', 'coal');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'coalmine.json'), JSON.stringify(cfg), 'utf8');
+}
+
+test('clamp-unchanged regression: safer-value-wins still holds when the project value arrives via the NEW own-dir shape, not the legacy path', () => {
+  const tmp = mkProject(); // no project .coalmine.json at the legacy root
+  try {
+    writeGlobal(tmp, { updateMode: 'off' }); // explicit global safety choice
+    writeProjectAtNewLocation(tmp, { updateMode: 'auto' }); // project tries to go louder, via the new shape
+    const r = runConductor(tmp);
+    assert.equal(r.status, 0);
+    assert.ok(!r.stdout.includes('self-update'), 'global off must hold — a project value read from .claude/coal/coalmine.json is clamped exactly like one read from the legacy root');
+    assert.equal(readStamp(tmp), null, 'off must not create the update-check stamp');
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 });
 

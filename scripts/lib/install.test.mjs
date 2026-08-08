@@ -167,15 +167,20 @@ test('corrupt manifest entries can never escape the target directory', () => {
   }
 });
 
-test('installer run from the CoalMine source repo does NOT drop a root .coalmine.json (self-pollution guard)', () => {
+test('installer run from the CoalMine source repo does NOT drop a project config anywhere (self-pollution guard)', () => {
   const target = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-selfpol-'));
   const rootCfg = path.join(repo, '.coalmine.json');
+  // The new-shape default write target (namespace campaign #69+#39,
+  // owner-designated 2026-08-08) — snapshotted too, so a regression that
+  // resurrects the self-pollution one level deeper is still caught.
+  const newCfg = path.join(repo, '.claude', 'coal', 'coalmine.json');
   // The full installer also rewrites the git hooks from the source copies — into
   // .githooks/ when this clone sets core.hooksPath, else .git/hooks/. Snapshot BOTH
-  // (and the root config) so the test leaves the real repo byte-identical either way.
+  // configs and the hooks so the test leaves the real repo byte-identical either way.
   const snap = (p) => (fs.existsSync(p) ? fs.readFileSync(p) : null);
   const restore = (p, buf) => { if (buf === null) { try { fs.rmSync(p, { force: true }); } catch {} } else fs.writeFileSync(p, buf); };
   const cfgBefore = snap(rootCfg);
+  const newCfgBefore = snap(newCfg);
   const hookPaths = ['pre-commit', 'pre-push'].flatMap((h) => [
     path.join(repo, '.githooks', h),
     path.join(repo, '.git', 'hooks', h),
@@ -188,23 +193,43 @@ test('installer run from the CoalMine source repo does NOT drop a root .coalmine
     if (cfgBefore === null) {
       assert.ok(!fs.existsSync(rootCfg), 'no .coalmine.json may be created at the source repo root');
     }
+    if (newCfgBefore === null) {
+      assert.ok(!fs.existsSync(newCfg), 'no config may be created at the new own-dir home either');
+    }
     assert.match(r.stdout, /self-pollution|source repo/i, 'the skip is reported');
   } finally {
-    // Leave the real repo exactly as found (config + git hooks).
+    // Leave the real repo exactly as found (both config homes + git hooks).
     restore(rootCfg, cfgBefore);
+    restore(newCfg, newCfgBefore);
     hookPaths.forEach((p, i) => restore(p, hooksBefore[i]));
     fs.rmSync(target, { recursive: true, force: true });
   }
 });
 
-test('installer run from a real project (cwd ≠ source repo) DOES create the root .coalmine.json', () => {
+test('installer run from a real project (cwd ≠ source repo) creates the default config at the NEW own-dir home, never the legacy root', () => {
   const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-realproj-'));
   fs.mkdirSync(path.join(proj, '.git')); // a real project repo
   const target = path.join(proj, 'skills');
   try {
     const r = runInstall(target, proj);
     assert.equal(r.status, 0, `install into a real project must pass:\n${r.stdout}${r.stderr}`);
-    assert.ok(fs.existsSync(path.join(proj, '.coalmine.json')), 'a real project still gets its default config (guard must not over-trigger)');
+    assert.ok(fs.existsSync(path.join(proj, '.claude', 'coal', 'coalmine.json')), 'a real project still gets its default config (guard must not over-trigger) — at the new own-dir home');
+    assert.ok(!fs.existsSync(path.join(proj, '.coalmine.json')), 'a fresh install must not perpetuate the legacy root shape');
+  } finally {
+    fs.rmSync(proj, { recursive: true, force: true });
+  }
+});
+
+test('installer run from a real project that ALREADY has a legacy .coalmine.json leaves it alone (existing users are not force-migrated by install)', () => {
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-realproj-legacy-'));
+  fs.mkdirSync(path.join(proj, '.git'));
+  fs.writeFileSync(path.join(proj, '.coalmine.json'), JSON.stringify({ language: 'th' }), 'utf8');
+  const target = path.join(proj, 'skills');
+  try {
+    const r = runInstall(target, proj);
+    assert.equal(r.status, 0, `install into a real project must pass:\n${r.stdout}${r.stderr}`);
+    assert.strictEqual(JSON.parse(fs.readFileSync(path.join(proj, '.coalmine.json'), 'utf8')).language, 'th', 'the existing legacy config is left untouched by install (only configure.mjs migrates on write)');
+    assert.ok(!fs.existsSync(path.join(proj, '.claude', 'coal', 'coalmine.json')), 'no NEW default is created when one already exists anywhere in the read order');
   } finally {
     fs.rmSync(proj, { recursive: true, force: true });
   }

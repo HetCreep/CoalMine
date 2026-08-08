@@ -1,8 +1,21 @@
+// The three per-agent-dir shapes were added by the namespace campaign
+// (#69+#39, owner-designated 2026-08-08) alongside the LEGACY dotfile: a
+// project configured ONLY through the new shape (no `.git` present) would
+// otherwise match nothing and fall through to the raw `startDir` fallback —
+// the exact per-subdir-scatter class hooks-safety.md §8 (the phantom-slug
+// law) already names for a wrongly-anchored state root. Additive-only: each
+// new marker can only make the walk stop LOWER/narrower, `.git` is checked
+// first and still wins wherever it is present.
+const ROOT_MARKERS = [
+  '.git',
+  '.claude/coal/coalmine.json', '.agents/coal/coalmine.json', '.gemini/coal/coalmine.json',
+  '.coalmine.json',
+];
+
 function findGitRoot(startDir) {
   let dir = path.resolve(startDir);
   while (true) {
-    const gitPath = path.join(dir, '.git');
-    if (fs.existsSync(gitPath)) {
+    if (ROOT_MARKERS.some((m) => fs.existsSync(path.join(dir, m)))) {
       return dir;
     }
     const parent = path.dirname(dir);
@@ -12,6 +25,37 @@ function findGitRoot(startDir) {
     dir = parent;
   }
   return startDir;
+}
+
+// Namespace campaign (#69+#39, owner-designated 2026-08-08). Per-project
+// config lives under an agent dir, never bare at the project root any more.
+// THE READ ORDER IS A RAIL — identical wording in every room's readCfg
+// comment and README Configure section, one flock:
+//   1. <project>/.<the running agent's OWN dir>/coal/<skill>.json — the dir
+//      of the agent actually executing. CoalMine activates ONLY through
+//      Claude Code's own hook system (SessionStart/PostToolUse/Stop, plus the
+//      AG/Gemini/FileCopy adapters riding these SAME files); it has no other
+//      running-agent identity to branch on, so for THIS room "own dir" is
+//      always `.claude` and collapses onto the first entry of step 2 below
+//      rather than needing a separate check.
+//   2. Other known agent dirs, fixed order: `.claude` -> `.agents` ->
+//      `.gemini` (first FOUND wins).
+//   3. LEGACY: <project>/.<skill-dotfile>.json at the project root (today's
+//      shape) — read normally, no breakage for an existing user.
+// WRITE target = where the config was found; absent everywhere, the running
+// agent's own dir. Hooks never perform this move on a READ (Phoenix #5, no
+// side effects) — the move-on-CONFIG-WRITE half lives in configure.mjs and
+// install.mjs (scripts/lib/config-paths.mjs), which are the only writers.
+const AGENT_DIR_ORDER = ['.claude', '.agents', '.gemini'];
+function projectConfigCandidates(root) {
+  const candidates = AGENT_DIR_ORDER.map((d) => path.join(root, d, 'coal', 'coalmine.json'));
+  candidates.push(path.join(root, '.coalmine.json')); // LEGACY, always last
+  return candidates;
+}
+function projectConfigPath(root) {
+  const candidates = projectConfigCandidates(root);
+  for (const c of candidates) { if (fs.existsSync(c)) return c; }
+  return candidates[0]; // nothing found anywhere -- own-dir is both the read and write target
 }
 
 // One BOM- and comment-tolerant JSONC read. Strips // and /* */ comments outside
@@ -30,7 +74,10 @@ function readCfgFile(file) {
 }
 
 // Two-level cached read of .coalmine.json: the global ~/.claude/.coalmine.json
-// overlaid per key by the project <gitroot>/.coalmine.json (project wins).
+// overlaid per key by the project config (project wins). Per-project config
+// now lives under an agent dir (namespace campaign #69+#39, owner-designated
+// 2026-08-08) — see `projectConfigPath`'s own header above for the full read
+// order and the LEGACY root-dotfile fallback it still honors.
 // __proto__/constructor/prototype keys are dropped at merge (an untrusted
 // project config must not pollute the prototype). Cached — one disk pass per
 // invocation (Phoenix #3: budget the work, not the process).
@@ -64,7 +111,7 @@ function loadCfg() {
   _cfg = null;
   try {
     const globalCfg = readCfgFile(path.join(os.homedir(), '.claude', '.coalmine.json'));
-    const projectCfg = readCfgFile(path.join(findGitRoot(process.cwd()), '.coalmine.json'));
+    const projectCfg = readCfgFile(projectConfigPath(findGitRoot(process.cwd())));
     if (globalCfg || projectCfg) {
       const merged = {};
       for (const src of [globalCfg, projectCfg]) {

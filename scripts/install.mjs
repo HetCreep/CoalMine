@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { loadShared as loadSharedFrom, listSkills, installSkillDir } from './lib/render.mjs';
 import { TARGETS, detectPresentAgents } from './lib/targets.mjs';
 import { MANIFEST_NAME, hashInstalledTree } from './lib/manifest.mjs';
+import { projectConfigCandidates } from './lib/config-paths.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const skillsSrc = path.join(repo, 'skills');
@@ -429,24 +430,36 @@ function applyConfig(targetKey, label) {
 }
 
 function copyDefaultConfig() {
-  // Copy default .coalmine.json to project root if not already present.
+  // Copy default config to the project if not already present anywhere in the
+  // read order (namespace campaign #69+#39, owner-designated 2026-08-08) —
+  // see projectConfigPath's own header in hooks/_shared/node-config.js for the
+  // full rail. Anchored at process.cwd() directly, matching this function's
+  // pre-migration behavior (never findGitRoot) — only the candidate SET
+  // (existence check + fresh-install write target) changed: a project already
+  // configured anywhere (own-dir, another known agent dir, or the LEGACY root
+  // dotfile) is left alone; a never-configured project now gets the NEW shape
+  // (.claude/coal/coalmine.json) instead of the retired root dotfile, so a
+  // fresh install stops perpetuating the shape this campaign is migrating off.
   console.log('\nConfiguring settings...');
   // Self-pollution guard: running the installer from the CoalMine source repo itself
-  // (cwd === repo) would drop an untracked-but-not-ignored .coalmine.json at the repo
+  // (cwd === repo) would drop an untracked-but-not-ignored config at the repo
   // root — the exact stray-config incident removed in v3.7.8. The source repo ships
-  // platform-configs/.coalmine.json as the template, never an active root config.
+  // platform-configs/.coalmine.json as the template, never an active project config.
   if (path.resolve(process.cwd()) === repo) {
-    console.log('  (running from the CoalMine source repo — skipping root .coalmine.json to avoid self-pollution)');
+    console.log('  (running from the CoalMine source repo — skipping the project config to avoid self-pollution)');
     return;
   }
   try {
-    const configDest = path.join(process.cwd(), '.coalmine.json');
-    if (!fs.existsSync(configDest)) {
-      fs.copyFileSync(path.join(repo, 'platform-configs', '.coalmine.json'), configDest);
-      console.log(`  created default settings → ${configDest}`);
-    } else {
-      console.log(`  settings file already exists at ${configDest}`);
+    const candidates = projectConfigCandidates(process.cwd());
+    const existing = candidates.find((c) => fs.existsSync(c));
+    if (existing) {
+      console.log(`  settings file already exists at ${existing}`);
+      return;
     }
+    const configDest = candidates[0]; // own-dir (.claude/coal/coalmine.json) — new installs get the new shape
+    fs.mkdirSync(path.dirname(configDest), { recursive: true });
+    fs.copyFileSync(path.join(repo, 'platform-configs', '.coalmine.json'), configDest);
+    console.log(`  created default settings → ${configDest}`);
   } catch (err) {
     console.warn(`  [warn] failed to copy settings: ${err.message}`);
     process.exitCode = 1;
