@@ -155,6 +155,36 @@ test('verify.mjs negative path: stale dist fails, clean copy passes', () => {
   }
 });
 
+// board #64: the DESC_CAP gate (section 1.5) walked skills/*/SKILL.md + commands/*.md
+// frontmatter only — .claude-plugin/plugin.json's OWN description field was unchecked,
+// so it could silently exceed 1024 chars (CoalLedger shipped one at 1067 before a human
+// caught it). Section 1.6 closes that; this proves it fires, same tmp-copy pattern as
+// the stale-dist test above.
+test('verify.mjs negative path: an over-cap .claude-plugin/plugin.json description FAILs the gate', () => {
+  const tmp = mkTmp('cm-verify-');
+  try {
+    for (const d of ['skills', 'plugin', 'scripts', '.claude-plugin', 'hooks', 'agents', 'commands', 'alt']) {
+      fs.cpSync(path.join(repo, d), path.join(tmp, d), { recursive: true });
+    }
+    const run = () => spawnSync(process.execPath, [path.join(tmp, 'scripts', 'verify.mjs')], { encoding: 'utf8' });
+
+    const clean = run();
+    assert.equal(clean.status, 0, `pristine copy must PASS, got:\n${clean.stdout}${clean.stderr}`);
+
+    const pluginJsonPath = path.join(tmp, '.claude-plugin', 'plugin.json');
+    const pj = JSON.parse(fs.readFileSync(pluginJsonPath, 'utf8'));
+    pj.description = 'x'.repeat(1025);
+    fs.writeFileSync(pluginJsonPath, JSON.stringify(pj, null, 2) + '\n', 'utf8');
+
+    const over = run();
+    assert.equal(over.status, 1, 'a plugin.json description over 1024 chars must FAIL with exit 1');
+    assert.match(over.stdout, /\.claude-plugin\/plugin\.json: description 1025 chars exceeds the 1024-char cap/,
+      'the FAIL line names the file, the exact length, and the cap');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 // INSPECT task #38, HIGH: dist-changelog's own 11 unit tests all call checkDistChangelog
 // directly — none of them proves it is actually WIRED into verify.mjs. Reverting the 2.8
 // block to `const findings = [];` left the whole suite green (167/165/0/2) with nothing to

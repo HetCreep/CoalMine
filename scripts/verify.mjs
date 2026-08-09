@@ -21,6 +21,9 @@ import { verifyAgainstManifest } from './lib/manifest.mjs';
 import { descriptionCapCheck, DESC_CAP } from './lib/desc-cap.mjs';
 
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// Leading-BOM strip for the new 1.6 block below, built from a char code rather than
+// a hand-typed escape sequence (this file's other BOM strips elsewhere are untouched).
+const BOM_RE = new RegExp('^' + String.fromCharCode(0xfeff));
 let ok = true;
 const pass = (m) => console.log('  ok   ' + m);
 const fail = (m) => { ok = false; console.log('  FAIL ' + m); };
@@ -80,6 +83,23 @@ for (const [label, p, isSkill] of descTargets) {
     else if (over) fail(`${label}: description+when_to_use ${len} chars exceeds the ${DESC_CAP}-char cap`);
     else pass(`${label}: ${len} chars (cap ${DESC_CAP})`);
   } catch (e) { fail(`${label} description check: ${e.message}`); }
+}
+
+// 1.6 .claude-plugin/plugin.json's OWN description field vs the same cap (board #64: this
+// gate lived in 1.5 for skill/command FRONTMATTER only, so a plugin.json description could
+// silently exceed 1024 — CoalLedger shipped one at 1067 before a human eye caught it).
+// plugin.json is plain JSON, not YAML frontmatter, so it reads the field directly rather
+// than through frontmatterField/descriptionCapCheck; the cap constant is the same import,
+// never redefined.
+{
+  const pluginJsonPath = path.join(repo, '.claude-plugin', 'plugin.json');
+  try {
+    const pj = JSON.parse(fs.readFileSync(pluginJsonPath, 'utf8').replace(BOM_RE, ''));
+    const len = typeof pj.description === 'string' ? pj.description.length : 0;
+    if (!pj.description) fail('.claude-plugin/plugin.json: description missing');
+    else if (len > DESC_CAP) fail(`.claude-plugin/plugin.json: description ${len} chars exceeds the ${DESC_CAP}-char cap`);
+    else pass(`.claude-plugin/plugin.json: ${len} chars (cap ${DESC_CAP})`);
+  } catch (e) { fail(`.claude-plugin/plugin.json description check: ${e.message}`); }
 }
 
 // 2. manifests (valid JSON)
