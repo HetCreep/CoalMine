@@ -97,7 +97,7 @@
 | **Claude Code** | validated | `/plugin marketplace add HetCreep/CoalMine` → `/plugin install coalmine@coalmine` (Option A) — auto-wires the `rot-canary` Stop-hook |
 | **Antigravity** | validated (canaries) · **primed** (auto-cadence) | file-copy the skills to the global `~/.gemini/config/skills/` **or** per-project `<workspace>/.agents/skills/` (`node scripts/install.mjs antigravity`); for the full auto-cadence (conductor + rot-canary) on AG 2.0's hook engine, copy [`platform-configs/hooks/antigravity-hooks.json`](platform-configs/hooks/antigravity-hooks.json) to `<workspace>/.agents/hooks.json` or `~/.gemini/config/hooks.json` and adjust the CoalMine path |
 | **Cursor · Codex · Cline · Copilot · Gemini CLI · …** | works with | `node scripts/install.mjs <agent>` — file-copy into the agent's skills folder (targets in [Universal Agent Support](#-universal-agent-support)) |
-| **claude.ai** (web / app) | works with | ZIP-upload a canary folder from `skills/` as a custom skill (Option A3) — read/analyze skills only, manual invocation, no hooks |
+| **claude.ai** (web / app) | works with | Download a per-skill ZIP from [Releases](https://github.com/HetCreep/CoalMine/releases) and upload as a custom skill (Option A3) — read/analyze skills only, manual invocation, no hooks |
 
 **primed** (the Antigravity auto-cadence status — a feature-automation marker, never a platform-trust tier; Antigravity's own platform tier is `validated` above, independent of this) = built + hermetically tested against the empirically-verified AG 2.0 hook spec (pilot 2026-07-12 — which did fire CoalMine's Stop cadence live on AG; corroborated against the official docs 2026-07-13). Delivery of the injected context into the agent is emitted per spec but not yet confirmed end-to-end — one real AG session run flips it to confirmed. The 9 canaries themselves are already validated on AG.
 
@@ -115,7 +115,7 @@ npx skills add HetCreep/CoalMine
 ```
 
 ### Option A3 — claude.ai (web / desktop app)
-Zip any canary's folder from `skills/` and upload it as a custom skill (Settings → Capabilities → Skills). Manual invocation only — no hooks there. Steps + capability notes: [CLAUDE-AI-INSTALL](https://github.com/TheColliery/.github/blob/main/CLAUDE-AI-INSTALL.md).
+Download a canary's ZIP from the [Releases page](https://github.com/HetCreep/CoalMine/releases) (one asset per skill, built by CI on every tag) and upload it as a custom skill (Settings → Capabilities → Skills). Manual invocation only — no hooks there. **Don't hand-zip `skills/` yourself** — our own frontmatter `description` runs up to our 1024-char cap, well past claude.ai's 200-char skill-listing limit; every published ZIP has its description deterministically trimmed to fit (`scripts/build-claude-ai-zips.mjs`, source `skills/*/SKILL.md` files are never edited). Steps + capability notes: [CLAUDE-AI-INSTALL](https://github.com/TheColliery/.github/blob/main/CLAUDE-AI-INSTALL.md).
 
 ### Option B — Universal Installer
 

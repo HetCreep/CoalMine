@@ -1,0 +1,47 @@
+name: claude-ai-zips
+
+# Board #40 / C2-v2 design: claude.ai installs skills as a ZIP only, and its
+# skill-listing description cap is 200 chars vs our own 1024 (desc-cap.mjs).
+# On a version tag: stage every skill with its description deterministically
+# trimmed to the platform cap (scripts/build-claude-ai-zips.mjs — a DERIVED
+# artifact, source skills/*/SKILL.md is never edited), zip each staged
+# directory, and attach the ZIPs to the GitHub Release as assets. The USER
+# downloads a ZIP from the Release and uploads it to claude.ai directly.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-zips:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Verify plugin/ dist is current (fail loud, never zip a stale dist)
+        run: node scripts/verify.mjs
+
+      - name: Stage trimmed-description skill directories
+        run: node scripts/build-claude-ai-zips.mjs
+
+      - name: Zip each staged skill directory
+        run: |
+          set -euo pipefail
+          cd dist-claude-ai
+          for d in */; do
+            name="${d%/}"
+            (cd "$name" && zip -r "../${name}.zip" . -x '.*')
+          done
+          ls -la *.zip
+
+      - name: Attach ZIPs to the GitHub Release for this tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${GITHUB_REF_NAME}" dist-claude-ai/*.zip --clobber
