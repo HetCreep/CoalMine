@@ -916,15 +916,144 @@ test('GLOBAL .coalmine.json alone is honored (the layer that was previously neve
   }
 });
 
-test('project .coalmine.json overrides the global per key (project wins)', () => {
+test('project .coalmine.json overrides the global per NON-safety key (project wins) — but a project cannot escalate enableConductor past an explicit global false (board #113)', () => {
+  // board #113: this test used to plant enableConductor:false(global)/true(project) and
+  // assert the project value WON — that was the live escalation bug, not a feature. A
+  // non-safety key (skipOnboarding) still shows plain project-wins; enableConductor now
+  // shows the SAFER_ENUM clamp instead.
   const tmp = mkTmp();
   try {
     fs.mkdirSync(path.join(tmp, '.claude'), { recursive: true });
-    fs.writeFileSync(path.join(tmp, '.claude', '.coalmine.json'), JSON.stringify({ enableConductor: false }), 'utf8');
-    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ enableConductor: true }), 'utf8');
+    fs.writeFileSync(path.join(tmp, '.claude', '.coalmine.json'), JSON.stringify({ enableConductor: false, skipOnboarding: false }), 'utf8');
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ enableConductor: true, skipOnboarding: true }), 'utf8');
     const r = runHook(CONDUCTOR, '', tmp);
     assert.equal(r.status, 0);
-    assert.ok(r.stdout.includes('[CoalMine]'), 'project enableConductor:true must win over the global false');
+    assert.equal(r.stdout, '', 'global enableConductor:false must hold — project true is clamped back to false, so nothing is emitted at all (skipOnboarding never gets a chance to matter)');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('enableConductor safer-value-wins: legacy-key-only escalation (global conductor:false, project conductor:true) is clamped (board #113)', () => {
+  const tmp = mkTmp();
+  try {
+    fs.mkdirSync(path.join(tmp, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, '.claude', '.coalmine.json'), JSON.stringify({ conductor: false }), 'utf8');
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ conductor: true }), 'utf8');
+    const r = runHook(CONDUCTOR, '', tmp);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '', 'global conductor:false (legacy key) must hold even when project escalates via the SAME legacy key name — the clamp result is mirrored into both key names');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// --- rotCanaryMode / disabledCanaries safer-value-wins (board #113) ---
+// Read at rot-canary-stop.js's projectOverride(): disabledCanaries.includes('rot-canary'/'all')
+// or rotCanaryMode === 'off'/'manual' both drive canaryActive=false, which skips the scan
+// entirely (stdout stays ''); an escalation past an explicit global choice means the scan
+// wrongly RUNS (non-empty stdout naming the touched file).
+
+function plantTouchedFixture(tmp, label) {
+  const f = path.join(tmp, `${label}.js`);
+  fs.writeFileSync(f, 'x');
+  fs.writeFileSync(path.join(tmp, `rot-canary-${label}.touched`), `${f}\n`);
+  return f;
+}
+
+test('rotCanaryMode safer-value-wins: project cannot escalate an explicit global "off" to "auto" (board #113)', () => {
+  const tmp = mkTmp();
+  try {
+    fs.mkdirSync(path.join(tmp, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, '.claude', '.coalmine.json'), JSON.stringify({ rotCanaryMode: 'off' }), 'utf8');
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ rotCanaryMode: 'auto' }), 'utf8');
+    plantTouchedFixture(tmp, 'RM1');
+    const r = runHook(STOP, JSON.stringify({ session_id: 'RM1', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '', 'global off must hold — project auto is clamped back to off, scan must not run');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('rotCanaryMode safer-value-wins: legacy-key-only escalation (global mode:off, project rotCanaryMode:auto, cross-key) is clamped (board #113)', () => {
+  const tmp = mkTmp();
+  try {
+    fs.mkdirSync(path.join(tmp, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, '.claude', '.coalmine.json'), JSON.stringify({ mode: 'off' }), 'utf8');
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ rotCanaryMode: 'auto' }), 'utf8');
+    plantTouchedFixture(tmp, 'RM2');
+    const r = runHook(STOP, JSON.stringify({ session_id: 'RM2', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '', "global's legacy 'mode:off' must hold even though project used the canonical key name — the clamp resolves both sides through either name");
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('rotCanaryMode safer-value-wins: the WINNING value is stored CANONICAL (lowercase), not the raw-cased input — a non-escalating project "OFF" must still read as off (board #113, the CoalWash K1 storage trap)', () => {
+  // Not an escalation attempt: project types 'OFF' (uppercase) meaning the SAME safe
+  // value as global's 'off'. The clamp's own comparison folds case correctly either
+  // way; what this test isolates is whether the STORED merge output is re-foldable by
+  // a consumer that compares with strict === (rot-canary-stop.js's own `mode === 'off'`
+  // does NOT .toLowerCase() first, unlike updateMode's consumer).
+  const tmp = mkTmp();
+  try {
+    fs.mkdirSync(path.join(tmp, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, '.claude', '.coalmine.json'), JSON.stringify({ rotCanaryMode: 'off' }), 'utf8');
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ rotCanaryMode: 'OFF' }), 'utf8');
+    plantTouchedFixture(tmp, 'RM3');
+    const r = runHook(STOP, JSON.stringify({ session_id: 'RM3', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '', 'a canonically-equal but differently-cased project value must still resolve to off, not silently fall through as if unmatched');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('disabledCanaries safer-value-wins: project cannot clear an explicit global disable list via UNION merge (board #113)', () => {
+  const tmp = mkTmp();
+  try {
+    fs.mkdirSync(path.join(tmp, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, '.claude', '.coalmine.json'), JSON.stringify({ disabledCanaries: ['rot-canary'] }), 'utf8');
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ disabledCanaries: [] }), 'utf8');
+    plantTouchedFixture(tmp, 'DC1');
+    const r = runHook(STOP, JSON.stringify({ session_id: 'DC1', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '', "global's disable list must survive a project's empty override — union, not replace");
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('disabledCanaries safer-value-wins: legacy-key-only escalation (global disable:[rot-canary], project disabledCanaries:[], cross-key) is unioned (board #113)', () => {
+  const tmp = mkTmp();
+  try {
+    fs.mkdirSync(path.join(tmp, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, '.claude', '.coalmine.json'), JSON.stringify({ disable: ['rot-canary'] }), 'utf8');
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ disabledCanaries: [] }), 'utf8');
+    plantTouchedFixture(tmp, 'DC2');
+    const r = runHook(STOP, JSON.stringify({ session_id: 'DC2', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '', "global's legacy 'disable' list must survive a project clearing the canonical key — resolved through either name before unioning");
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('disabledCanaries case-fold: a hand-edited uppercase global entry still disables the canary (board #113)', () => {
+  // Global-only, no project file at all — isolates the case-fold from the union/clamp
+  // logic entirely. config-schema.mjs's `lower: true` is enforced by configure.mjs on
+  // WRITE; a hand-edited file bypasses it, and the read site's `.includes('rot-canary')`
+  // is a raw, case-sensitive check.
+  const tmp = mkTmp();
+  try {
+    fs.mkdirSync(path.join(tmp, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, '.claude', '.coalmine.json'), JSON.stringify({ disabledCanaries: ['ROT-CANARY'] }), 'utf8');
+    plantTouchedFixture(tmp, 'DC3');
+    const r = runHook(STOP, JSON.stringify({ session_id: 'DC3', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.equal(r.stdout, '', 'an uppercase-cased global entry must still match the lowercase canary id it names');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

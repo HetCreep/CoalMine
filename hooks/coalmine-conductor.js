@@ -146,21 +146,75 @@ function readCfgFile(file) {
 // lowercase enum (e.g. 'AUTO') missed the lookup (-1), fell through `continue`,
 // and won through the earlier shallow-merge unclamped. Fixed: both sides are
 // lowercased before the lookup.
-const SAFER_ENUM = { updateMode: { order: ['off', 'remind', 'ask', 'auto'], default: 'ask' } }; // index 0 = safest; default = config-schema.mjs's declared factory default
+// THREE MORE KEYS CLOSED (board #113, 2026-08-13 — board #112's own named
+// next-touch set): `enableConductor`/`rotCanaryMode`/`disabledCanaries` were
+// entirely unclamped — a project config could silently re-enable a
+// globally-disabled canary or the whole conductor. `enableConductor` is a
+// boolean-as-enum-of-two (`[false, true]`, false = safest); `fold()` below
+// passes a non-string through unchanged instead of stringifying it, so a
+// boolean pair compares correctly (a raw `.toLowerCase()` on `false` would
+// still technically work via implicit String() coercion, but the OLD
+// `order.indexOf(String(v).toLowerCase())` shape compared a STRING against
+// an array of actual booleans and would silently never match — this is the
+// bug the dispatch warned about, not a hypothetical). `rotCanaryMode` is a
+// plain 3-value string enum, same shape as `updateMode`.
+// LEGACY-ALIAS ESCALATION (found auditing the read sites, not assumed):
+// `enableConductor`/`rotCanaryMode`/`disabledCanaries` each have a legacy
+// alias (`conductor`/`mode`/`disable`) read independently at every call
+// site. A clamp that only ever writes the NEW key name leaves the legacy
+// field exactly as the plain shallow-merge left it — unclamped — so a
+// project expressing its escalation through the OLD key name alone sails
+// through untouched, regardless of what the new-key clamp does. Two
+// different read-site shapes need two different closes:
+//   - rotCanaryMode/mode and disabledCanaries/disable read as "prefer the
+//     new key if defined, else the legacy one" (`cfg.X !== undefined ? cfg.X
+//     : cfg.legacyX`) — so the clamp resolves EACH SIDE's effective value
+//     through that same fallback (via/viaArr below) before comparing, and
+//     writes the clamped result into the CANONICAL (new) key name only; the
+//     read site's own preference-for-new-when-defined then makes the legacy
+//     field's stale content moot.
+//   - enableConductor/conductor reads as `cfg.enableConductor === false ||
+//     cfg.conductor === false` — an OR over BOTH raw fields independently,
+//     not a preference chain. Writing only the new key would leave a
+//     project's raw `conductor: true` unclamped and able to flip the OR
+//     back to false=false=not-disabled when global's actual stance (via
+//     either name) was false. So this key's clamp result is mirrored into
+//     BOTH `merged.enableConductor` and `merged.conductor` — harmless for
+//     the preference-chain keys too (the new key is always checked first),
+//     and it closes the OR-shaped site's legacy-only escalation path.
+function fold(v) { return typeof v === 'string' ? v.toLowerCase() : v; } // pass booleans through unchanged
+function via(obj, key, legacyKey) { // effective scalar value for `key`, preferring the new name (matches every read site's own `!== undefined` chain)
+  if (!obj) return undefined;
+  if (obj[key] !== undefined) return obj[key];
+  return legacyKey ? obj[legacyKey] : undefined;
+}
+function viaArr(obj, key, legacyKey) { // same preference, array-shaped (for UNION keys)
+  if (!obj) return undefined;
+  if (Array.isArray(obj[key])) return obj[key];
+  if (legacyKey && Array.isArray(obj[legacyKey])) return obj[legacyKey];
+  return undefined;
+}
+const SAFER_ENUM = {
+  updateMode: { order: ['off', 'remind', 'ask', 'auto'], default: 'ask' },
+  enableConductor: { order: [false, true], default: true, legacy: 'conductor' }, // index 0 = safest; default = config-schema.mjs's declared factory default (README Configure table)
+  rotCanaryMode: { order: ['off', 'manual', 'auto'], default: 'auto', legacy: 'mode' },
+};
 // UNION-MERGE KEYS (hooks-safety.md section 9): a strArr key here is QUIETEN-only —
 // more entries can only REDUCE what a hook acts on, never escalate spend/consent — so
 // the project layer may ADD to the global layer's list, never silently drop an entry
 // from it by replacing the whole array. scanExcludePaths is a scan-scope exclude: a
 // project adding its own lab-tooling fragment must not erase a global one.
 // PRECONDITION for any key added here: its factory default must be the EMPTY array.
-// The `!globalCfg || !projectCfg` guard below skips the union computation whenever
-// EITHER layer never set the key, falling back to the plain shallow-merge result —
-// that fallback is correct only because "layer didn't set it" and "layer set it to
-// []" are the same identity element for union. A future UNION key with a NON-empty
-// factory default would silently drop those default members whenever only one
-// layer sets the key explicitly (the other layer's "unset" is treated as [], not
-// as its factory default).
-const UNION_ARRAY_KEYS = ['scanExcludePaths'];
+// disabledCanaries (board #113): more entries = more disabled = quieter, the same
+// QUIETEN-only direction — a project clearing the array must not silently re-enable
+// what an explicit global disabled. `lower: true` here mirrors config-schema.mjs's own
+// declared normalization for this key (enforced by the CLI on write, NOT by a
+// hand-edited JSON file) — folded here so the read sites' `disabled.includes('rot-canary')`
+// (a raw, case-sensitive check) can't be defeated by a stray "ROT-CANARY" in either layer.
+const UNION_ARRAY_KEYS = {
+  scanExcludePaths: { default: [] },
+  disabledCanaries: { default: [], lower: true, legacy: 'disable' },
+};
 let _cfg;
 function loadCfg() {
   if (_cfg !== undefined) return _cfg;
@@ -177,26 +231,52 @@ function loadCfg() {
           merged[key] = src[key];
         }
       }
-      // Constrain whenever the PROJECT sets the key — an absent global is its
-      // schema default, never "no preference to defend" (board #112). Case-fold
-      // both sides before the ordered lookup so a differently-cased project
-      // value cannot dodge the clamp (the CW H5 shape).
-      for (const [key, { order, default: def }] of Object.entries(SAFER_ENUM)) {
-        if (!projectCfg || projectCfg[key] === undefined) continue; // project didn't touch this key
-        const globalValue = (globalCfg && globalCfg[key] !== undefined) ? globalCfg[key] : def;
-        const gi = order.indexOf(String(globalValue).toLowerCase());
-        const pi = order.indexOf(String(projectCfg[key]).toLowerCase());
+      // Constrain whenever the PROJECT sets the key (via either name) — an
+      // absent global is its schema default, never "no preference to
+      // defend" (board #112). Case-fold both sides before the ordered
+      // lookup so a differently-cased project value cannot dodge the clamp
+      // (the CW H5 shape); fold() passes non-strings through, so a boolean
+      // enum compares correctly too (board #113).
+      for (const [key, { order, default: def, legacy }] of Object.entries(SAFER_ENUM)) {
+        const projectVal = via(projectCfg, key, legacy);
+        if (projectVal === undefined) continue; // project expressed no opinion via either name
+        const globalVal = via(globalCfg, key, legacy);
+        const globalValue = globalVal !== undefined ? globalVal : def;
+        const gi = order.indexOf(fold(globalValue));
+        const pi = order.indexOf(fold(projectVal));
         if (gi === -1 || pi === -1) continue; // unknown value: leave the shallow-merge result
-        merged[key] = pi <= gi ? projectCfg[key] : globalValue; // project may not be LOUDER than the (explicit-or-default) global
+        // Store the CANONICAL member (order[i]), never the raw-cased winner: a
+        // consumer that trusts the merge output and compares with strict === --
+        // rotCanaryMode's `mode === 'off' || mode === 'manual'` in rot-canary-stop.js/
+        // touch.js does exactly this, unlike updateMode's own consumer, which
+        // happens to .toLowerCase() defensively -- would silently fail to
+        // recognize a legitimately-entered 'OFF' as 'off', the same storage trap
+        // CoalWash's own K1 finding already named ("compared the folded spelling
+        // but stored the RAW one"). Caught here before this shipped (board #113).
+        const result = order[pi <= gi ? pi : gi]; // project may not be LOUDER than the (explicit-or-default) global
+        merged[key] = result;
+        if (legacy) merged[legacy] = result; // mirror so an OR-shaped read site (enableConductor/conductor) can't be fooled by a stale legacy field
       }
-      // Still BOTH-layers-explicit (unlike SAFER_ENUM above, which now clamps on
-      // project-alone since board #112) — an absent global here means "nothing to
-      // union", not an escalation risk, so there is no default to fall back to.
-      // The safer direction for an array is UNION (dedup), not "pick one side" —
-      // either side may add.
-      for (const key of UNION_ARRAY_KEYS) {
-        if (!globalCfg || !projectCfg || !Array.isArray(globalCfg[key]) || !Array.isArray(projectCfg[key])) continue;
-        merged[key] = [...new Set([...globalCfg[key], ...projectCfg[key]])];
+      // Same effective-value resolution as SAFER_ENUM above (via either the
+      // new or legacy key name), but the safer direction for an array is
+      // UNION (dedup), not "pick one side" — either side may add.
+      for (const [key, { default: def, lower, legacy }] of Object.entries(UNION_ARRAY_KEYS)) {
+        const projectArr = viaArr(projectCfg, key, legacy);
+        if (projectArr === undefined) continue; // project expressed no opinion via either name
+        const globalArr = viaArr(globalCfg, key, legacy) ?? def; // absent global = its schema default ([]), never "nothing to union"
+        const foldFn = lower ? fold : (v) => v;
+        const result = [...new Set([...globalArr, ...projectArr].map(foldFn))];
+        merged[key] = result;
+        if (legacy) merged[legacy] = result;
+      }
+      // Unconditional normalization, independent of the union branch above:
+      // a global-only or project-only disabledCanaries/disable array (the
+      // OTHER side never touched it, so the union guard's `continue` never
+      // ran) still needs case-folding — config-schema.mjs's `lower: true`
+      // is enforced by the CLI on write, not by a hand-edited file, and the
+      // read sites' `.includes('rot-canary')` checks are case-sensitive.
+      for (const k of ['disabledCanaries', 'disable']) {
+        if (Array.isArray(merged[k])) merged[k] = merged[k].map(fold);
       }
       _cfg = merged;
     }
