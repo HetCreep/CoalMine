@@ -41,7 +41,14 @@ jobs:
           done
           ls -la *.zip
 
-      - name: Attach ZIPs to the GitHub Release for this tag
+      - name: Generate SHA256SUMS.txt for the ZIPs (board #99 — a downloader had no way to verify integrity)
+        run: |
+          set -euo pipefail
+          cd dist-claude-ai
+          sha256sum *.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Attach ZIPs + SHA256SUMS.txt to the GitHub Release for this tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${GITHUB_REF_NAME}" dist-claude-ai/*.zip --clobber
+        run: gh release upload "${GITHUB_REF_NAME}" dist-claude-ai/*.zip dist-claude-ai/SHA256SUMS.txt --clobber

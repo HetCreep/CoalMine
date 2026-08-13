@@ -115,7 +115,7 @@ npx skills add HetCreep/CoalMine
 ```
 
 ### Option A3 — claude.ai (web / desktop app)
-Download a canary's ZIP from the [Releases page](https://github.com/HetCreep/CoalMine/releases) (one asset per skill, built by CI on every tag) and upload it as a custom skill (Settings → Capabilities → Skills). Manual invocation only — no hooks there. **Don't hand-zip `skills/` yourself** — our own frontmatter `description` runs up to our 1024-char cap, well past claude.ai's 200-char skill-listing limit; every published ZIP has its description deterministically trimmed to fit (`scripts/build-claude-ai-zips.mjs`, source `skills/*/SKILL.md` files are never edited). Steps + capability notes: [CLAUDE-AI-INSTALL](https://github.com/TheColliery/.github/blob/main/CLAUDE-AI-INSTALL.md).
+Download a canary's ZIP from the [Releases page](https://github.com/HetCreep/CoalMine/releases) (one asset per skill, built by CI on every tag) and upload it as a custom skill (Settings → Capabilities → Skills). Manual invocation only — no hooks there. **Don't hand-zip `skills/` yourself** — our own frontmatter `description` runs up to our 1024-char cap, well past claude.ai's 200-char skill-listing limit; every published ZIP has its description deterministically trimmed to fit (`scripts/build-claude-ai-zips.mjs`, source `skills/*/SKILL.md` files are never edited). Each Release also carries a `SHA256SUMS.txt` covering every ZIP — verify with `sha256sum -c SHA256SUMS.txt` (or `Get-FileHash` on Windows) before uploading a downloaded ZIP anywhere. Steps + capability notes: [CLAUDE-AI-INSTALL](https://github.com/TheColliery/.github/blob/main/CLAUDE-AI-INSTALL.md).
 
 ### Option B — Universal Installer
 

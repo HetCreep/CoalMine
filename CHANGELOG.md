@@ -2,6 +2,11 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [Unreleased]
+
+### Added
+- **`SHA256SUMS.txt` attached alongside every claude.ai ZIP release asset (board #99).** `.github/workflows/claude-ai-zips.yml` (board #40, shipped `f494d7f`) published per-skill ZIPs to the GitHub Release with no way for a downloader to verify integrity; a new step runs `sha256sum *.zip > SHA256SUMS.txt` over the staged ZIPs and it's uploaded in the same `gh release upload` call as the ZIPs themselves (one call, so the sums file and the ZIPs it covers land atomically — never a window where one exists on the Release without the other). **Corrected premise: board #99 stated the workflow "computes a SHA-256 during build and discards it" — grepped `sha256`/`createHash`/`checksum` across the workflow + `scripts/build-claude-ai-zips.mjs` + `scripts/lib/claude-ai-trim.mjs`: zero hits, no hash was ever computed anywhere. Nothing was discarded; the gap was that nothing existed.** README's Option A3 gained one line pointing at `SHA256SUMS.txt` and the verify command (`sha256sum -c` / `Get-FileHash`); `SECURITY.md`'s Dist Integrity section is a different concern (source→`plugin/` reproducibility) and is left untouched. **This is a distributed-artifact change earning an entry despite `plugin/` being unaffected — same precedent as the git-hook installer (`d1c917f`): what a user downloads from the Release changed, even though the installed plugin dist did not.** **Cannot be exercised locally — same honest caveat the ZIP workflow's own original entry above carries: this runs on GitHub's runners only, first live proof is the next version tag.**
+
 ## [3.17.0] - 2026-08-13
 
 ### Added
