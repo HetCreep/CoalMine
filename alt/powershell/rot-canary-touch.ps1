@@ -84,27 +84,40 @@ function Load-CoalmineConfig {
   # read by the AGENT from the raw file, never by any hook via this merge, so a
   # hook-side guard for IT would protect nothing — that half of the old verdict
   # stands.
+  # TWO DEFECTS CLOSED (board #112, 2026-08-13, Node≡PS parity with `47b25bc`):
+  # (1) `if (-not $globalCfg) { return $projectCfg }` returned the RAW project
+  # config with ZERO merge/clamp applied — worse than the Node original, since
+  # not even the shallow-merge loop ran. Both early returns removed; the merge
+  # now always runs, and an absent global reads as the SAFER_ENUM key's schema
+  # default, never "return project raw" or "anything goes". (2) `[array]::IndexOf`
+  # on .NET strings is ordinal (case-sensitive) — the same case-fold hole as the
+  # Node CW-H5 shape, letting a project 'AUTO' miss the lookup and ride the
+  # earlier shallow-merge unclamped. Both sides are now lowercased before the
+  # lookup.
   $globalCfg = Read-CoalmineConfigFile (Join-Path (Join-Path $env:USERPROFILE '.claude') '.coalmine.json')
   $projectCfg = Read-CoalmineConfigFile (Join-Path (Find-GitRoot) '.coalmine.json')
-  if (-not $globalCfg) { return $projectCfg }
-  if (-not $projectCfg) { return $globalCfg }
+  if (-not $globalCfg -and -not $projectCfg) { return $null }
   $merged = [ordered]@{}
   foreach ($src in @($globalCfg, $projectCfg)) {
+    if (-not $src) { continue }
     foreach ($prop in $src.PSObject.Properties) {
       if ($prop.Name -in @('__proto__', 'constructor', 'prototype')) { continue }
       $merged[$prop.Name] = $prop.Value
     }
   }
-  # Constrain ONLY when BOTH layers set the key explicitly (global-absent already
-  # returned above); an unknown value on either side leaves the merge untouched.
-  $saferEnum = @{ updateMode = @('off', 'remind', 'ask', 'auto') } # index 0 = safest
+  # Constrain whenever the PROJECT sets the key — an absent global is its
+  # schema default, never "no preference to defend" (board #112). Case-fold
+  # both sides before the ordered lookup so a differently-cased project value
+  # cannot dodge the clamp.
+  $saferEnum = @{ updateMode = @{ order = @('off', 'remind', 'ask', 'auto'); default = 'ask' } } # index 0 = safest; default = config-schema.mjs's declared factory default
   foreach ($key in $saferEnum.Keys) {
-    if ($null -eq $globalCfg.$key -or $null -eq $projectCfg.$key) { continue }
-    $order = $saferEnum[$key]
-    $gi = [array]::IndexOf($order, $globalCfg.$key)
-    $pi = [array]::IndexOf($order, $projectCfg.$key)
+    if ($null -eq $projectCfg -or $null -eq $projectCfg.$key) { continue } # project didn't touch this key
+    $order = $saferEnum[$key].order
+    $globalValue = if ($null -ne $globalCfg -and $null -ne $globalCfg.$key) { $globalCfg.$key } else { $saferEnum[$key].default }
+    $gi = [array]::IndexOf($order, ([string]$globalValue).ToLower())
+    $pi = [array]::IndexOf($order, ([string]$projectCfg.$key).ToLower())
     if ($gi -eq -1 -or $pi -eq -1) { continue } # unknown value: leave the shallow-merge result
-    $merged[$key] = if ($pi -le $gi) { $projectCfg.$key } else { $globalCfg.$key } # project may not be LOUDER than global
+    $merged[$key] = if ($pi -le $gi) { $projectCfg.$key } else { $globalValue } # project may not be LOUDER than the (explicit-or-default) global
   }
   return [PSCustomObject]$merged
 }
