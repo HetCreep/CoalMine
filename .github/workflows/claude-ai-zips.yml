@@ -11,6 +11,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch: {} # board #99 findings-back: manual re-run against a tag ref whose push-triggered run already failed
 
 permissions:
   contents: write
@@ -47,6 +48,11 @@ jobs:
           cd dist-claude-ai
           sha256sum *.zip > SHA256SUMS.txt
           cat SHA256SUMS.txt
+
+      - name: Ensure the GitHub Release exists for this tag (board #99 findings-back — this trigger fires on the tag push, BEFORE main's separate REST call creates the Release; the v3.17.0 run failed here with "release not found")
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes
 
       - name: Attach ZIPs + SHA256SUMS.txt to the GitHub Release for this tag
         env:
