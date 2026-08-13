@@ -71,6 +71,40 @@ function Read-CoalmineConfigFile {
   }
 }
 
+function Resolve-Aliased {
+  # Effective scalar value for $Key, preferring the new name -- matches every read
+  # site's own `if ($null -ne $cfg.X) {...} else {$cfg.legacyX}` chain. Needed
+  # because clamping the canonical and legacy names as two INDEPENDENT keys is not
+  # enough: a project setting the CANONICAL key unconditionally wins at the read
+  # site over whatever a global config set under the LEGACY name, bypassing a
+  # per-key clamp that never looks at the other layer's other name (board #113).
+  param($Obj, [string]$Key, [string]$LegacyKey)
+  if ($null -eq $Obj) { return $null }
+  if ($null -ne $Obj.$Key) { return $Obj.$Key }
+  if ($LegacyKey) { return $Obj.$LegacyKey }
+  return $null
+}
+function Resolve-AliasedArray {
+  # Same preference as Resolve-Aliased, array-shaped. @()-wraps the result: a
+  # single-element JSON array survives ConvertFrom-Json as an array, but an
+  # if-expression assignment (as used here) enumerates a one-element Object[]
+  # into a scalar String -- the same trap the stop/touch hooks already guard
+  # against at their own $disabledArr = @($disabled) call.
+  # THE LEADING COMMA IS LOAD-BEARING, not style: `return @(...)` on an EMPTY
+  # array collapses to $null at the CALLER once it crosses the function's
+  # pipeline-output boundary (measured live: an empty-array return read back as
+  # $null, silently skipping the union computation below and leaking a project
+  # disabledCanaries:[] straight through as an unclamped escalation -- caught
+  # before this shipped, board #113). `,@(...)` wraps the array as ONE pipeline
+  # object so PowerShell's own unwrap-by-one-level rule hands the caller back
+  # the original array, empty or not, instead of nothing at all.
+  param($Obj, [string]$Key, [string]$LegacyKey)
+  if ($null -eq $Obj) { return $null }
+  if ($null -ne $Obj.$Key) { return ,@($Obj.$Key) }
+  if ($LegacyKey -and $null -ne $Obj.$LegacyKey) { return ,@($Obj.$LegacyKey) }
+  return $null
+}
+
 function Load-CoalmineConfig {
   # Two-level (Node twin parity): global ~/.claude/.coalmine.json overlaid per key
   # by the project <gitroot>/.coalmine.json (project wins). __proto__/constructor/
@@ -94,6 +128,24 @@ function Load-CoalmineConfig {
   # Node CW-H5 shape, letting a project 'AUTO' miss the lookup and ride the
   # earlier shallow-merge unclamped. Both sides are now lowercased before the
   # lookup.
+  # TWO MORE KEYS CLOSED (board #113, 2026-08-13) — `rotCanaryMode`/`disabledCanaries`
+  # join the same clamp mechanism, PLUS their legacy aliases `mode`/`disable` (found
+  # auditing the read sites: a project setting the CANONICAL key unconditionally
+  # shadows a global set under the LEGACY name, bypassing a clamp that never looks
+  # at the other name -- Resolve-Aliased/Resolve-AliasedArray close it by resolving
+  # each LAYER's effective value through the same new-preferred-over-legacy chain
+  # BEFORE the clamp compares them). `enableConductor` is deliberately NOT ported:
+  # grepped both PS hooks -- neither reads `enableConductor`/`conductor` at all (no
+  # `coalmine-conductor.ps1` exists; the PS twin is scan-only by design, per its own
+  # named-divergence header). A clamp for a key nothing reads defends nothing.
+  # TWO NODE-SIDE FIXES DELIBERATELY *NOT* PORTED, VERIFIED not assumed: PowerShell's
+  # `-contains`/`-eq` are CASE-INSENSITIVE by default (confirmed live: 'ROT-CANARY'
+  # -contains-matches 'rot-canary', 'OFF' -eq-matches 'off') -- unlike Node's
+  # `.includes()`/`===`, so (a) disabledCanaries array entries need no case-fold here
+  # (the read sites' own `-contains` already folds), and (b) the clamp's WINNING
+  # value is stored as-is (not canonicalized to $order[i]) -- the K1 storage-trap
+  # fix Node needed (a raw-cased winner reaching a strict === consumer) protects
+  # against nothing reachable on this platform's own case-insensitive operators.
   $globalCfg = Read-CoalmineConfigFile (Join-Path (Join-Path $env:USERPROFILE '.claude') '.coalmine.json')
   $projectCfg = Read-CoalmineConfigFile (Join-Path (Find-GitRoot) '.coalmine.json')
   if (-not $globalCfg -and -not $projectCfg) { return $null }
@@ -105,19 +157,41 @@ function Load-CoalmineConfig {
       $merged[$prop.Name] = $prop.Value
     }
   }
-  # Constrain whenever the PROJECT sets the key — an absent global is its
-  # schema default, never "no preference to defend" (board #112). Case-fold
-  # both sides before the ordered lookup so a differently-cased project value
-  # cannot dodge the clamp.
-  $saferEnum = @{ updateMode = @{ order = @('off', 'remind', 'ask', 'auto'); default = 'ask' } } # index 0 = safest; default = config-schema.mjs's declared factory default
+  # Constrain whenever the PROJECT sets the key (via either name) — an absent
+  # global is its schema default, never "no preference to defend" (board #112).
+  # Case-fold both sides before the ordered lookup so a differently-cased project
+  # value cannot dodge the CLAMP DECISION (irrelevant to the STORED result on
+  # this platform — see the header note above).
+  $saferEnum = @{
+    updateMode = @{ order = @('off', 'remind', 'ask', 'auto'); default = 'ask' } # index 0 = safest; default = config-schema.mjs's declared factory default
+    rotCanaryMode = @{ order = @('off', 'manual', 'auto'); default = 'auto'; legacy = 'mode' }
+  }
   foreach ($key in $saferEnum.Keys) {
-    if ($null -eq $projectCfg -or $null -eq $projectCfg.$key) { continue } # project didn't touch this key
-    $order = $saferEnum[$key].order
-    $globalValue = if ($null -ne $globalCfg -and $null -ne $globalCfg.$key) { $globalCfg.$key } else { $saferEnum[$key].default }
+    $spec = $saferEnum[$key]
+    $projectVal = Resolve-Aliased $projectCfg $key $spec.legacy
+    if ($null -eq $projectVal) { continue } # project expressed no opinion via either name
+    $globalVal = Resolve-Aliased $globalCfg $key $spec.legacy
+    $globalValue = if ($null -ne $globalVal) { $globalVal } else { $spec.default }
+    $order = $spec.order
     $gi = [array]::IndexOf($order, ([string]$globalValue).ToLower())
-    $pi = [array]::IndexOf($order, ([string]$projectCfg.$key).ToLower())
+    $pi = [array]::IndexOf($order, ([string]$projectVal).ToLower())
     if ($gi -eq -1 -or $pi -eq -1) { continue } # unknown value: leave the shallow-merge result
-    $merged[$key] = if ($pi -le $gi) { $projectCfg.$key } else { $globalValue } # project may not be LOUDER than the (explicit-or-default) global
+    $merged[$key] = if ($pi -le $gi) { $projectVal } else { $globalValue } # project may not be LOUDER than the (explicit-or-default) global
+  }
+  # Same effective-value resolution as $saferEnum above (via either the new or
+  # legacy key name), but the safer direction for an array is UNION (dedup), not
+  # "pick one side" — either side may add. disabledCanaries: more entries = more
+  # disabled = quieter, the same QUIETEN-only direction hooks-safety.md §9 already
+  # requires of scanExcludePaths on the Node side (scanExcludePaths itself has no
+  # PS consumer -- not ported).
+  $unionArrayKeys = @{ disabledCanaries = @{ default = @(); legacy = 'disable' } }
+  foreach ($key in $unionArrayKeys.Keys) {
+    $spec = $unionArrayKeys[$key]
+    $projectArr = Resolve-AliasedArray $projectCfg $key $spec.legacy
+    if ($null -eq $projectArr) { continue } # project expressed no opinion via either name
+    $globalArrRaw = Resolve-AliasedArray $globalCfg $key $spec.legacy
+    $globalArr = if ($null -ne $globalArrRaw) { $globalArrRaw } else { $spec.default } # absent global = its schema default ([]), never "nothing to union"
+    $merged[$key] = @(@($globalArr) + @($projectArr) | Select-Object -Unique)
   }
   return [PSCustomObject]$merged
 }
