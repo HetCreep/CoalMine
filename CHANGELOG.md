@@ -2,6 +2,11 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [3.17.2] - 2026-08-13
+
+### Fixed
+- **`[3.17.1]`'s own claim below — "the fix is proven instead by this v3.17.1 tag's own live run" — was FALSE, caught by main re-checking the live run instead of trusting the entry it had just written.** `v3.17.1`'s `claude-ai-zips` run also failed, at the SAME "Ensure the GitHub Release exists" step, for a DIFFERENT reason than v3.17.0: `gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1` failed silently (stderr redirected away, so the real cause was never logged) even though the Release genuinely existed at that point (main had created it via REST moments earlier) — the `||` then fell through to `gh release create`, which correctly reported `Release.tag_name already exists` (HTTP 422) and still failed the step, so the ZIPs/sums never attached. **Fixed by removing the unreliable `view`-first probe entirely**: the step now runs `gh release create` directly and treats its one EXPECTED failure mode (tag already exists) as success — falling through to a `gh release view` only to confirm that specific case, and erroring loud with an explicit message on any other failure, so a future unknown failure surfaces instead of being swallowed by a blind `||`. **This is the second published version in a row whose own CHANGELOG entry claimed a fix was live-proven when it was not — the fourth-tense lesson applied to itself: a "proven live" claim is verified by reading the actual run's conclusion field, never by the absence of an error in the terminal that cut the release.**
+
 ## [3.17.1] - 2026-08-13
 
 ### Added

@@ -49,10 +49,13 @@ jobs:
           sha256sum *.zip > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      - name: Ensure the GitHub Release exists for this tag (board #99 findings-back — this trigger fires on the tag push, BEFORE main's separate REST call creates the Release; the v3.17.0 run failed here with "release not found")
+      - name: Ensure the GitHub Release exists for this tag (board #99 — this trigger fires on the tag push, BEFORE main's separate REST call creates the Release; the v3.17.0 run failed here with "release not found". v3.17.1's OWN run then proved the `view || create` form itself unreliable: `gh release view` failed for an unlogged reason on a Release that demonstrably existed, falling through to `create`, which correctly reported "tag_name already exists" (422) and still failed the step. Replaced with a single idempotent `create`, swallowing the one expected failure mode directly instead of probing for it first.)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes
+        run: |
+          gh release create "${GITHUB_REF_NAME}" --title "${GITHUB_REF_NAME}" --generate-notes || \
+            gh release view "${GITHUB_REF_NAME}" >/dev/null || \
+            { echo "::error::release create failed AND release view failed -- this is not the expected already-exists race" >&2; exit 1; }
 
       - name: Attach ZIPs + SHA256SUMS.txt to the GitHub Release for this tag
         env:
