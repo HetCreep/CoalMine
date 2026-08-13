@@ -140,11 +140,15 @@ try {
   $r = Invoke-Hook $touch $stdin $sb
   Check 'touch: GLOBAL-layer disable alone is honored'          (-not (Test-Path (Join-Path $sb.Temp 'rot-canary-PSGLO.touched')))
 
-  # project overrides global per key (project wins): global disables, project re-enables.
+  # board #113 findings-back: disabledCanaries now UNION-merges (hooks-safety.md §9 --
+  # the safer direction for an array is UNION, never pick-one-side), so a project
+  # clearing its own list can no longer silently re-enable an explicit global disable.
+  # This assertion used to expect the OPPOSITE (project's empty array winning) -- that
+  # was the exact escalation hole board #113 closed; corrected here to match.
   '{"disabledCanaries":[]}' | Set-Content -Path (Join-Path $sb.Root '.coalmine.json') -Encoding UTF8
   $stdin2 = (@{ session_id = 'PSWIN'; tool_input = @{ file_path = $codeFile } } | ConvertTo-Json -Compress)
   $r2 = Invoke-Hook $touch $stdin2 $sb
-  Check 'touch: project empty disabledCanaries WINS over global' (Test-Path (Join-Path $sb.Temp 'rot-canary-PSWIN.touched'))
+  Check 'touch: project empty disabledCanaries cannot clear an explicit global disable (UNION merge, board #113)' (-not (Test-Path (Join-Path $sb.Temp 'rot-canary-PSWIN.touched')))
 } finally { Remove-Item $sb.Root -Recurse -Force -ErrorAction SilentlyContinue }
 
 # ── M1: tempSweepStaleDays:0 must not delete THIS session's own recent marker ────

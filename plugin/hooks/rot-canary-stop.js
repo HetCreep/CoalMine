@@ -199,9 +199,18 @@ function readCfgFile(file) {
 //     project's raw `conductor: true` unclamped and able to flip the OR
 //     back to false=false=not-disabled when global's actual stance (via
 //     either name) was false. So this key's clamp result is mirrored into
-//     BOTH `merged.enableConductor` and `merged.conductor` — harmless for
-//     the preference-chain keys too (the new key is always checked first),
-//     and it closes the OR-shaped site's legacy-only escalation path.
+//     BOTH `merged.enableConductor` and `merged.conductor`. NOT blanket
+//     harmless for the preference-chain keys too, one named shape (INSPECT,
+//     board #113 findings-back): a SINGLE project object setting BOTH names
+//     to OPPOSITE values (`{enableConductor:true, conductor:false}`, no
+//     global) had the legacy `conductor:false` win pre-clamp (OR sees a
+//     literal false, disables) and now sees the mirror's `true` instead
+//     (OR sees two trues, enables) — the mirror overwrites the user's own
+//     self-contradictory legacy value with the canonical field's winning
+//     result. No security consequence (the no-config baseline is already
+//     enabled; nothing escalates past an explicit GLOBAL choice, which is
+//     what this guard exists to defend), but "harmless" overstated this one
+//     self-contradictory-input shape.
 function fold(v) { return typeof v === 'string' ? v.toLowerCase() : v; } // pass booleans through unchanged
 function via(obj, key, legacyKey) { // effective scalar value for `key`, preferring the new name (matches every read site's own `!== undefined` chain)
   if (!obj) return undefined;

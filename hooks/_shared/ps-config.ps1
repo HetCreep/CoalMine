@@ -114,16 +114,27 @@ function Load-CoalmineConfig {
   # Node CW-H5 shape, letting a project 'AUTO' miss the lookup and ride the
   # earlier shallow-merge unclamped. Both sides are now lowercased before the
   # lookup.
-  # TWO MORE KEYS CLOSED (board #113, 2026-08-13) — `rotCanaryMode`/`disabledCanaries`
-  # join the same clamp mechanism, PLUS their legacy aliases `mode`/`disable` (found
-  # auditing the read sites: a project setting the CANONICAL key unconditionally
-  # shadows a global set under the LEGACY name, bypassing a clamp that never looks
-  # at the other name -- Resolve-Aliased/Resolve-AliasedArray close it by resolving
-  # each LAYER's effective value through the same new-preferred-over-legacy chain
-  # BEFORE the clamp compares them). `enableConductor` is deliberately NOT ported:
-  # grepped both PS hooks -- neither reads `enableConductor`/`conductor` at all (no
-  # `coalmine-conductor.ps1` exists; the PS twin is scan-only by design, per its own
-  # named-divergence header). A clamp for a key nothing reads defends nothing.
+  # THREE MORE KEYS CLOSED (board #113, 2026-08-13, corrected in the same unit's
+  # findings-back after INSPECT) — `enableConductor`/`rotCanaryMode`/`disabledCanaries`
+  # join the same clamp mechanism, PLUS their legacy aliases `conductor`/`mode`/`disable`
+  # (found auditing the read sites: a project setting the CANONICAL key unconditionally
+  # shadows a global set under the LEGACY name, bypassing a clamp that never looks at
+  # the other name -- Resolve-Aliased/Resolve-AliasedArray close it by resolving each
+  # LAYER's effective value through the same new-preferred-over-legacy chain BEFORE the
+  # clamp compares them; the clamped result is mirrored into BOTH the canonical and
+  # legacy field names, so a same-key-both-legacy scenario -- global conductor:false,
+  # project conductor:true, neither ever touching the canonical name -- is still caught).
+  # `enableConductor` was FIRST judged out of scope ("no PS hook reads it, a clamp
+  # defends nothing") and left off $saferEnum entirely -- WRONG, caught by this unit's
+  # own new tests failing: this file's own updateMode precedent (directly above, M1)
+  # already clamps a key with NO PS consumer "because the merge function itself must
+  # stay Node<->PS parity" -- the same reasoning applies to enableConductor and was
+  # inconsistently skipped for it alone. `enableConductor`'s order is `@($false, $true)`
+  # (a boolean pair, not a string enum) -- compared via a direct index lookup, never
+  # `.ToLower()` (booleans aren't strings; `([string]$false).ToLower()` produces
+  # `'false'`, which cannot match an $order array of real booleans via [array]::IndexOf
+  # -- the exact bug the Node side's `fold()` non-string-passthrough exists to avoid,
+  # reproduced here as a live measured failure before being fixed, not a hypothetical).
   # TWO NODE-SIDE FIXES DELIBERATELY *NOT* PORTED, VERIFIED not assumed: PowerShell's
   # `-contains`/`-eq` are CASE-INSENSITIVE by default (confirmed live: 'ROT-CANARY'
   # -contains-matches 'rot-canary', 'OFF' -eq-matches 'off') -- unlike Node's
@@ -151,6 +162,7 @@ function Load-CoalmineConfig {
   $saferEnum = @{
     updateMode = @{ order = @('off', 'remind', 'ask', 'auto'); default = 'ask' } # index 0 = safest; default = config-schema.mjs's declared factory default
     rotCanaryMode = @{ order = @('off', 'manual', 'auto'); default = 'auto'; legacy = 'mode' }
+    enableConductor = @{ order = @($false, $true); default = $true; legacy = 'conductor' } # boolean pair -- compared directly below, never .ToLower()'d
   }
   foreach ($key in $saferEnum.Keys) {
     $spec = $saferEnum[$key]
@@ -159,10 +171,13 @@ function Load-CoalmineConfig {
     $globalVal = Resolve-Aliased $globalCfg $key $spec.legacy
     $globalValue = if ($null -ne $globalVal) { $globalVal } else { $spec.default }
     $order = $spec.order
-    $gi = [array]::IndexOf($order, ([string]$globalValue).ToLower())
-    $pi = [array]::IndexOf($order, ([string]$projectVal).ToLower())
+    $isBoolOrder = $order[0] -is [bool]
+    $gi = if ($isBoolOrder) { [array]::IndexOf($order, [bool]$globalValue) } else { [array]::IndexOf($order, ([string]$globalValue).ToLower()) }
+    $pi = if ($isBoolOrder) { [array]::IndexOf($order, [bool]$projectVal) } else { [array]::IndexOf($order, ([string]$projectVal).ToLower()) }
     if ($gi -eq -1 -or $pi -eq -1) { continue } # unknown value: leave the shallow-merge result
-    $merged[$key] = if ($pi -le $gi) { $projectVal } else { $globalValue } # project may not be LOUDER than the (explicit-or-default) global
+    $result = if ($pi -le $gi) { $projectVal } else { $globalValue } # project may not be LOUDER than the (explicit-or-default) global
+    $merged[$key] = $result
+    if ($spec.legacy) { $merged[$spec.legacy] = $result } # a same-key-both-legacy scenario needs the legacy field itself clamped too, not just the canonical mirror
   }
   # Same effective-value resolution as $saferEnum above (via either the new or
   # legacy key name), but the safer direction for an array is UNION (dedup), not

@@ -94,10 +94,38 @@ $sm2 = Test-SaferMerge -GlobalCfg @{ updateMode = 'auto' } -ProjectCfg @{ update
 Check 'safer-merge: project MAY move safer (auto global -> off project)' ($sm2.updateMode -eq 'off')
 
 $sm3 = Test-SaferMerge -GlobalCfg $null -ProjectCfg @{ updateMode = 'auto' }
-Check 'safer-merge: no explicit global choice leaves the project free' ($sm3.updateMode -eq 'auto')
+Check 'safer-merge: no explicit global config clamps to the schema default (board #112) -- project cannot escalate past it' ($sm3.updateMode -eq 'ask')
 
 $sm4 = Test-SaferMerge -GlobalCfg @{ updateMode = 'off' } -ProjectCfg @{ updateMode = 'off' }
 Check 'safer-merge: matching values pass through unchanged' ($sm4.updateMode -eq 'off')
+
+# ---- board #113: enableConductor / rotCanaryMode / disabledCanaries safer-value-wins ----
+# MEDIUM (INSPECT): the H3/H4/M1 coverage above never exercised the three keys board #113
+# added, and it took CI going red on 4 releases before anyone noticed the M1-style bug that
+# was already ALSO present for those three. Added here so the next Node<->PS drift is caught
+# locally, not three releases later.
+
+$sm5 = Test-SaferMerge -GlobalCfg @{ enableConductor = $false } -ProjectCfg @{ enableConductor = $true }
+Check 'safer-merge: project cannot escalate explicit global enableConductor:false -> true' ($sm5.enableConductor -eq $false)
+
+$sm6 = Test-SaferMerge -GlobalCfg @{ conductor = $false } -ProjectCfg @{ conductor = $true }
+Check 'safer-merge: enableConductor legacy-key-only escalation (global conductor:false, project conductor:true) is clamped' ($sm6.conductor -eq $false)
+
+$sm7 = Test-SaferMerge -GlobalCfg @{ rotCanaryMode = 'off' } -ProjectCfg @{ rotCanaryMode = 'AUTO' }
+Check 'safer-merge: rotCanaryMode case-fold -- project "AUTO" (uppercase) cannot escape an explicit global "off"' ($sm7.rotCanaryMode -eq 'off')
+
+$sm8 = Test-SaferMerge -GlobalCfg @{ rotCanaryMode = 'off' } -ProjectCfg @{ mode = 'auto' }
+Check 'safer-merge: rotCanaryMode legacy-cross-key escalation (global rotCanaryMode:off, project mode:auto) is clamped' ($sm8.rotCanaryMode -eq 'off')
+
+$sm9 = Test-SaferMerge -GlobalCfg @{ disabledCanaries = @('rot-canary') } -ProjectCfg @{ disabledCanaries = @() }
+Check 'safer-merge: disabledCanaries UNION -- project cannot clear an explicit global disable list' ($sm9.disabledCanaries -contains 'rot-canary')
+
+# Deliberate platform divergence, proven live rather than left as a comment-only claim
+# (hooks/_shared/ps-config.ps1's own header note): PowerShell's -contains is
+# case-insensitive, so a hand-edited uppercase entry needs no merge-layer case-fold here,
+# unlike the Node side's `.includes()`.
+$sm10 = Test-SaferMerge -GlobalCfg @{ disabledCanaries = @('ROT-CANARY') } -ProjectCfg $null
+Check 'safer-merge: disabledCanaries global-only uppercase entry still matches via -contains (PS case-insensitive by default, no fold needed)' ($sm10.disabledCanaries -contains 'rot-canary')
 
 Write-Host ''
 Write-Host "PS results: $pass passed, $fail failed"
