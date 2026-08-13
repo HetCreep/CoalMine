@@ -209,8 +209,11 @@ function loadCfg() {
         if (gi === -1 || pi === -1) continue; // unknown value: leave the shallow-merge result
         merged[key] = pi <= gi ? projectCfg[key] : globalValue; // project may not be LOUDER than the (explicit-or-default) global
       }
-      // Same BOTH-layers-explicit guard as SAFER_ENUM above, but the safer direction
-      // for an array is UNION (dedup), not "pick one side" — either side may add.
+      // Still BOTH-layers-explicit (unlike SAFER_ENUM above, which now clamps on
+      // project-alone since board #112) — an absent global here means "nothing to
+      // union", not an escalation risk, so there is no default to fall back to.
+      // The safer direction for an array is UNION (dedup), not "pick one side" —
+      // either side may add.
       for (const key of UNION_ARRAY_KEYS) {
         if (!globalCfg || !projectCfg || !Array.isArray(globalCfg[key]) || !Array.isArray(projectCfg[key])) continue;
         merged[key] = [...new Set([...globalCfg[key], ...projectCfg[key]])];
