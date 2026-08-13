@@ -124,6 +124,11 @@ test('ask stays silent one day before the window closes (boundary: days < update
 test('auto mode (due): injects the standing-consent check directive and writes the stamp', () => {
   const tmp = mkProject({ updateMode: 'auto' });
   try {
+    // board #112: an absent global now clamps a project-only 'auto' down to the
+    // schema default ('ask') — write an explicit global 'auto' so this test still
+    // reaches genuine auto mode without relying on the escalation hole that fix
+    // closes (covered on its own by the safer-value-wins tests below).
+    writeGlobal(tmp, { updateMode: 'auto' });
     const r = runConductor(tmp);
     assert.equal(r.status, 0);
     assert.ok(r.stdout.includes('standing consent'), 'auto directive present');
@@ -376,6 +381,29 @@ function writeProjectAtNewLocation(tmp, cfg) {
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'coalmine.json'), JSON.stringify(cfg), 'utf8');
 }
+
+// --- board #112: two shipped clamp defects, red-first before the fix ---
+test('updateMode safer-value-wins: project-only escalation with NO global config anywhere is clamped to the schema default, not "anything goes"', () => {
+  const tmp = mkProject({ updateMode: 'auto' }); // project escalates; no global .coalmine.json written at all
+  try {
+    assert.ok(!fs.existsSync(path.join(tmp, '.claude', '.coalmine.json')), 'precondition: no global config file exists');
+    const r = runConductor(tmp);
+    assert.equal(r.status, 0);
+    assert.ok(!r.stdout.includes('standing consent'), 'an absent global must not let a project "auto" through unclamped -- it clamps to the schema default (ask)');
+    assert.ok(r.stdout.includes('CoalMine self-update (ask'), 'clamped to the schema default "ask" directive, not the project-requested "auto"');
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
+
+test('updateMode safer-value-wins: case-insensitive clamp -- project "AUTO" (uppercase) cannot escape an explicit global "off"', () => {
+  const tmp = mkProject({ updateMode: 'AUTO' }); // project escalates, different case than the schema's lowercase enum
+  try {
+    writeGlobal(tmp, { updateMode: 'off' }); // explicit global safety choice, lowercase
+    const r = runConductor(tmp);
+    assert.equal(r.status, 0);
+    assert.ok(!r.stdout.includes('self-update'), 'global off must hold regardless of the project value\'s case -- "AUTO" is still "auto"');
+    assert.equal(readStamp(tmp), null, 'off must not create the update-check stamp');
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
+});
 
 test('clamp-unchanged regression: safer-value-wins still holds when the project value arrives via the NEW own-dir shape, not the legacy path', () => {
   const tmp = mkProject(); // no project .coalmine.json at the legacy root

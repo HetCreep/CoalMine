@@ -133,7 +133,22 @@ function readCfgFile(file) {
 // true exception: it is read by the AGENT from the raw file, never by any hook
 // via this merge, so a hook-side guard for IT would protect nothing — that half
 // of the old verdict stands.
-const SAFER_ENUM = { updateMode: ['off', 'remind', 'ask', 'auto'] }; // index 0 = safest
+// TWO DEFECTS CLOSED (board #112, 2026-08-13 — audited CoalWash's current
+// `mergeSafety`/config-load.mjs and CoalBoard's current
+// hooks/coalboard-conductor.js SAFER_ENUM before writing this, per
+// hooks-safety.md §9's own warning that its exemplar shipped this exact hole):
+// (1) an ABSENT global was treated as "project free" (`!globalCfg` skipped the
+// clamp entirely) — the common case, since most users never write a global
+// config — so a project-only .coalmine.json could set 'auto' unchallenged.
+// Fixed: an absent/unset global now reads as its SCHEMA DEFAULT
+// (scripts/lib/config-schema.mjs — not imported here, Phoenix #2 zero-dep,
+// mirrored the same way CoalBoard's own SAFER_ENUM carries its `default`
+// inline), never "anything goes". (2) CW H5 case-fold bug: `order.indexOf`
+// compared raw case, so a project value in a different case than the
+// lowercase enum (e.g. 'AUTO') missed the lookup (-1), fell through `continue`,
+// and won through the earlier shallow-merge unclamped. Fixed: both sides are
+// lowercased before the lookup.
+const SAFER_ENUM = { updateMode: { order: ['off', 'remind', 'ask', 'auto'], default: 'ask' } }; // index 0 = safest; default = config-schema.mjs's declared factory default
 // UNION-MERGE KEYS (hooks-safety.md section 9): a strArr key here is QUIETEN-only —
 // more entries can only REDUCE what a hook acts on, never escalate spend/consent — so
 // the project layer may ADD to the global layer's list, never silently drop an entry
@@ -164,15 +179,17 @@ function loadCfg() {
           merged[key] = src[key];
         }
       }
-      // Constrain ONLY when BOTH layers set the key explicitly (global absent =
-      // project free); an unknown value on either side leaves the shallow-merge
-      // result untouched.
-      for (const [key, order] of Object.entries(SAFER_ENUM)) {
-        if (!globalCfg || !projectCfg || globalCfg[key] === undefined || projectCfg[key] === undefined) continue;
-        const gi = order.indexOf(globalCfg[key]);
-        const pi = order.indexOf(projectCfg[key]);
+      // Constrain whenever the PROJECT sets the key — an absent global is its
+      // schema default, never "no preference to defend" (board #112). Case-fold
+      // both sides before the ordered lookup so a differently-cased project
+      // value cannot dodge the clamp (the CW H5 shape).
+      for (const [key, { order, default: def }] of Object.entries(SAFER_ENUM)) {
+        if (!projectCfg || projectCfg[key] === undefined) continue; // project didn't touch this key
+        const globalValue = (globalCfg && globalCfg[key] !== undefined) ? globalCfg[key] : def;
+        const gi = order.indexOf(String(globalValue).toLowerCase());
+        const pi = order.indexOf(String(projectCfg[key]).toLowerCase());
         if (gi === -1 || pi === -1) continue; // unknown value: leave the shallow-merge result
-        merged[key] = pi <= gi ? projectCfg[key] : globalCfg[key]; // project may not be LOUDER than global
+        merged[key] = pi <= gi ? projectCfg[key] : globalValue; // project may not be LOUDER than the (explicit-or-default) global
       }
       // Same BOTH-layers-explicit guard as SAFER_ENUM above, but the safer direction
       // for an array is UNION (dedup), not "pick one side" — either side may add.
