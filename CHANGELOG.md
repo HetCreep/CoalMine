@@ -2,7 +2,7 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
-## [Unreleased]
+## [3.17.0] - 2026-08-13
 
 ### Added
 - **`verify.mjs`'s DESC_CAP gate now also checks `.claude-plugin/plugin.json`'s OWN description field (board #64; CoalMine is the flock exemplar — the diff shape a later room copies verbatim).** Section 1.5 walked `skills/*/SKILL.md` + `commands/*.md` frontmatter only against the shared 1024-char cap (`desc-cap.mjs`'s `DESC_CAP`); the plugin manifest's own `description` field — the string a marketplace listing actually renders — was unchecked, so it could silently exceed the cap (CoalLedger shipped one at 1067 chars, only a human eye caught it). New section 1.6 reads `.claude-plugin/plugin.json` directly (plain JSON, not YAML frontmatter, so it bypasses `frontmatterField`/`descriptionCapCheck` and compares `pj.description.length` against the same imported `DESC_CAP` — the cap constant is never redefined) and FAILs with `.claude-plugin/plugin.json: description <N> chars exceeds the 1024-char cap`, matching the existing FAIL-line shape exactly. Proven RED-then-GREEN by hand (a planted 1025-char description FAILed the gate with that exact message; restored, PASSED again) before the new automated negative-path test (`render.test.mjs`, same tmp-repo-copy pattern as the existing stale-dist test) was added to keep it that way. CoalMine's own live `plugin.json` description measures 506/1024 chars — no trim needed, no dist change, no version bump.
