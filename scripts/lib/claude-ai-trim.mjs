@@ -30,17 +30,21 @@ export function trimDescription(description, cap = CLAUDE_AI_DESC_CAP) {
   // Deliberately NOT switched to code-point (Array.from) slicing -- and this is not
   // a guess about which counting convention claude.ai uses: for text containing
   // non-BMP characters, a UTF-16 code-unit count is NEVER less than the codepoint
-  // count or the UTF-8 byte count of the same string (a surrogate pair is 2 code
-  // units but always 1 codepoint and 4 bytes). So trimming to <= cap in code UNITS
-  // stays <= cap under EITHER counting convention -- it can only come in UNDER a
-  // codepoint- or byte-counted limit, never over. Dropping the one trailing lone
-  // surrogate preserves this dominance and fixes only the boundary defect.
+  // count of the same string (a surrogate pair is 2 code units but always 1
+  // codepoint). So trimming to <= cap in code UNITS stays <= cap in CODE POINTS too
+  // -- it can only come in UNDER a codepoint-counted limit, never over. (This
+  // dominance does NOT extend to UTF-8 byte count -- a 200-code-unit Thai/CJK
+  // string can measure ~600 bytes -- so it says nothing about a byte-counted cap.)
+  // Dropping the one trailing lone surrogate preserves this dominance and fixes
+  // only the boundary defect.
   //
-  // Scope note: this only cleans a surrogate this function's OWN slice produced.
-  // A lone surrogate already present in malformed input (upstream corruption, not
-  // ours to fix) passes through unchanged if the string never gets long enough to
-  // hit the trim path at all -- input validation is a separate concern from this
-  // function's job of not creating a NEW one at the cut boundary.
+  // Scope note: this only cleans a surrogate this function's OWN slice produced AT
+  // the cut boundary. A lone surrogate already present in malformed input (upstream
+  // corruption, not ours to fix) passes through unchanged regardless -- whether the
+  // string is short enough to skip trimming entirely, or long enough to hit the
+  // trim path with the stray surrogate sitting elsewhere, away from the one
+  // boundary this check inspects. Input validation is a separate concern from this
+  // function's job of not creating a NEW one at the cut.
   if (cut.length > 0) {
     const lastCode = cut.charCodeAt(cut.length - 1);
     if (lastCode >= 0xD800 && lastCode <= 0xDBFF) cut = cut.slice(0, -1);
