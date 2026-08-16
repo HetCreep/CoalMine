@@ -35,6 +35,7 @@ const TESTS = [
   'scripts/lib/config-paths.test.mjs',
   'scripts/lib/claude-ai-trim.test.mjs',
   'scripts/lib/build-claude-ai-zips.test.mjs',
+  'scripts/lib/publish-release.test.mjs',
 ];
 
 const missing = TESTS.filter((t) => !fs.existsSync(path.join(repo, t)));
