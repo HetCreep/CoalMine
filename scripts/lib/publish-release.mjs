@@ -45,6 +45,15 @@ function authHeaders(token) {
   };
 }
 
+// GitHub's own docs (Troubleshooting the REST API, confirmed 2026-08-16 -- not
+// assumed) state a 422 Validation Failed body carries an `errors` array with a
+// `code` field, and name `already_exists` as the code for "another resource
+// has the same value as one of your parameters" -- a unique-key collision,
+// exactly what a second create for the same tag_name produces.
+function isAlreadyExistsError(errorBody) {
+  return Array.isArray(errorBody?.errors) && errorBody.errors.some((e) => e?.code === 'already_exists');
+}
+
 // The HTTP-calling half, separated so publishRelease() can take a fetchImpl
 // override in tests -- a stub returning canned {status, json} pairs proves the
 // create-vs-update BRANCH is chosen correctly without a live network call
@@ -53,9 +62,8 @@ export async function publishRelease({ owner, repo, tag, title, body, token, fet
   if (!owner || !repo || !tag || !title || !token) {
     throw new Error('publishRelease requires owner, repo, tag, title, and token');
   }
-  const getRes = await fetchImpl(`${API_BASE}/repos/${owner}/${repo}/releases/tags/${encodeURIComponent(tag)}`, {
-    headers: authHeaders(token),
-  });
+  const tagUrl = `${API_BASE}/repos/${owner}/${repo}/releases/tags/${encodeURIComponent(tag)}`;
+  const getRes = await fetchImpl(tagUrl, { headers: authHeaders(token) });
   let existing = null;
   if (getRes.status === 200) {
     existing = await getRes.json();
@@ -64,14 +72,36 @@ export async function publishRelease({ owner, repo, tag, title, body, token, fet
   }
   const action = decideAction(existing);
   const payload = JSON.stringify({ tag_name: tag, name: title, body: body ?? '' });
-  const res = action === 'create'
+  let res = action === 'create'
     ? await fetchImpl(`${API_BASE}/repos/${owner}/${repo}/releases`, { method: 'POST', headers: authHeaders(token), body: payload })
     : await fetchImpl(`${API_BASE}/repos/${owner}/${repo}/releases/${existing.id}`, { method: 'PATCH', headers: authHeaders(token), body: payload });
+  let effectiveAction = action;
+  if (action === 'create' && res.status === 422) {
+    // The window this narrows (GET-then-POST is not atomic) is still real: something
+    // else (the CI workflow's own "Ensure Release exists" step, board #99) can create
+    // the release between our GET and our POST. A 422 whose error body names
+    // already_exists means the race was LOST, not that the request failed -- the
+    // release now exists, which is the outcome we wanted; re-fetch it and PATCH
+    // instead of throwing. Any OTHER 422 (a genuine validation failure) still fails
+    // loud below -- this branch never blanket-swallows the status code alone.
+    const errorBody = await res.json();
+    if (isAlreadyExistsError(errorBody)) {
+      const raceGetRes = await fetchImpl(tagUrl, { headers: authHeaders(token) });
+      if (raceGetRes.status !== 200) {
+        throw new Error(`create request got 422 already_exists, but re-fetching the release returned ${raceGetRes.status}`);
+      }
+      const raceWinner = await raceGetRes.json();
+      effectiveAction = 'update';
+      res = await fetchImpl(`${API_BASE}/repos/${owner}/${repo}/releases/${raceWinner.id}`, { method: 'PATCH', headers: authHeaders(token), body: payload });
+    } else {
+      throw new Error(`create request failed with status 422`);
+    }
+  }
   if (res.status < 200 || res.status >= 300) {
-    throw new Error(`${action} request failed with status ${res.status}`);
+    throw new Error(`${effectiveAction} request failed with status ${res.status}`);
   }
   const result = await res.json();
-  return { action, id: result.id, html_url: result.html_url, upload_url: result.upload_url };
+  return { action: effectiveAction, id: result.id, html_url: result.html_url, upload_url: result.upload_url };
 }
 
 async function main() {
