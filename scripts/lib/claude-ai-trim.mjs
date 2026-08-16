@@ -27,12 +27,20 @@ export function trimDescription(description, cap = CLAUDE_AI_DESC_CAP) {
   // downstream. The whitespace-boundary rescue below only fires when an ASCII space
   // exists in the first `budget` chars, so a spaceless description (Thai/CJK, no
   // ASCII word breaks) would otherwise ship the raw split (board #40 fixback F3).
-  // Deliberately NOT switched to code-point (Array.from) slicing: that would change
-  // what "200 chars" MEANS (code points instead of UTF-16 code units), and claude.ai's
-  // own cap almost certainly counts .length the same way every JS-based length check
-  // does -- an astral-heavy description could then pass our count while exceeding
-  // theirs. Dropping the one trailing lone surrogate preserves the existing counting
-  // semantics exactly and fixes only the boundary defect.
+  // Deliberately NOT switched to code-point (Array.from) slicing -- and this is not
+  // a guess about which counting convention claude.ai uses: for text containing
+  // non-BMP characters, a UTF-16 code-unit count is NEVER less than the codepoint
+  // count or the UTF-8 byte count of the same string (a surrogate pair is 2 code
+  // units but always 1 codepoint and 4 bytes). So trimming to <= cap in code UNITS
+  // stays <= cap under EITHER counting convention -- it can only come in UNDER a
+  // codepoint- or byte-counted limit, never over. Dropping the one trailing lone
+  // surrogate preserves this dominance and fixes only the boundary defect.
+  //
+  // Scope note: this only cleans a surrogate this function's OWN slice produced.
+  // A lone surrogate already present in malformed input (upstream corruption, not
+  // ours to fix) passes through unchanged if the string never gets long enough to
+  // hit the trim path at all -- input validation is a separate concern from this
+  // function's job of not creating a NEW one at the cut boundary.
   if (cut.length > 0) {
     const lastCode = cut.charCodeAt(cut.length - 1);
     if (lastCode >= 0xD800 && lastCode <= 0xDBFF) cut = cut.slice(0, -1);
