@@ -26,13 +26,26 @@ jobs:
         with:
           node-version: 24
 
+      - name: Check the tag is STABLE, not a pre-release (board #116 — scripts-quality.md section 3: tags = beta + stable, Releases = stable-only; this workflow creates a Release, implicitly "Latest", for ANY v* push today. Every CoalMine tag has been stable so far (68/68, 0 containing '-') so the gap has been invisible by luck, not by design -- a future beta tag (e.g. an rc) would publish it as the newest Release with no way to mark it prerelease.)
+        id: gate
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            echo "is_stable=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::${GITHUB_REF_NAME} is a pre-release tag -- Releases are stable-only here, skipping claude.ai ZIP packaging"
+          else
+            echo "is_stable=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Verify plugin/ dist is current (fail loud, never zip a stale dist)
+        if: steps.gate.outputs.is_stable == 'true'
         run: node scripts/verify.mjs
 
       - name: Stage trimmed-description skill directories
+        if: steps.gate.outputs.is_stable == 'true'
         run: node scripts/build-claude-ai-zips.mjs
 
       - name: Zip each staged skill directory
+        if: steps.gate.outputs.is_stable == 'true'
         run: |
           set -euo pipefail
           cd dist-claude-ai
@@ -43,6 +56,7 @@ jobs:
           ls -la *.zip
 
       - name: Generate SHA256SUMS.txt for the ZIPs (board #99 — a downloader had no way to verify integrity)
+        if: steps.gate.outputs.is_stable == 'true'
         run: |
           set -euo pipefail
           cd dist-claude-ai
@@ -50,6 +64,7 @@ jobs:
           cat SHA256SUMS.txt
 
       - name: Ensure the GitHub Release exists for this tag (board #99 — this trigger fires on the tag push, BEFORE main's separate REST call creates the Release; the v3.17.0 run failed here with "release not found". v3.17.1's OWN run then proved the `view || create` form itself unreliable: `gh release view` failed for an unlogged reason on a Release that demonstrably existed, falling through to `create`, which correctly reported "tag_name already exists" (422) and still failed the step. Replaced with a single idempotent `create`, swallowing the one expected failure mode directly instead of probing for it first.)
+        if: steps.gate.outputs.is_stable == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -58,6 +73,7 @@ jobs:
             { echo "::error::release create failed AND release view failed -- this is not the expected already-exists race" >&2; exit 1; }
 
       - name: Attach ZIPs + SHA256SUMS.txt to the GitHub Release for this tag
+        if: steps.gate.outputs.is_stable == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "${GITHUB_REF_NAME}" dist-claude-ai/*.zip dist-claude-ai/SHA256SUMS.txt --clobber
