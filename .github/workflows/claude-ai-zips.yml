@@ -13,12 +13,31 @@ on:
       - 'v*'
   workflow_dispatch: {} # board #99 findings-back: manual re-run against a tag ref whose push-triggered run already failed
 
+# Minimal top-level token (Scorecard Token-Permissions best practice); only the
+# build-zips job escalates to the write scope it needs to create the Release and
+# upload assets (alert #62, CLASS A1 -- was a top-level `contents: write`, granting
+# it to every job in the file although only this one job needs it).
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-zips:
     runs-on: ubuntu-latest
+    # board #118 -- CLASS: the same beta-tag guard (board #116) was tag-shape-only
+    # (checks for a hyphen in GITHUB_REF_NAME) and never checked ref_type. A
+    # workflow_dispatch against the DEFAULT BRANCH (main) has GITHUB_REF_NAME
+    # == "main" -- no hyphen -- so is_stable would read true and `gh release
+    # create "main"` would attempt a Release tagged "main". The Actions UI
+    # defaults its ref picker to the default branch, and workflow_dispatch
+    # exists specifically to re-run a FAILED release (the exact moment a human
+    # is most likely to click it). Job-level gate: nothing in this job runs at
+    # all unless the ref is genuinely a tag, whichever trigger fired it. The
+    # hyphen check below (board #116) still runs to separate stable from
+    # pre-release TAGS -- the two conditions are independent axes (is this a
+    # tag at all; is this tag stable), both must hold.
+    if: github.ref_type == 'tag'
+    permissions:
+      contents: write # only this job creates the Release and uploads assets
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
