@@ -12,6 +12,13 @@ if [ -f scripts/verify.mjs ]; then
   if command -v pwsh >/dev/null 2>&1; then
     pwsh -NoProfile -File scripts/lib/ps-config.test.ps1 || exit 1
     pwsh -NoProfile -File scripts/lib/ps-hooks.test.ps1 || exit 1
+  else
+    # gold-standard 2026-08-18/19 F12: this used to skip SILENTLY -- that silence
+    # masked 4 consecutive red CI pushes (board #113, v3.17.0-v3.17.2) because a
+    # stale PS assertion never ran locally on a pwsh-absent box and nobody noticed
+    # the gate hadn't actually checked anything. Visible, never blocking: CI covers
+    # the PS suites on every push regardless of what this box has installed.
+    echo "SKIP: PS suites not run (pwsh absent -- CI covers them)"
   fi
   node scripts/verify.mjs || exit 1
   # Doctrine-mirror + stamp check (machine-local rule homes, not required to exist —

@@ -12,6 +12,9 @@ if [ -f scripts/verify.mjs ]; then
   if command -v pwsh >/dev/null 2>&1; then
     pwsh -NoProfile -File scripts/lib/ps-config.test.ps1 || exit 1
     pwsh -NoProfile -File scripts/lib/ps-hooks.test.ps1 || exit 1
+  else
+    # gold-standard 2026-08-18/19 F12 -- see the matching comment in .githooks/pre-commit.
+    echo "SKIP: PS suites not run (pwsh absent -- CI covers them)"
   fi
   node scripts/verify.mjs || exit 1
   # Doctrine-mirror + stamp check — see the matching comment in .githooks/pre-commit.
