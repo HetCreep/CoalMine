@@ -533,6 +533,98 @@ test('rule stamps: well-formed passes, malformed fails, unstamped ignored', () =
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+// gold-standard 2026-08-18/19, adjudication A14/F5: a malformed paths: glob doesn't
+// error, it silently matches nothing forever — no signal anywhere. Same walk as the
+// stamp check above (checkRuleStamps), same file, no second disk pass.
+test('paths: glob shape — well-formed passes, an unclosed bracket expression FAILs naming the file and pattern', () => {
+  const dir = mkRepo();
+  try {
+    const mk = (rel, body) => { fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
+    mk('.claude/rules/ecc/node/runtime.md', '---\npaths:\n  - "**/*.mjs"\n  - "**/*.cjs"\n---\n# r\n');
+    assert.deepEqual(checkRuleStamps(dir), [], 'well-formed globs are clean');
+
+    mk('.claude/rules/ecc/node/broken.md', '---\npaths:\n  - "**/*.[mjs"\n---\n# r\n');
+    const f = checkRuleStamps(dir);
+    assert.equal(f.length, 1);
+    assert.match(f[0].msg, /broken\.md/);
+    assert.match(f[0].msg, /malformed paths: glob/);
+    assert.match(f[0].msg, /\*\*\/\*\.\[mjs/);
+    assert.match(f[0].msg, /unclosed '\['/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('paths: glob shape — an unclosed brace FAILs, an empty pattern FAILs, an over-budget brace expansion FAILs', () => {
+  const dir = mkRepo();
+  try {
+    const mk = (rel, body) => { fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
+
+    mk('.claude/rules/ecc/a.md', '---\npaths:\n  - "**/*.{mjs,cjs"\n---\n# r\n');
+    let f = checkRuleStamps(dir);
+    assert.equal(f.length, 1);
+    assert.match(f[0].msg, /unclosed '\{'/);
+    fs.rmSync(path.join(dir, '.claude/rules/ecc/a.md'));
+
+    mk('.claude/rules/ecc/a.md', '---\npaths:\n  - ""\n---\n# r\n');
+    f = checkRuleStamps(dir);
+    assert.equal(f.length, 1);
+    assert.match(f[0].msg, /empty pattern/);
+    fs.rmSync(path.join(dir, '.claude/rules/ecc/a.md'));
+
+    // Nested (not sibling) braces multiply: {{a,b}a,{a,b}b} at N levels = 2^N
+    // alternatives. 10 levels = 1024 > the 1000-alternative budget, in a short line.
+    let bigBrace = 'x';
+    for (let i = 0; i < 10; i++) bigBrace = `{${bigBrace}a,${bigBrace}b}`; // 2^10 = 1024 alternatives, nested
+    mk('.claude/rules/ecc/a.md', `---\npaths:\n  - "${bigBrace}"\n---\n# r\n`);
+    f = checkRuleStamps(dir);
+    assert.equal(f.length, 1);
+    assert.match(f[0].msg, /exceeds the 1000-alternative budget|brace nesting exceeds/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('paths: glob shape — SCOPE GUARD: a well-formed glob that matches no real file is NOT flagged (shape only, never "does it match")', () => {
+  const dir = mkRepo();
+  try {
+    const mk = (rel, body) => { fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
+    mk('.claude/rules/ecc/nowhere.md', '---\npaths:\n  - "**/*.this-extension-matches-nothing-in-this-repo"\n---\n# r\n');
+    assert.deepEqual(checkRuleStamps(dir), [], 'a syntactically valid glob is never judged on whether it matches anything');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// gold-standard INSPECT F5-1 (blocking MEDIUM, closed same round): the first budget
+// check discarded a closed TOP-LEVEL group's count instead of accumulating it, so N
+// SIBLING brace groups (which concatenate and multiply in real brace expansion)
+// evaded the check entirely — measured live: 20 sibling {a,b} groups in a 100-char
+// pattern compute 2^20 = 1,048,576 real alternatives and PASSED. This pins the exact
+// finding as a permanent regression.
+test('paths: glob shape — N SIBLING (not nested) brace groups accumulate and trip the budget, closing INSPECT F5-1', () => {
+  const dir = mkRepo();
+  try {
+    const mk = (rel, body) => { fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
+    const siblings = '{a,b}'.repeat(20); // 2^20 = 1,048,576 real alternatives, 100 chars, all top-level siblings
+    mk('.claude/rules/ecc/a.md', `---\npaths:\n  - "${siblings}"\n---\n# r\n`);
+    const f = checkRuleStamps(dir);
+    assert.equal(f.length, 1, 'sibling groups must accumulate into the budget check, not be discarded');
+    assert.match(f[0].msg, /exceeds the 1000-alternative budget/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// gold-standard INSPECT F5-3 (LOW, closed same round): a backslash-escaped '[' is a
+// literal bracket character, not a bracket-expression opener -- the original check
+// had no escape handling and flagged this syntactically valid, matching glob as
+// "unclosed '['". Pinned as a permanent regression.
+test('paths: glob shape — a backslash-escaped literal "[" is not mistaken for an unclosed bracket expression, closing INSPECT F5-3', () => {
+  const dir = mkRepo();
+  try {
+    const mk = (rel, body) => { fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
+    // frontmatterListField does no YAML-escape interpretation -- whatever's between the
+    // quotes in the file IS the pattern seen by the validator. One literal backslash
+    // char followed by '[' is what "escaped" means to isEscaped, so the file must
+    // contain exactly one backslash here (JS source '\\[' = one backslash + '[').
+    mk('.claude/rules/ecc/a.md', '---\npaths:\n  - "**/foo\\[bar.md"\n---\n# r\n');
+    assert.deepEqual(checkRuleStamps(dir), [], 'an escaped literal [ must not be read as a bracket-expression opener');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('manifest integrity: clean install verifies, post-install tamper is caught', () => {
   const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-sfc-'));
   try {

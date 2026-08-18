@@ -418,6 +418,114 @@ const STAMP_RE = /<!--\s*coalmine:\s*verified\s+\d{4}-\d{2}-\d{2}[\s\S]*?revalid
 // file. Bounding the input to a constant makes the per-file cost O(1) in the regex
 // (so O(n) over the file): even worst-case backtracking is over <= STAMP_WINDOW chars.
 const STAMP_WINDOW = 2048;
+
+// 3b. `paths:` frontmatter glob SHAPE (gold-standard 2026-08-18/19, adjudication
+// A14/F5). A `paths:`-gated rule file only loads when its glob matches something —
+// a malformed pattern doesn't error, it silently matches nothing, forever, with no
+// signal anywhere. FAIL is the correct level (unlike the stamp/marker checks that
+// fail closed on un-committable state): a malformed glob sits in a TRACKED file a
+// commit can fix. SCOPE GUARD, deliberately narrow: this validates that a pattern
+// PARSES (non-empty, balanced brackets, a bounded brace expansion) — it never asks
+// whether the glob matches the RIGHT files, which needs a live loader to answer
+// (InstructionsLoaded, routed elsewhere) and is a different question entirely.
+const BRACE_EXPANSION_BUDGET = 1000; // see checkBraceBudget — a defensible constant, not a spec citation
+const MAX_BRACE_NESTING = 8; // matches the STAMP_WINDOW idiom: bound the work, not trust the input
+
+// Extract a YAML list field from frontmatter: `key:` on its own line, followed by
+// `- item` lines. frontmatterField (desc-cap.mjs) only reads scalars; paths: is a
+// sequence, so this is a sibling extractor, not a duplicate.
+function frontmatterListField(text, key) {
+  const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!m) return null;
+  const lines = m[1].split(/\r?\n/);
+  const i = lines.findIndex((l) => l.trim() === key + ':');
+  if (i === -1) return null;
+  const items = [];
+  for (let j = i + 1; j < lines.length; j++) {
+    const lm = lines[j].match(/^\s*-\s*(.*)\s*$/);
+    if (!lm) break;
+    let v = lm[1].trim();
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+    items.push(v);
+  }
+  return items;
+}
+
+// Brace-expansion budget — CORRECTED after INSPECT F5-1 (gold-standard round):
+// the first version discarded a closed TOP-LEVEL group's count instead of folding
+// it into anything, so N SIBLING groups at the top level (`{a,b}{c,d}{e,f}...`,
+// which concatenate and multiply in real brace expansion) evaded the budget
+// entirely — a 100-char pattern computed 10^6 real alternatives and PASSed. Fixed
+// with `topProduct`: every group that closes back to depth 0 multiplies into a
+// persistent running product, checked against the budget after every multiply
+// (not just once at the very end) and again at EOF for a pattern with no closing
+// brace at all reachable from the loop.
+//
+// This is DELIBERATELY NOT a precise brace-expansion calculator — computing the
+// exact count needs the full recursive sum-within-alternatives / product-of-
+// concatenated-siblings grammar. What is required is a SAFE UPPER BOUND: never
+// silently PASS a pattern whose real expansion is pathological. `topProduct`
+// therefore multiplies in every closed group's own local count regardless of
+// whether that group nests inside a single alternative (where real semantics
+// would only SUM it) or sits alongside a sibling (where real semantics DOES
+// multiply it) — over-counting the nested-alternation case is the safe
+// direction (it can only make the check MORE conservative, never less), and it
+// is cheap: one multiply per closed brace, still O(n) over the pattern.
+function checkBraceBudget(pattern) {
+  const stack = [];
+  let topProduct = 1;
+  for (let i = 0; i < pattern.length; i++) {
+    const c = pattern[i];
+    if (c === '{') {
+      if (stack.length >= MAX_BRACE_NESTING) return `brace nesting exceeds ${MAX_BRACE_NESTING} at index ${i}`;
+      stack.push(1);
+    } else if (c === ',' && stack.length > 0) {
+      stack[stack.length - 1]++;
+    } else if (c === '}') {
+      if (stack.length === 0) continue; // a bare '}' with no opener is a literal char to most glob engines, not an error
+      const count = stack.pop();
+      if (stack.length > 0) {
+        stack[stack.length - 1] *= count;
+      } else {
+        topProduct *= count;
+        if (topProduct > BRACE_EXPANSION_BUDGET) return `brace expansion (>= ${topProduct} alternatives) exceeds the ${BRACE_EXPANSION_BUDGET}-alternative budget`;
+      }
+    }
+  }
+  if (stack.length > 0) return `unclosed '{' (${stack.length} deep)`;
+  return null;
+}
+
+// SHAPE only — non-empty, every UNESCAPED `[` finds a matching `]` (an unclosed
+// bracket expression matches nothing in most glob engines, which is the defect
+// this exists to catch), and a bounded brace expansion. Never asks whether the
+// pattern matches the intended files.
+//
+// INSPECT F5-3 (gold-standard round): a backslash-escaped `[` (`\[`, a literal
+// bracket character, not a bracket-expression opener) was flagged as "unclosed" —
+// a false positive on a syntactically valid AND matching glob. Fixed: a `[`
+// preceded by an odd number of backslashes is a literal, skipped without
+// requiring a `]`. (Deliberately simple, stated as a simplification rather than a
+// full engine: this counts only the immediately-preceding run of backslashes,
+// which is the standard shell/glob escaping convention — `\[` literal, `\\[`
+// literal backslash then a real bracket opener, etc.)
+function isEscaped(pattern, i) {
+  let backslashes = 0;
+  for (let j = i - 1; j >= 0 && pattern[j] === '\\'; j--) backslashes++;
+  return backslashes % 2 === 1;
+}
+function validateGlobShape(pattern) {
+  if (typeof pattern !== 'string' || pattern.trim() === '') return 'empty pattern';
+  for (let i = 0; i < pattern.length; i++) {
+    if (pattern[i] === '[' && !isEscaped(pattern, i)) {
+      const close = pattern.indexOf(']', i + 1);
+      if (close === -1) return `unclosed '[' at index ${i}`;
+      i = close;
+    }
+  }
+  return checkBraceBudget(pattern);
+}
+
 export function checkRuleStamps(repo) {
   const out = [];
   // Scope is the whole rules home (not just ecc/) — a stamp is well-formed or not
@@ -447,6 +555,16 @@ export function checkRuleStamps(repo) {
       }
       if (any && bad) {
         out.push({ level: 'FAIL', msg: `consistency: ${path.relative(repo, p)} has a malformed coalmine stamp (expected "verified <YYYY-MM-DD> ... revalidate <N>d")` });
+      }
+      // 3b. paths: glob shape — same walk, same file, no second pass over disk.
+      const globs = frontmatterListField(body, 'paths');
+      if (globs) {
+        for (const g of globs) {
+          const reason = validateGlobShape(g);
+          if (reason) {
+            out.push({ level: 'FAIL', msg: `consistency: ${path.relative(repo, p)} has a malformed paths: glob "${g}" (${reason}) — a malformed glob silently un-loads this file forever` });
+          }
+        }
       }
     }
   }
