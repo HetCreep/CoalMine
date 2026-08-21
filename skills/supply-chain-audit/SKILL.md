@@ -46,6 +46,15 @@ After the report, present via `ask_question`:
 
 NEVER auto-fix: dep version bump, lockfile regen (re-resolves entire transitive tree).
 
+## Grants & denials (CLASSIFY-BLOCK)
+| class | step it powers | grant | on denial |
+|---|---|---|---|
+| read | scan manifests/lockfiles; run the ecosystem auditor | `Read`·`Grep`·`Glob`·`Bash` (read-only) | refuse that manifest, name it in "Not scanned" — never a clean bill |
+| write | Fix mode's pin/commit | `Edit`·`Write` | report the pin as NOT applied, never claim done |
+| network | GHSA/OSV/NVD cross-check | `WebSearch`·`WebFetch` (or delegated to source-grounding) | `⚠️ unverified: check [advisory ID]` |
+
+<!-- SHARED:CLASSIFY_BLOCK -->
+
 ## Output
 `| package | direct/transitive | issue | severity | advisory | fixed-in | action |`
 Build+artifact checklist · Summary (counts + top fixes) · Not scanned

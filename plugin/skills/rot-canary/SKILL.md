@@ -46,6 +46,23 @@ After any scan report in an interactive session — manual run OR hook-nudged au
 
 NEVER auto-fix: live/reachable path · logic change · "API looks wrong" (ground via source-grounding first) · framework-wired code that only *looks* dead · SUSPECTED findings.
 
+## Grants & denials (CLASSIFY-BLOCK)
+| class | step it powers | grant | on denial |
+|---|---|---|---|
+| read | scan the touched/named files for the categories above | `Read`·`Grep`·`Glob`·`Bash` (read-only) | refuse that file, name it in the report — never a clean bill |
+| write | Fix mode's safe/interactive apply | `Edit` | report the fix as NOT applied, never claim done — **this skill runs unattended on the Stop hook under `autoFixMode: safe`; an Edit denial there has no interactive user to notice it, so the report line is the ONLY signal and MUST say so** |
+
+A denial reaches the WORKER as a visible message and propagates no further — never to a
+caller, never as a catchable condition. Every row above states a grant or an explicit death;
+a step that dies says so in the output, never as a false "done"/"skipped"/"clean".
+
+- **read** denied → refuse before scanning; never a false clean bill.
+- **write** denied → report the change as NOT applied — never claim done.
+- **network** denied/unfetchable → `⚠️ unverified: check [source]`.
+- **spawn** denied → degrade per Escalation's own capability-lever fallback (never fake
+  parallelism) and say the fan-out did not happen — already discharged there; a row above
+  is only for a spawn this skill does OUTSIDE tier escalation.
+
 ## Output
 | # | path:line | category | severity | finding | evidence | fix |
 

@@ -41,6 +41,14 @@ After the report, present via `ask_question`:
 
 NEVER auto-fix: retry/rollback/recovery/atomicity logic (semantic changes can introduce new failure modes).
 
+## Grants & denials (CLASSIFY-BLOCK)
+| class | step it powers | grant | on denial |
+|---|---|---|---|
+| read | trace failure paths for the 8 categories above | `Read`·`Grep`·`Glob` | refuse that file, name it — never a clean bill |
+| write | Fix mode's safe-guard apply | `Edit` | report the fix as NOT applied, never claim done |
+
+<!-- SHARED:CLASSIFY_BLOCK -->
+
 ## Output
 `| operation | failure mode | effect | handling (file:line) | severity | recommended guard |`
 Ordering/atomicity findings · Summary (counts + top fixes) · Not assessed

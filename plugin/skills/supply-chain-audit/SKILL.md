@@ -46,6 +46,24 @@ After the report, present via `ask_question`:
 
 NEVER auto-fix: dep version bump, lockfile regen (re-resolves entire transitive tree).
 
+## Grants & denials (CLASSIFY-BLOCK)
+| class | step it powers | grant | on denial |
+|---|---|---|---|
+| read | scan manifests/lockfiles; run the ecosystem auditor | `Read`·`Grep`·`Glob`·`Bash` (read-only) | refuse that manifest, name it in "Not scanned" — never a clean bill |
+| write | Fix mode's pin/commit | `Edit`·`Write` | report the pin as NOT applied, never claim done |
+| network | GHSA/OSV/NVD cross-check | `WebSearch`·`WebFetch` (or delegated to source-grounding) | `⚠️ unverified: check [advisory ID]` |
+
+A denial reaches the WORKER as a visible message and propagates no further — never to a
+caller, never as a catchable condition. Every row above states a grant or an explicit death;
+a step that dies says so in the output, never as a false "done"/"skipped"/"clean".
+
+- **read** denied → refuse before scanning; never a false clean bill.
+- **write** denied → report the change as NOT applied — never claim done.
+- **network** denied/unfetchable → `⚠️ unverified: check [source]`.
+- **spawn** denied → degrade per Escalation's own capability-lever fallback (never fake
+  parallelism) and say the fan-out did not happen — already discharged there; a row above
+  is only for a spawn this skill does OUTSIDE tier escalation.
+
 ## Output
 `| package | direct/transitive | issue | severity | advisory | fixed-in | action |`
 Build+artifact checklist · Summary (counts + top fixes) · Not scanned

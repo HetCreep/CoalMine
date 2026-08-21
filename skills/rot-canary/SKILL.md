@@ -46,6 +46,14 @@ After any scan report in an interactive session — manual run OR hook-nudged au
 
 NEVER auto-fix: live/reachable path · logic change · "API looks wrong" (ground via source-grounding first) · framework-wired code that only *looks* dead · SUSPECTED findings.
 
+## Grants & denials (CLASSIFY-BLOCK)
+| class | step it powers | grant | on denial |
+|---|---|---|---|
+| read | scan the touched/named files for the categories above | `Read`·`Grep`·`Glob`·`Bash` (read-only) | refuse that file, name it in the report — never a clean bill |
+| write | Fix mode's safe/interactive apply | `Edit` | report the fix as NOT applied, never claim done — **this skill runs unattended on the Stop hook under `autoFixMode: safe`; an Edit denial there has no interactive user to notice it, so the report line is the ONLY signal and MUST say so** |
+
+<!-- SHARED:CLASSIFY_BLOCK -->
+
 ## Output
 | # | path:line | category | severity | finding | evidence | fix |
 

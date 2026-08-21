@@ -100,6 +100,14 @@ Dedup: P5 restated at the RE-VALIDATE tombstone · P9 restated at the CONSISTENC
 
 D3 restated at four sites — the general clause, the Standard row's "(else single-agent)", the Heavy row's "if supported", and the Heavy-specific "escalate by model + reasoning only" — one row, four mentions. D4–D6 come from the shared Escalation footer below (Agent lane has no equivalent for D4/D5 — tier is asked, see G1, never degraded; D6 applies in either lane, wherever `ask_question` would fire). The Freshness cap (scope already audited this session → cap at Light) is a tier-selection modifier on G1, not a degrade branch — no capability lever is missing and there is no unhappy path, so it stays out of D.
 
+## Grants & denials (CLASSIFY-BLOCK)
+READ/SPAWN/NETWORK already discharged above — D1 covers network, D3/D4/D6 cover spawn/tier/no-question-tool. This table adds WRITE only.
+| class | step it powers | grant | on denial |
+|---|---|---|---|
+| write | FILL (write rules) · ADOPT (bind ruleset) · CONFORM (apply a fix) · RE-VALIDATE (re-stamp/rewrite/delete) | `Edit`·`Write` | report the rule/fix as NOT written — never say "filled"/"adopted"; ADOPT MUST NOT treat a denied FILL as binding |
+
+<!-- SHARED:CLASSIFY_BLOCK -->
+
 ## Output — 5 locations, declared
 (the AUDIT report only — FILL writes rules, RE-VALIDATE writes a tombstone, self error-report files an issue: none of those are part of this list)
 1. Bar — category + named exemplars

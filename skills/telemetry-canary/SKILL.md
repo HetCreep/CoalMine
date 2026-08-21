@@ -27,6 +27,14 @@ In Agent Context, after the report, present via `ask_question`:
 - **Let me pick:** user selects which telemetry gaps to resolve.
 - **Report only:** exit unchanged.
 
+## Grants & denials (CLASSIFY-BLOCK)
+| class | step it powers | grant | on denial |
+|---|---|---|---|
+| read | scan logging/metrics/error paths for the categories above | `Read`·`Grep`·`Glob` | refuse that file, name it — never a clean bill |
+| write | Fix mode's safe-log apply | `Edit` | report the fix as NOT applied, never claim done |
+
+<!-- SHARED:CLASSIFY_BLOCK -->
+
 ## Output
 `| file:line | category | severity | finding | recommendation |`
 
