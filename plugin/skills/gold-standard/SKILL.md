@@ -104,7 +104,7 @@ Dedup: P5 restated at the RE-VALIDATE tombstone · P9 restated at the CONSISTENC
 D3 restated at four sites — the general clause, the Standard row's "(else single-agent)", the Heavy row's "if supported", and the Heavy-specific "escalate by model + reasoning only" — one row, four mentions. D4–D6 come from the shared Escalation footer below (Agent lane has no equivalent for D4/D5 — tier is asked, see G1, never degraded; D6 applies in either lane, wherever `ask_question` would fire). The Freshness cap (scope already audited this session → cap at Light) is a tier-selection modifier on G1, not a degrade branch — no capability lever is missing and there is no unhappy path, so it stays out of D. D7/D8 are this skill's CLASSIFY-BLOCK branches (skill-authoring.md §5b) — numbered here, not restated in the table below.
 
 ## Grants & denials (CLASSIFY-BLOCK)
-SPAWN/TIER/QUESTION-TOOL already discharged above — D3/D4/D6. This table adds READ + WRITE; their denial branches are numbered into the Degrade paths ledger (D8, D7) rather than restated here.
+SPAWN/TIER/QUESTION-TOOL/NETWORK already discharged above — D3/D4/D6, D1. This table adds READ + WRITE; their denial branches are numbered into the Degrade paths ledger (D8, D7) rather than restated here.
 | class | step it powers | grant | on denial |
 |---|---|---|---|
 | read | AUDIT (scan exemplars/rule trees) · CONSISTENCY (scan memory/decision log) | `Read`·`Grep`·`Glob` | D8 |
