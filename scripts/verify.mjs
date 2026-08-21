@@ -53,6 +53,12 @@ for (const s of skills) {
     if (!/\bname:\s*\S/.test(head)) fail(`${s}: frontmatter 'name:' missing`);
     else if (!/\bdescription:\s*\S/.test(head)) fail(`${s}: frontmatter 'description:' missing`);
     else if (!src.includes('<!-- SHARED:')) fail(`${s}: source lost its SHARED template markers (conformed in place? restore the template)`);
+    // skill-authoring.md §5b CLASSIFY-BLOCK: 8 of 9 skills declare grants & denials;
+    // source-grounding is the one named exclusion (read+network only, D1 already covers
+    // the hot class — skills/_shared/README.md). A byte-compare alone (below, "plugin
+    // dist") only checks the marker's CONTENT where present; this checks PRESENCE, closing
+    // §5b's own fourth-tense gap ("no gate greps for the section") for the shared half.
+    else if (s !== 'source-grounding' && !src.includes('<!-- SHARED:CLASSIFY_BLOCK -->')) fail(`${s}: missing <!-- SHARED:CLASSIFY_BLOCK --> (skill-authoring.md §5b — every skill but source-grounding declares grants & denials)`);
     else pass(`${s}`);
   }
 }

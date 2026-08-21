@@ -36,7 +36,7 @@ In Agent Context, after the report, present via `ask_question`:
 | class | step it powers | grant | on denial |
 |---|---|---|---|
 | read | scan schema/API/serialization surfaces for the categories above | `Read`·`Grep`·`Glob` | refuse that file, name it — never a clean bill |
-| write | Fix mode's deprecation/compat-wrapper apply | `Edit` | report the fix as NOT applied, never claim done |
+| write | Fix mode's deprecation/compat-wrapper apply, incl. checkpoint → build+tests → auto-revert if newly red | `Edit`·`Bash` (checkpoint/build/revert need exec) | report the fix as NOT applied AND the checkpoint/revert as NOT available, never claim done |
 
 <!-- SHARED:CLASSIFY_BLOCK -->
 

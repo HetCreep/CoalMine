@@ -50,7 +50,7 @@ NEVER auto-fix: dep version bump, lockfile regen (re-resolves entire transitive 
 | class | step it powers | grant | on denial |
 |---|---|---|---|
 | read | scan manifests/lockfiles; run the ecosystem auditor | `Read`·`Grep`·`Glob`·`Bash` (read-only) | refuse that manifest, name it in "Not scanned" — never a clean bill |
-| write | Fix mode's pin/commit | `Edit`·`Write` | report the pin as NOT applied, never claim done |
+| write | Fix mode's pin/commit, incl. checkpoint → apply → verify | `Edit`·`Write`·`Bash` (checkpoint/verify need exec) | report the pin as NOT applied AND the checkpoint/verify as NOT available, never claim done |
 | network | GHSA/OSV/NVD cross-check | `WebSearch`·`WebFetch` (or delegated to source-grounding) | `⚠️ unverified: check [advisory ID]` |
 
 <!-- SHARED:CLASSIFY_BLOCK -->

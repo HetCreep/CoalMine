@@ -67,7 +67,7 @@ Correctness · Security · Performance · UX/DX · Docs/onboarding · Testing/CI
 - **Blocked lookups:** if sandbox/network blocks an external check, mark it **N-A** with justification — never guess (D1).
 - **Multi-source grounding:** never score from memory or a single source — cross-reference exemplars, registries, advisory feeds (GHSA/OSV/NVD) (P12).
 
-## Prohibitions (P1–P15, declared)
+## Prohibitions (P1–P16, declared)
 | # | never … |
 |---|---|
 | P1 | default to English just because this file is English |
@@ -85,10 +85,11 @@ Correctness · Security · Performance · UX/DX · Docs/onboarding · Testing/CI
 | P13 | fix without a chosen option (Hook lane) |
 | P14 | auto-submit the self error-report |
 | P15 | include unapproved code or paths in the self error-report |
+| P16 | treat a denied FILL/write as if it succeeded — ADOPT MUST NOT bind against rules that were never written |
 
-Dedup: P5 restated at the RE-VALIDATE tombstone · P9 restated at the CONSISTENCY sub-bullet · P11 restated in both Method §1 and Discipline — one row each, two mentions.
+Dedup: P5 restated at the RE-VALIDATE tombstone · P9 restated at the CONSISTENCY sub-bullet · P11 restated in both Method §1 and Discipline · P16 restated at the CLASSIFY-BLOCK write row — one row each, further mentions.
 
-## Degrade paths (D1–D6, declared)
+## Degrade paths (D1–D8, declared)
 | # | branch | condition | lane |
 |---|---|---|---|
 | D1 | mark **N-A** with justification, never guess | sandbox/network blocks an external lookup | universal |
@@ -97,14 +98,17 @@ Dedup: P5 restated at the RE-VALIDATE tombstone · P9 restated at the CONSISTENC
 | D4 | fixed at Light, no tier question, no sub-agents | Hook Context (auto-triggered) | Hook only |
 | D5 | report-only, no fix offered | Hook Context, interactive or non-interactive — this skill defines no Fix mode section, so the footer's deferral resolves to report-only either way | Hook only |
 | D6 | fall back to a numbered text menu | host has no question tool | universal |
+| D7 | report the rule/fix as NOT written, never say "filled"/"adopted" (P16) | write (`Edit`/`Write`) denied during FILL/ADOPT/CONFORM/RE-VALIDATE | universal |
+| D8 | refuse that file, name it — never a clean bill | read (`Read`/`Grep`/`Glob`) denied during AUDIT/CONSISTENCY scanning | universal |
 
-D3 restated at four sites — the general clause, the Standard row's "(else single-agent)", the Heavy row's "if supported", and the Heavy-specific "escalate by model + reasoning only" — one row, four mentions. D4–D6 come from the shared Escalation footer below (Agent lane has no equivalent for D4/D5 — tier is asked, see G1, never degraded; D6 applies in either lane, wherever `ask_question` would fire). The Freshness cap (scope already audited this session → cap at Light) is a tier-selection modifier on G1, not a degrade branch — no capability lever is missing and there is no unhappy path, so it stays out of D.
+D3 restated at four sites — the general clause, the Standard row's "(else single-agent)", the Heavy row's "if supported", and the Heavy-specific "escalate by model + reasoning only" — one row, four mentions. D4–D6 come from the shared Escalation footer below (Agent lane has no equivalent for D4/D5 — tier is asked, see G1, never degraded; D6 applies in either lane, wherever `ask_question` would fire). The Freshness cap (scope already audited this session → cap at Light) is a tier-selection modifier on G1, not a degrade branch — no capability lever is missing and there is no unhappy path, so it stays out of D. D7/D8 are this skill's CLASSIFY-BLOCK branches (skill-authoring.md §5b) — numbered here, not restated in the table below.
 
 ## Grants & denials (CLASSIFY-BLOCK)
-READ/SPAWN/NETWORK already discharged above — D1 covers network, D3/D4/D6 cover spawn/tier/no-question-tool. This table adds WRITE only.
+SPAWN/TIER/QUESTION-TOOL already discharged above — D3/D4/D6. This table adds READ + WRITE; their denial branches are numbered into the Degrade paths ledger (D8, D7) rather than restated here.
 | class | step it powers | grant | on denial |
 |---|---|---|---|
-| write | FILL (write rules) · ADOPT (bind ruleset) · CONFORM (apply a fix) · RE-VALIDATE (re-stamp/rewrite/delete) | `Edit`·`Write` | report the rule/fix as NOT written — never say "filled"/"adopted"; ADOPT MUST NOT treat a denied FILL as binding |
+| read | AUDIT (scan exemplars/rule trees) · CONSISTENCY (scan memory/decision log) | `Read`·`Grep`·`Glob` | D8 |
+| write | FILL · ADOPT · CONFORM · RE-VALIDATE | `Edit`·`Write` (·`Bash` — CONFORM's checkpoint→build/tests→revert interlock) | D7, P16 |
 
 A denial reaches the WORKER as a visible message and propagates no further — never to a
 caller, never as a catchable condition. Every row above states a grant or an explicit death;

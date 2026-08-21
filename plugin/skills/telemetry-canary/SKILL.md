@@ -31,7 +31,7 @@ In Agent Context, after the report, present via `ask_question`:
 | class | step it powers | grant | on denial |
 |---|---|---|---|
 | read | scan logging/metrics/error paths for the categories above | `Read`·`Grep`·`Glob` | refuse that file, name it — never a clean bill |
-| write | Fix mode's safe-log apply | `Edit` | report the fix as NOT applied, never claim done |
+| write | Fix mode's safe-log apply, incl. checkpoint → build+tests → auto-revert if newly red | `Edit`·`Bash` (checkpoint/build/revert need exec) | report the fix as NOT applied AND the checkpoint/revert as NOT available, never claim done |
 
 A denial reaches the WORKER as a visible message and propagates no further — never to a
 caller, never as a catchable condition. Every row above states a grant or an explicit death;

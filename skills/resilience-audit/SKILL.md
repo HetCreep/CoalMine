@@ -45,7 +45,7 @@ NEVER auto-fix: retry/rollback/recovery/atomicity logic (semantic changes can in
 | class | step it powers | grant | on denial |
 |---|---|---|---|
 | read | trace failure paths for the 8 categories above | `Read`·`Grep`·`Glob` | refuse that file, name it — never a clean bill |
-| write | Fix mode's safe-guard apply | `Edit` | report the fix as NOT applied, never claim done |
+| write | Fix mode's safe-guard apply, incl. checkpoint → build+tests → revert if newly red | `Edit`·`Bash` (checkpoint/build/revert need exec) | report the fix as NOT applied AND the checkpoint/revert as NOT available, never claim done |
 
 <!-- SHARED:CLASSIFY_BLOCK -->
 

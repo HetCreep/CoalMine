@@ -50,7 +50,7 @@ NEVER auto-fix: live/reachable path · logic change · "API looks wrong" (ground
 | class | step it powers | grant | on denial |
 |---|---|---|---|
 | read | scan the touched/named files for the categories above | `Read`·`Grep`·`Glob`·`Bash` (read-only) | refuse that file, name it in the report — never a clean bill |
-| write | Fix mode's safe/interactive apply | `Edit` | report the fix as NOT applied, never claim done — **this skill runs unattended on the Stop hook under `autoFixMode: safe`; an Edit denial there has no interactive user to notice it, so the report line is the ONLY signal and MUST say so** |
+| write | Fix mode's safe/interactive apply, incl. checkpoint → build+tests → auto-revert if newly red | `Edit`·`Bash` (checkpoint/build/revert need exec, not just file-write) | report the fix as NOT applied AND the checkpoint/revert as NOT available, never claim done — this skill runs unattended on the Stop hook under `autoFixMode: safe`, with no interactive user to notice a denial, so the report line is the only signal and it says so |
 
 A denial reaches the WORKER as a visible message and propagates no further — never to a
 caller, never as a catchable condition. Every row above states a grant or an explicit death;
