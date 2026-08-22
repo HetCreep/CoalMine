@@ -36,8 +36,12 @@ import { listSkills } from './render.mjs';
 //     never installed that rule home — this repo itself has neither tree today)
 //   - the tree PRESENT but a file missing from it → FAIL (drift wearing the costume
 //     of the carve-out)
-// Comparison is CRLF-normalized, not raw bytes: a line-ending difference between two
-// checkouts is not doctrine drift.
+// Comparison is RAW BYTES (board #125 — this comment said the opposite until 2026-08-22,
+// and the code it described was the defect): AGENTS.md's two-way-mirror rule calls the two
+// trees "byte-identical" and names this gate as its machine, so normalizing CRLF before the
+// compare made an EOL divergence invisible BY CONSTRUCTION. An EOL-only difference is still
+// reported, under its own EOL-DIVERGED classification with its own remedy (normalize the
+// line endings, do not touch content) — see the compare site below.
 //
 // THE TOMBSTONE LEDGER IS NOT A RULE and must not live in either tree — reversing this
 // file's own earlier "RETIRED.md mirrors like every other rule, deliberately NO
