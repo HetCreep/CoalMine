@@ -40,7 +40,7 @@ Hook cells assume an interactive session; non-interactive → D6, report-only: n
 ADOPT and every CONFORM fix: gated (G2/G3), never assumed (P2).
 
 1. **AUDIT** — pick 3–5 named exemplars **fresh at run time** (the bar moves with the era — never reuse a remembered bar (P3)), derive the 100% checklist per dimension, score (✅/🟡/❌/N-A), give overall %. Previously filled/adopted rules are audit subjects too: a rule past its `revalidate` due date or contradicted by today's exemplars is a gap.
-2. **FILL** — write missing MUST-HAVE rules into the project's rules home (`.claude/rules/` → `AGENTS.md` → `STANDARDS.md`). Match project style + voice. Cite the exemplar. Invoke source-grounding for version-sensitive claims. Extend existing; never duplicate (P4). Check the retired-rules record first — never resurrect a rule retired with a reason unless the user overrides (P5). No overkill rules — only essential, practical, saturated ones (P6). Stamp each rule: `<!-- coalmine: verified <YYYY-MM-DD> · exemplar <name> · revalidate <30|90>d -->` — 30d for fast-moving surfaces (agent platforms, model/API versions), 90d for general engineering. CVE/advisory rules re-validate on the advisory EVENT first; their 30d stamp is only the staleness backstop. Event override beats the calendar. (Rationale: `references/method.md`.)
+2. **FILL** — write missing MUST-HAVE rules into the project's rules home (`.claude/rules/` → `AGENTS.md` → `STANDARDS.md`). Match project style + voice. Cite the exemplar. Invoke source-grounding for version-sensitive claims. Extend existing; never duplicate (P4). Check the retired-rules record first — never resurrect a rule retired with a reason unless the user overrides (P5). No overkill rules — only essential, practical, saturated ones (P6). Stamp each rule: `<!-- coalmine: verified <YYYY-MM-DD> · exemplar <name> · revalidate <30|90>d -->` — 30d fast-moving surfaces, 90d general; a CVE/advisory rule's event overrides its calendar stamp. Mechanics + why: `references/method.md`.
 3. **ADOPT** — treat the completed ruleset as binding for the rest of the session. Code changes still need user approval — adoption governs *how* to work, not license to auto-edit (P7).
 4. **CONFORM** — scan existing code against adopted rules; report violations (`path:line` · rule · evidence). Fix on approval: checkpoint → one fix → build+tests → revert if newly red. Style Drift: conform minority patterns to the dominant style (highest average usage); never start a standalone style refactor (P8).
 5. **RE-VALIDATE** (runs inside every repeat AUDIT, or when offered on a past-due stamp) — verdict each CoalMine-stamped rule, all changes choice-gated (G4/P9):
@@ -61,11 +61,8 @@ Exemplar-picking rules, scorecard mechanics, stamp/tombstone formats: read `refe
 Correctness · Security · Performance · UX/DX · Docs/onboarding · Testing/CI · Distribution/integrity · Observability · Governance/licensing · Maintainability · Compatibility · Error handling
 
 ## Discipline
-- Don't inflate (P10). 85% should say 85%.
-- Every criterion cites a real exemplar — "npm does X", "Cargo does Y". No unsourced "best practice" (P11, same rule as Method §1).
 - State dimensions not assessed + why.
-- **Blocked lookups:** if sandbox/network blocks an external check, mark it **N-A** with justification — never guess (D1).
-- **Multi-source grounding:** never score from memory or a single source — cross-reference exemplars, registries, advisory feeds (GHSA/OSV/NVD) (P12).
+- Score/verify per P10–P12 + D1 (Prohibitions/Degrade paths below) — not restated here.
 
 ## Prohibitions (P1–P16, declared)
 | # | never … |
@@ -87,7 +84,7 @@ Correctness · Security · Performance · UX/DX · Docs/onboarding · Testing/CI
 | P15 | include unapproved code or paths in the self error-report |
 | P16 | treat a denied FILL/write as if it succeeded — ADOPT MUST NOT bind against rules that were never written |
 
-Dedup: P5 restated at the RE-VALIDATE tombstone · P9 restated at the CONSISTENCY sub-bullet · P11 restated in both Method §1 and Discipline · P16 restated at the CLASSIFY-BLOCK write row — one row each, further mentions.
+Dedup: P5 restated at the RE-VALIDATE tombstone · P9 restated at the CONSISTENCY sub-bullet · P11 restated at Method §1 · P16 restated at the CLASSIFY-BLOCK write row — one row each, further mentions.
 
 ## Degrade paths (D1–D8, declared)
 | # | branch | condition | lane |
