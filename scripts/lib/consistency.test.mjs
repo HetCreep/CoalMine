@@ -194,6 +194,33 @@ test('doctrine mirrors: an EOL-ONLY divergence FAILS (true byte-compare) and is 
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+// INSPECT MEDIUM on 0261598: the EOL-vs-content discriminator must be LOSSLESS.
+// `Buffer.toString('utf8')` maps every invalid byte sequence to U+FFFD, so two files
+// that genuinely differ in bytes can decode to ONE identical string — which handed a
+// real byte divergence the EOL remedy ("do NOT rewrite either file's content"), i.e.
+// told the operator to look away from a possible tampering. Red-first proven: against
+// the utf8-based discriminator this test's assertion reported EOL-DIVERGED.
+test('doctrine mirrors: an invalid-UTF-8 byte divergence is NOT mislabelled as EOL-only (lossless discriminator)', () => {
+  const dir = mkRepo();
+  try {
+    const rel = 'rules/ecc/domain/hooks-safety.md';
+    const claude = path.join(dir, '.claude', rel);
+    const agents = path.join(dir, '.agents', rel);
+    for (const p of [claude, agents]) fs.mkdirSync(path.dirname(p), { recursive: true });
+
+    // Two DIFFERENT byte strings that both decode to the same UTF-8 replacement text.
+    // Identical line endings, so the only difference is a byte utf8 would have eaten.
+    fs.writeFileSync(claude, Buffer.from([0x61, 0xC3, 0x28, 0x62, 0x0D, 0x0A]));
+    fs.writeFileSync(agents, Buffer.from([0x61, 0xC0, 0x28, 0x62, 0x0D, 0x0A]));
+
+    const f = checkDoctrineMirrors(dir);
+    assert.equal(f.length, 1, 'a byte divergence must be reported');
+    assert.doesNotMatch(f[0].msg, /EOL-DIVERGED/,
+      'invalid-UTF-8 bytes must not collapse into "same text, different line endings" — that remedy tells the operator not to inspect content');
+    assert.match(f[0].msg, /DIVERGED —/, 'it is a content/tamper divergence and must say so');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('doctrine mirrors: a MALFORMED rule home fails closed — only a genuinely ABSENT one gets the carve-out', () => {
   const dir = mkRepo();
   try {

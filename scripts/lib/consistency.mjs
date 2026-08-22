@@ -63,8 +63,6 @@ import { listSkills } from './render.mjs';
 const MIRROR_ROOTS = ['.claude/rules/ecc', '.agents/rules/ecc'];
 const TOMBSTONE = 'RETIRED.md';
 
-const norm = (s) => s.replace(/\r\n/g, '\n');
-
 // WHERE the two doctrine rule homes actually live is NOT always `repo`. CoalMine
 // itself carries neither tree — its own rules load via the up-tree `@import` walk
 // from the UMBRELLA (`TheColliery/`), CoalMine's *parent* directory on the layout
@@ -360,12 +358,12 @@ export function checkDoctrineMirrors(repo) {
   // Whole tree absent on either side = this clone does not keep that rule home.
   if (kinds.includes('absent')) return out;
 
-  // TRUE BYTE-COMPARE (board #125). This read used to be `norm(readFileSync(abs,'utf8'))`,
-  // stripping CRLF→LF BEFORE the compare — so an EOL-only divergence between the two
-  // trees was invisible BY CONSTRUCTION, while AGENTS.md's two-way-mirror rule says the
-  // trees are "byte-identical" and names THIS function as the machine that keeps them so.
-  // The gate enforced a weaker standard than the constitution it implements. Read raw
-  // bytes; `norm` survives below only to CLASSIFY a mismatch, never to hide one.
+  // TRUE BYTE-COMPARE (board #125). This read used to strip CRLF→LF BEFORE the compare —
+  // so an EOL-only divergence between the two trees was invisible BY CONSTRUCTION, while
+  // AGENTS.md's two-way-mirror rule says the trees are "byte-identical" and names THIS
+  // function as the machine that keeps them so. The gate enforced a weaker standard than
+  // the constitution it implements. Read raw bytes; the CRLF strip survives below only to
+  // CLASSIFY a mismatch, never to hide one.
   const read = (abs) => { try { return fs.readFileSync(abs); } catch (e) { return e; } };
   const side = (root) => { try { return new Map([...walkMd(root)].map((f) => [f.rel, f.abs])); } catch (e) { return e; } };
   const a = side(claudeRoot);
@@ -403,7 +401,16 @@ export function checkDoctrineMirrors(repo) {
       // the wrong fix attached (the tombstone check's backwards "copy it to the other
       // tree" message, `cedb19e`). Same bytes modulo line endings => the rulebooks agree
       // and only the encoding drifted; anything else is a real text difference.
-      const eolOnly = norm(ba.toString('utf8')) === norm(bb.toString('utf8'));
+      // The discriminator must be LOSSLESS, or it mislabels the dangerous case as the
+      // benign one (INSPECT MEDIUM, board #125). `toString('utf8')` maps EVERY invalid
+      // byte sequence to U+FFFD, so two genuinely different files can decode to one
+      // identical string — measured: <61 C3 28 62> vs <61 C0 28 62> both decode "a�(b",
+      // which classified a real byte divergence as EOL-only and handed the operator the
+      // remedy "do NOT rewrite either file's content" for a possible tampering. `latin1`
+      // is a total byte<->code-unit bijection (verified across all 256 values), so nothing
+      // can collapse; the strip stays a pure byte operation.
+      const stripCR = (buf) => Buffer.from(buf.toString('latin1').replace(/\r\n/g, '\n'), 'latin1');
+      const eolOnly = Buffer.compare(stripCR(ba), stripCR(bb)) === 0;
       out.push(eolOnly
         ? { level: 'FAIL', msg: `consistency: doctrine '${rel}' EOL-DIVERGED — same text, different line endings (${MIRROR_ROOTS[0]}/${rel} vs ${MIRROR_ROOTS[1]}/${rel}). The trees are byte-identical by rule; normalize both to CRLF (this flock's dominant convention), do NOT rewrite either file's content.` }
         : { level: 'FAIL', msg: `consistency: doctrine '${rel}' DIVERGED — ${MIRROR_ROOTS[1]}/${rel} differs from ${MIRROR_ROOTS[0]}/${rel} (stale mirror or tampering)` });
