@@ -360,7 +360,13 @@ export function checkDoctrineMirrors(repo) {
   // Whole tree absent on either side = this clone does not keep that rule home.
   if (kinds.includes('absent')) return out;
 
-  const read = (abs) => { try { return norm(fs.readFileSync(abs, 'utf8')); } catch (e) { return e; } };
+  // TRUE BYTE-COMPARE (board #125). This read used to be `norm(readFileSync(abs,'utf8'))`,
+  // stripping CRLF→LF BEFORE the compare — so an EOL-only divergence between the two
+  // trees was invisible BY CONSTRUCTION, while AGENTS.md's two-way-mirror rule says the
+  // trees are "byte-identical" and names THIS function as the machine that keeps them so.
+  // The gate enforced a weaker standard than the constitution it implements. Read raw
+  // bytes; `norm` survives below only to CLASSIFY a mismatch, never to hide one.
+  const read = (abs) => { try { return fs.readFileSync(abs); } catch (e) { return e; } };
   const side = (root) => { try { return new Map([...walkMd(root)].map((f) => [f.rel, f.abs])); } catch (e) { return e; } };
   const a = side(claudeRoot);
   const b = side(agentsRoot);
@@ -391,8 +397,16 @@ export function checkDoctrineMirrors(repo) {
       if (body instanceof Error) out.push({ level: 'FAIL', msg: `consistency: ${root}/${rel} unreadable: ${body.message}` });
     }
     if (ba instanceof Error || bb instanceof Error) continue;
-    if (ba !== bb) {
-      out.push({ level: 'FAIL', msg: `consistency: doctrine '${rel}' DIVERGED — ${MIRROR_ROOTS[1]}/${rel} differs from ${MIRROR_ROOTS[0]}/${rel} (stale mirror or tampering)` });
+    if (Buffer.compare(ba, bb) !== 0) {
+      // Classify before reporting: an EOL-only divergence and a CONTENT divergence need
+      // OPPOSITE remedies, and the room has already paid once for a gate that fired with
+      // the wrong fix attached (the tombstone check's backwards "copy it to the other
+      // tree" message, `cedb19e`). Same bytes modulo line endings => the rulebooks agree
+      // and only the encoding drifted; anything else is a real text difference.
+      const eolOnly = norm(ba.toString('utf8')) === norm(bb.toString('utf8'));
+      out.push(eolOnly
+        ? { level: 'FAIL', msg: `consistency: doctrine '${rel}' EOL-DIVERGED — same text, different line endings (${MIRROR_ROOTS[0]}/${rel} vs ${MIRROR_ROOTS[1]}/${rel}). The trees are byte-identical by rule; normalize both to CRLF (this flock's dominant convention), do NOT rewrite either file's content.` }
+        : { level: 'FAIL', msg: `consistency: doctrine '${rel}' DIVERGED — ${MIRROR_ROOTS[1]}/${rel} differs from ${MIRROR_ROOTS[0]}/${rel} (stale mirror or tampering)` });
     }
   }
   return out;

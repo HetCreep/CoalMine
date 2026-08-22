@@ -157,6 +157,43 @@ test('doctrine mirrors: identical copies pass, a diverged copy fails', () => {
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+// board #125: the compare used to normalize CRLF->LF BEFORE comparing, so an EOL-only
+// divergence was invisible BY CONSTRUCTION while AGENTS.md's two-way-mirror rule calls
+// the trees "byte-identical" and names this function as its machine. Red-first proven:
+// against the pre-fix module this test's [2] leg returned [] (the silent hole).
+test('doctrine mirrors: an EOL-ONLY divergence FAILS (true byte-compare) and is classified apart from a content divergence', () => {
+  const dir = mkRepo();
+  try {
+    const mk = (rel, body) => { fs.mkdirSync(path.join(dir, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(dir, rel), body); };
+    const CRLF = '# Rule\r\nline one\r\nline two\r\n';
+    const LF = '# Rule\nline one\nline two\n';
+    const twin = '.agents/rules/ecc/domain/hooks-safety.md';
+    mk('.claude/rules/ecc/domain/hooks-safety.md', CRLF);
+    mk(twin, CRLF);
+    assert.deepEqual(checkDoctrineMirrors(dir), [], 'control: byte-identical mirrors stay silent');
+
+    // [2] same text, different line endings — the case the old norm() swallowed.
+    fs.writeFileSync(path.join(dir, twin), LF);
+    const eol = checkDoctrineMirrors(dir);
+    assert.equal(eol.length, 1, 'an EOL-only divergence must be VISIBLE, not normalized away');
+    assert.match(eol[0].msg, /EOL-DIVERGED/);
+    // The remedy must be the EOL one: normalizing line endings, never rewriting content.
+    assert.match(eol[0].msg, /normalize both to CRLF/);
+
+    // [3] a real content difference must NOT be mislabelled as an encoding problem —
+    // the two findings prescribe opposite fixes, so the classification is load-bearing.
+    fs.writeFileSync(path.join(dir, twin), '# Rule\r\nline one\r\nTAMPERED\r\n');
+    const content = checkDoctrineMirrors(dir);
+    assert.equal(content.length, 1);
+    assert.doesNotMatch(content[0].msg, /EOL-DIVERGED/, 'a content divergence is not an EOL divergence');
+    assert.match(content[0].msg, /DIVERGED —/);
+
+    // [4] restoring byte-identity clears it — no sticky state.
+    fs.writeFileSync(path.join(dir, twin), CRLF);
+    assert.deepEqual(checkDoctrineMirrors(dir), [], 'restored byte-identity is clean again');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('doctrine mirrors: a MALFORMED rule home fails closed — only a genuinely ABSENT one gets the carve-out', () => {
   const dir = mkRepo();
   try {
