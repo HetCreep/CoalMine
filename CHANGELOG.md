@@ -2,6 +2,12 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [Unreleased]
+
+### Security
+
+- **Every `os.tmpdir()` write in the shipped hooks now passes an explicit `mode: 0o600` (CWK-043, CodeQL `js/insecure-temporary-file` #66/#67).** Four sites: the sweep-throttle stamp and the `.scanned` acknowledgement marker in `rot-canary-stop.js`, the AG conductor's once-per-session marker, and `rot-canary-touch.js`'s `.memmoved` marker. Two were reported (the stamp and its `plugin/` twin); the other two are the same shape and were fixed in the same batch rather than left for a later scan. **Not only alert-appeasement:** these files previously took the default mode (`0o666 & ~umask`), and on a shared Unix `/tmp` that mode is the only thing scoping them to the current user — the two markers under `<tmp>/coalmine/` sit in a `0o700` dir, but `mkdirSync`'s `mode` is a no-op when the dir already exists, so a pre-created world-writable `<tmp>/coalmine` leaves the file's own mode as the last line; the other two are flat `os.tmpdir()` writes with no private dir at all. The `flag: 'wx'` on three of them is unchanged and does separate work (`O_EXCL` refuses a pre-planted name, link or not). Re-derived from the query source before fixing: the sink is a temp-dir write with **no `mode`** (or a mode whose low 6 bits are not all zero) — it reads the mode argument only, never the flag, the directory's permissions, the `lstat` guards, or filename randomness, so a random filename suffix would not have closed it. `appendFileSync` is not among the rule's 14 sinks and was left alone rather than changed for symmetry; the update-check stamp is under `os.homedir()`, not a temp dir, and is likewise unchanged. PowerShell twins not ported, divergence named in both `alt/powershell/rot-canary-stop.ps1` and `alt/powershell/README.md`'s Known-differences list: `[System.IO.File]::WriteAllText` has no mode parameter, and POSIX modes are not the access model on NTFS.
+
 ## [3.18.2] - 2026-08-31
 
 ### Security

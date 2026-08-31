@@ -579,7 +579,12 @@ function agMain(cfg, updateMode) {
   try {
     fs.mkdirSync(markerDir, { recursive: true, mode: 0o700 });
     if (fs.lstatSync(markerDir).isSymbolicLink()) return; // dir-symlink residual -> fail-closed (see above)
-    fs.writeFileSync(marker, '', { flag: 'wx' });
+    // `mode: 0o600` — same class as the sweep stamp in rot-canary-stop.js (CodeQL
+    // js/insecure-temporary-file #66/#67's rule: a temp-dir write with no `mode` is the
+    // sink; the flag is not read). Real work, not appeasement: mkdir's `mode` above is a
+    // no-op when the dir already exists, so a pre-created world-writable `<tmp>/coalmine`
+    // leaves this file's own mode as the only per-user scoping on a shared /tmp.
+    fs.writeFileSync(marker, '', { flag: 'wx', mode: 0o600 });
   } catch { return; } // EEXIST (already ran) OR any write failure -> fail-closed, no emit
   // Resolved ONCE, shared by the onboarding check (buildLines) and KIND 2 below — the payload
   // names the workspace (the hook process's own cwd is the hooks.json dir on AG, not the

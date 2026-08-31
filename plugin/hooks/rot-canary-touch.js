@@ -546,7 +546,11 @@ function main() {
     // js/insecure-temporary-file); wx also refuses to write through a pre-planted
     // symlink. Name stays sid-scoped flat tmp like the sibling .touched/.smells
     // state (the session-UUID makes it unpredictable — the dismissed-FP class).
-    try { fs.writeFileSync(base + '.memmoved', '', { flag: 'wx' }); } catch {}
+    // `mode: 0o600` — flat os.tmpdir(), no private subdir, so on a shared Unix /tmp this
+    // file's own mode is the only thing scoping it to this user. Same CodeQL sink class as
+    // #66/#67 (a temp-dir write with no `mode`); found by the CWK-043 batch sweep, never
+    // itself reported. The sid in the name is unpredictability, which that rule does not read.
+    try { fs.writeFileSync(base + '.memmoved', '', { flag: 'wx', mode: 0o600 }); } catch {}
     return; // .md is never in the watched code-extension set — nothing else to record
   }
 

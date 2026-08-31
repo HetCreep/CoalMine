@@ -780,6 +780,36 @@ test('stop hook: a FRESH symlink at the marker is never obeyed as a throttle —
   }
 });
 
+test('stop hook: the .scanned temp marker is created 0o600, not the default mode (CWK-043)', (t) => {
+  // CodeQL js/insecure-temporary-file (#66/#67) sinks a temp-dir write that passes NO `mode`
+  // (or one whose low 6 bits are not all zero) — re-derived from the query source: it reads
+  // the mode argument ONLY, never the flag, the dir's permissions, or filename randomness.
+  // Beyond the alert it is real defence-in-depth: these are FLAT os.tmpdir() writes, so on a
+  // shared Unix /tmp the file's own mode is the only thing scoping it to this user.
+  // POSIX-only assertion: Windows/NTFS uses ACLs and reports a synthetic mode, so the check
+  // would be meaningless there — skipped visibly rather than asserted into a false pass.
+  if (process.platform === 'win32') {
+    t.skip('POSIX mode bits are not the access model on Windows/NTFS (ACLs are) — nothing to assert');
+    return; // t.skip does not stop the body; return so this is a visible skip, never a vacuous pass
+  }
+  const tmp = mkTmp();
+  try {
+    const touched = path.join(tmp, 'rot-canary-MODE.touched');
+    fs.writeFileSync(touched, 'C:\\proj\\x.js\n');
+    const r = runHook(STOP, JSON.stringify({ session_id: 'MODE', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    const scanned = path.join(tmp, 'rot-canary-MODE.scanned');
+    assert.ok(fs.existsSync(scanned), 'the acknowledgement marker must have been written');
+    assert.equal(
+      fs.statSync(scanned).mode & 0o777,
+      0o600,
+      'the temp marker must be owner-only — a default-mode temp write is the CodeQL sink',
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('stop hook: a stranded rename `.tmp` is reaped by the subdir sweep (INSPECT L3 — SIGKILL residue)', () => {
   // The catch's unlinkSync covers the EXCEPTION path only; process death between the write
   // and the rename strands `.sweep-<pid>.tmp`, which the subdir sweep could not collect while

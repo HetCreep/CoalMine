@@ -438,7 +438,18 @@ function sweepStale(canaryActive) {
       // world-writable, which we would not tighten.
       fs.mkdirSync(markerDir, { recursive: true, mode: 0o700 });
       if (fs.lstatSync(markerDir).isSymbolicLink()) return; // dir-symlink → fail-closed, no write, no sweep
-      fs.writeFileSync(stamp, '', { flag: 'wx' });
+      // `mode: 0o600` is defence-in-depth for the residual named four lines above, not
+      // alert-appeasement: when the dir already exists, mkdir's `mode` is a no-op, so a
+      // third party who pre-created `<tmp>/coalmine` world-writable leaves it permissive —
+      // and in exactly that case this file's own default mode (0o666 & ~umask) is all that
+      // stands between the stamp and another user. `flag: 'wx'` stays and is doing separate
+      // work (O_EXCL refuses a pre-planted name, link or not); it is not what mode replaces.
+      // It also closes CodeQL js/insecure-temporary-file #66/#67, whose sink fires on a
+      // temp-dir write with no `mode` (or a mode whose low 6 bits are not all zero) —
+      // re-derived from the query source: it reads the mode argument ONLY, never the flag,
+      // the dir's 0o700, the lstat guards, or filename randomness. A random suffix, the
+      // other fix proposed for this, would not have closed it.
+      fs.writeFileSync(stamp, '', { flag: 'wx', mode: 0o600 });
       fs.renameSync(stamp, marker);
     } catch {
       // Never leave the per-pid temp behind (Phoenix #1). This covers the EXCEPTION path
@@ -792,7 +803,11 @@ function main() {
   // Acknowledgement marker — store the mtime of .touched when we started the check
   // (so a later stop in this batch re-surfaces neither the scan nor the drift note).
   try {
-    fs.writeFileSync(scanned, String(touchedMtime), 'utf8');
+    // 0o600 for the same reason as the sweep stamp above: this is a flat os.tmpdir() write
+    // (no private subdir at all here), so on a shared Unix /tmp the file's own mode is the
+    // only thing scoping it to this user. Same CodeQL sink class (#66/#67's rule), caught by
+    // the batch sweep rather than by an alert — this site was never reported.
+    fs.writeFileSync(scanned, String(touchedMtime), { encoding: 'utf8', mode: 0o600 });
   } catch {}
 
   // Emit. AG mode (an event-name argv — ONLY the Antigravity template passes one):

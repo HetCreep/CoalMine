@@ -271,6 +271,16 @@ try {
   # here - but a same-user process can already write this user's files directly, so it
   # crosses no privilege boundary and gains nothing. Re-open this if the PS fallback is
   # ever made to run on a Unix shell.
+  #
+  # SAME DIVERGENCE, SECOND HALF (CWK-043, 2026-08-31): the Node twins now pass an explicit
+  # `mode: 0o600` on every os.tmpdir() write (CodeQL js/insecure-temporary-file #66/#67 -
+  # its sink is a temp write with no mode). NOT portable here and not needed here, for two
+  # independent reasons: [System.IO.File]::WriteAllText has no mode/permission parameter at
+  # all, and a POSIX mode is not the access model on NTFS (ACLs are) - so there is nothing
+  # to pass and nothing it would mean. The threat it hardens against is also absent for the
+  # reasons above: $env:TEMP is per-user and ACL'd, so this file is already scoped to this
+  # user by the directory it sits in. Applies to BOTH WriteAllText calls in this script
+  # (this marker and the .scanned acknowledgement marker below).
   $marker = Join-Path $env:TEMP 'rot-canary-sweep.marker'
   $doSweep = $true
   if ([System.IO.File]::Exists($marker)) {
