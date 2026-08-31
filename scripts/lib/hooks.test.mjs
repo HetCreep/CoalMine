@@ -655,6 +655,146 @@ test('stop hook DOES sweep stale temp on the active (auto) path', () => {
   }
 });
 
+test('stop hook: a pre-planted SYMLINK at the sweep-throttle marker never truncates its target (CWK-031/U8)', (t) => {
+  const tmp = mkTmp();
+  const victim = path.join(mkTmp(), 'victim.txt');
+  try {
+    // The U8 defect: the throttle marker sat FLAT in the shared tmp ROOT under a fixed name,
+    // written with the default 'w' flag, which FOLLOWS a symlink at the destination. On Unix
+    // any local user could pre-plant a link there and have the victim's next Stop truncate the
+    // target. The security property under test is PATH-INDEPENDENT — "no code path of this hook
+    // truncates a file through a planted marker symlink" — so the link is planted at BOTH the
+    // pre-U8 flat-root path AND the post-U8 subdir path. That is what makes this red-first
+    // against the unmodified hook (which stat-follows the flat link to a backdated victim,
+    // decides the throttle is expired, and writes THROUGH it) while staying honest about the
+    // fact that the fix also moved the file.
+    fs.writeFileSync(victim, 'PRECIOUS\n');
+    // Backdate the victim: the pre-fix code stat()s THROUGH the link, so a fresh victim mtime
+    // would trip the 24h throttle and the old code would return before writing — hiding its own
+    // bug behind an unrelated early exit. Backdating forces the old code down the write path.
+    const old = Date.now() - 99 * 24 * 60 * 60 * 1000;
+    fs.utimesSync(victim, new Date(old), new Date(old));
+
+    const markerDir = path.join(tmp, 'coalmine');
+    fs.mkdirSync(markerDir, { recursive: true });
+    try {
+      // 'junction' is the unprivileged Windows shim but is DIR-only; a file symlink needs
+      // Developer Mode. Try the real file link and skip visibly with the errno if refused.
+      fs.symlinkSync(victim, path.join(tmp, 'rot-canary-sweep.marker'), 'file');
+      fs.symlinkSync(victim, path.join(markerDir, 'rot-canary-sweep.marker'), 'file');
+    } catch (e) {
+      t.skip(`cannot create a file symlink here (${e.code}) — needs Developer Mode/privilege on Windows`);
+      return; // t.skip does not stop the body; return so this is a visible skip, never a vacuous pass
+    }
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'SYMU8', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0, 'fail-silent still exits 0 (Phoenix #4)');
+    assert.equal(fs.readFileSync(victim, 'utf8'), 'PRECIOUS\n', 'the symlink target must NOT be truncated');
+  } finally {
+    fs.rmSync(path.dirname(victim), { recursive: true, force: true });
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('stop hook: an ALIASED (hard-linked) sweep marker is replaced, never written through (CWK-031/U8, unprivileged)', (t) => {
+  // The privilege-free half of the test above, and on a stock Windows box the ONLY one that
+  // actually runs: creating a file SYMLINK needs Developer Mode (EPERM here), and 'junction' is
+  // dir-only so it cannot stand in for a file. A HARD LINK needs no privilege and exercises the
+  // SAME distinguishing semantics the fix turns on — a second directory entry for one inode:
+  //   write(path, 'w')      → writes THROUGH the entry into the shared inode → victim truncated
+  //   rename(tmp, path)     → REPLACES the directory entry → the victim's own name keeps its bytes
+  // Measured on this box before it was relied on: 'w' left the victim "", rename left it intact.
+  // It does not model an attacker crossing a privilege boundary (a hard link needs write access
+  // to the target already) — it models the WRITE SEMANTICS, which is the property the fix changes.
+  const tmp = mkTmp();
+  const victimDir = mkTmp();
+  const victim = path.join(victimDir, 'victim.txt');
+  try {
+    fs.writeFileSync(victim, 'PRECIOUS\n');
+    const old = Date.now() - 99 * 24 * 60 * 60 * 1000; // past the 24h gate, so the write path is reached
+    fs.utimesSync(victim, new Date(old), new Date(old));
+
+    const markerDir = path.join(tmp, 'coalmine');
+    fs.mkdirSync(markerDir, { recursive: true });
+    try {
+      // Both the pre-U8 flat-root path and the post-U8 subdir path, so the assertion is
+      // path-independent and goes RED against the unmodified hook rather than passing vacuously.
+      fs.linkSync(victim, path.join(tmp, 'rot-canary-sweep.marker'));
+      fs.linkSync(victim, path.join(markerDir, 'rot-canary-sweep.marker'));
+    } catch (e) {
+      t.skip(`cannot create a hard link here (${e.code}) — needs same-volume link support`);
+      return; // t.skip does not stop the body; return so this is a visible skip, never a vacuous pass
+    }
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'HLNKU8', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0, 'fail-silent still exits 0 (Phoenix #4)');
+    assert.equal(
+      fs.readFileSync(victim, 'utf8'),
+      'PRECIOUS\n',
+      'the aliased target must keep its bytes — a plain write would truncate it through the shared inode',
+    );
+  } finally {
+    fs.rmSync(victimDir, { recursive: true, force: true });
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('stop hook: the sweep throttle marker RE-STAMPS its mtime (the `wx` trap — bare wx would freeze it)', () => {
+  // Guards the trap the obvious fix walks into: the sibling markers (touch.js's .memmoved, the
+  // AG conductor's session latch) are WRITE-ONCE latches where `wx`'s EEXIST IS the signal — but
+  // this marker is a 24h GATE whose mtime must move on every sweep. A bare `{ flag: 'wx' }` swap
+  // fails EEXIST once the file exists, the empty catch swallows it, the mtime freezes, and after
+  // the first 24h the sweep then runs on EVERY stop forever. Hence per-pid-temp + renameSync,
+  // which refuses the symlink AND keeps overwrite semantics. No privilege needed — runs anywhere.
+  const tmp = mkTmp();
+  try {
+    const marker = path.join(tmp, 'coalmine', 'rot-canary-sweep.marker');
+    fs.mkdirSync(path.dirname(marker), { recursive: true });
+    fs.writeFileSync(marker, '');
+    const stale = Date.now() - 99 * 24 * 60 * 60 * 1000; // well past the 24h gate
+    fs.utimesSync(marker, new Date(stale), new Date(stale));
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'STAMP', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.ok(fs.existsSync(marker), 'the marker still exists after the sweep (it is the gate, not garbage)');
+    assert.ok(
+      fs.lstatSync(marker).mtimeMs > stale + 60 * 1000,
+      're-stamped: an expired throttle marker must get a FRESH mtime, or the 24h gate never closes again',
+    );
+    assert.ok(
+      !fs.readdirSync(path.dirname(marker)).some((f) => f.endsWith('.tmp')),
+      'the per-pid rename temp must never be left behind (Phoenix #1 — the subdir sweep only collects *.marker)',
+    );
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('stop hook: a pre-planted SYMLINK at the marker SUBDIR is refused — nothing written through it (CWK-031/U8)', (t) => {
+  const tmp = mkTmp();
+  const target = mkTmp(); // attacker-controlled dir the planted symlink points at
+  try {
+    // mkdirSync(recursive) SILENTLY succeeds on a pre-planted symlink at os.tmpdir()/coalmine,
+    // following it with the 0o700 mode unapplied — so the marker write would land inside the
+    // attacker's dir. Same lstat (no-follow) dir guard the AG conductor already ships; here the
+    // fail-closed branch skips the write AND the sweep.
+    const markerDir = path.join(tmp, 'coalmine');
+    try {
+      fs.symlinkSync(target, markerDir, process.platform === 'win32' ? 'junction' : 'dir');
+    } catch (e) {
+      t.skip(`symlink/junction unavailable (${e.code}) — cannot exercise the dir-symlink guard`);
+      return; // t.skip does not stop the body; return so this is a visible skip, never a vacuous pass
+    }
+    const r = runHook(STOP, JSON.stringify({ session_id: 'DIRSYM', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0, 'fail-closed still exits 0 (Phoenix #4)');
+    assert.equal(r.stderr, '', 'no stderr (Phoenix #13)');
+    assert.equal(fs.readdirSync(target).length, 0, 'nothing written THROUGH the symlinked subdir into the attacker dir');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(target, { recursive: true, force: true });
+  }
+});
+
 test('stop hook clamps tempSweepStaleDays:-30 → does NOT delete a future-dated concurrent temp (board round-3 LOW)', () => {
   // Before the read-time clamp, {tempSweepStaleDays:-30} pushed the cutoff 30 days into the
   // FUTURE (cutoff = now - (-30)d = now + 30d), so `mtime < cutoff` held even for files NEWER

@@ -2,6 +2,12 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [Unreleased]
+
+### Security
+
+- **rot-canary Stop hook: the tmp-sweep throttle marker no longer writes through a planted symlink (CWK-031/U8).** The 24h throttle marker sat flat in the shared tmp ROOT under a fixed, predictable name and was written with the default `w` flag, which follows a symlink at the destination (`node/runtime.md` §5). On Unix the shared `/tmp` let any local user pre-plant a link at that name; the victim's next Stop then truncated the link target (truncate-to-empty / empty-file creation — not arbitrary content). The write also fired on every Stop regardless of `rotCanaryMode`, because the sweep is called before the mode gate by design (the AG conductor's markers must be collected whatever rot-canary's own mode is). Fixed by moving the marker into the private `os.tmpdir()/coalmine/` subdir (mode `0o700`, plus the `lstatSync` dir guard the AG conductor already ships — `mkdirSync(recursive)` silently succeeds on a pre-planted symlink at that dir) and re-stamping it via a per-pid temp + `renameSync` rather than a plain write. Rename replaces a directory entry instead of writing through it, so it refuses the link *and* keeps the overwrite semantics the throttle needs — a bare `wx` swap would have frozen the marker's mtime and made the sweep run on every Stop forever. A pre-U8 flat-root marker left behind is now collected as ordinary stale canary temp. PowerShell twin deliberately not ported, divergence named in `alt/powershell/rot-canary-stop.ps1` (Windows `$env:TEMP` is per-user, so the shared-root threat does not exist on that script's only platform).
+
 ## [3.18.1] - 2026-08-23
 
 ### Fixed

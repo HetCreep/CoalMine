@@ -379,15 +379,54 @@ function sweepStale(canaryActive) {
     // gates the whole-tmpdir scan to at most once per 24h on this machine. The
     // marker is a 0-byte machine-level gate, not session garbage — it is excluded
     // from the sweep, and if the OS clears tmp the next stop simply sweeps again.
-    const marker = path.join(tmp, 'rot-canary-sweep.marker');
+    //
+    // CWK-031/U8: this marker used to sit FLAT in the shared tmp ROOT under a fixed,
+    // predictable name, written with the default 'w' flag — which FOLLOWS a symlink at
+    // the destination (node/runtime.md §5). On Unix the shared /tmp let any local user
+    // pre-plant a link at that name and have the victim's next Stop truncate the target.
+    // Two changes close it, and the SHAPE is the interesting half:
+    //   1. it moved into the private per-tool subdir (mode 0o700, same one the AG
+    //      conductor already uses and that this function already sweeps below), plus the
+    //      conductor's own lstatSync guard — mkdirSync(recursive) SILENTLY succeeds on a
+    //      pre-planted symlink at markerDir, following it with the 0o700 mode NOT applied,
+    //      so the dir needs a guard of its own or the file write lands through it.
+    //   2. the write is per-pid-temp + renameSync, NOT the `wx` flag the sibling markers
+    //      use. `wx` is correct for a WRITE-ONCE latch (rot-canary-touch.js's .memmoved,
+    //      the conductor's once-per-session marker) where EEXIST IS the signal — but this
+    //      marker is a 24h gate whose mtime must RE-STAMP on every sweep. Bare `wx` would
+    //      fail EEXIST the moment the file exists, the catch would swallow it, the mtime
+    //      would freeze, and after the first 24h the sweep would then run on EVERY stop
+    //      forever. rename REPLACES a directory entry instead of writing through it, so it
+    //      refuses the symlink AND keeps the overwrite semantics the throttle needs.
+    //      Same-device by construction: the temp is created in the destination's own dir.
+    const markerDir = path.join(tmp, 'coalmine');
+    const marker = path.join(markerDir, 'rot-canary-sweep.marker');
     try {
-      if (Date.now() - fs.statSync(marker).mtimeMs < 24 * 60 * 60 * 1000) return;
+      // lstat, not stat: a symlink planted AT the marker path is not our gate, so it reads
+      // as "no marker" and falls through to the rename below, which atomically REPLACES it.
+      // Self-healing; on a real file lstat and stat report the same mtime.
+      if (Date.now() - fs.lstatSync(marker).mtimeMs < 24 * 60 * 60 * 1000) return;
     } catch {} // no marker yet → sweep now
-    try { fs.writeFileSync(marker, ''); } catch {}
+    const stamp = path.join(markerDir, `.sweep-${process.pid}.tmp`);
+    try {
+      fs.mkdirSync(markerDir, { recursive: true, mode: 0o700 });
+      if (fs.lstatSync(markerDir).isSymbolicLink()) return; // dir-symlink → fail-closed, no write, no sweep
+      fs.writeFileSync(stamp, '', { flag: 'wx' });
+      fs.renameSync(stamp, marker);
+    } catch {
+      // Never leave the per-pid temp behind (Phoenix #1): the subdir sweep below only
+      // collects `*.marker`, so a leaked `.tmp` would sit there forever.
+      try { fs.unlinkSync(stamp); } catch {}
+    }
     const staleDays = getTempSweepStaleDays();
     const cutoff = Date.now() - (staleDays * 24 * 60 * 60 * 1000);
     for (const f of fs.readdirSync(tmp)) {
-      if (f === 'rot-canary-sweep.marker') continue; // the throttle gate itself
+      // No exclusion for the old flat-root `rot-canary-sweep.marker` any more: since
+      // CWK-031/U8 the live gate lives in the coalmine/ subdir, so a flat-root copy is a
+      // PRE-U8 leftover and must be collected like any other stale canary temp (the
+      // no-old-version-leftover standard). It matches isCanaryTemp by prefix, so it is
+      // canary-owned and follows the canary-owned rule below — collected on the active
+      // path only, exactly like the rest of this hook's own temp.
       const isCanaryTemp = f.startsWith('rot-canary-') || f.startsWith('rotcanary-');
       // A leftover PRE-2026-07-15 flat-tmp-root AG conductor marker (the CodeQL
       // js/insecure-temporary-file fix relocated new markers into the coalmine/
@@ -412,10 +451,11 @@ function sweepStale(canaryActive) {
     // fix) instead of loose in the tmp root; sweep it too, or the fixed
     // conductor's own markers would never get collected (Phoenix #1).
     // Conductor-owned → unconditional, like the flat-root migration pass above.
-    const markerDir = path.join(tmp, 'coalmine');
+    // markerDir declared above — the throttle marker now lives here too (CWK-031/U8).
     let markerFiles = [];
     try { markerFiles = fs.readdirSync(markerDir); } catch {} // absent on a CC-only / no-AG box
     for (const f of markerFiles) {
+      if (f === 'rot-canary-sweep.marker') continue; // the throttle gate itself, re-stamped moments ago
       if (!f.endsWith('.marker')) continue;
       const p = path.join(markerDir, f);
       try { if (fs.statSync(p).mtimeMs < cutoff) fs.unlinkSync(p); } catch {}

@@ -254,6 +254,23 @@ try {
   # Phoenix #1 (zero garbage) + #8 (deterministic): sweep stale rot-canary temp files
   # (legacy rotcanary-* prefix too), throttled to once per 24h by a marker file's
   # timestamp - no randomness. The 0-byte marker is the machine-level gate itself.
+  # NAMED DIVERGENCE from the Node twin (CWK-031/U8, 2026-08-31): hooks/rot-canary-stop.js
+  # moved this marker into a private os.tmpdir()/coalmine/ subdir (mode 0o700 + an lstat
+  # dir-symlink guard) and re-stamps it via per-pid-temp + rename instead of a plain write.
+  # NOT ported, deliberately - the threat it closes does not exist on this script's only
+  # platform, and the hardening would be pure cost:
+  #   1. That defect is a SHARED-/tmp one. Windows $env:TEMP is PER-USER
+  #      (C:\Users\<name>\AppData\Local\Temp, ACL'd to that user), so another unprivileged
+  #      local user cannot pre-plant anything at this fixed name. Unix /tmp is the shared
+  #      root that makes the Node path exploitable; this script never runs there.
+  #   2. This is the NO-NODE Windows fallback (see README) - it is not the Linux/macOS
+  #      path by construction, so the exploitable variant is unreachable here.
+  #   3. Creating a symlink on Windows needs SeCreateSymbolicLinkPrivilege (admin, or
+  #      Developer Mode); 0o700 has no meaning on NTFS ACLs either.
+  # Residual, stated rather than implied: a SAME-USER process could still plant a link
+  # here - but a same-user process can already write this user's files directly, so it
+  # crosses no privilege boundary and gains nothing. Re-open this if the PS fallback is
+  # ever made to run on a Unix shell.
   $marker = Join-Path $env:TEMP 'rot-canary-sweep.marker'
   $doSweep = $true
   if ([System.IO.File]::Exists($marker)) {
