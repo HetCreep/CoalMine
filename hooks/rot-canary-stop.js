@@ -3,6 +3,14 @@
 // At a natural stop, if code was edited this session, ask the agent to run the rot-canary
 // skill at DEPTH=QUICK on the touched files. Loop-guarded (stop_hook_active), one-shot per
 // edit-batch, kill-switchable via ~/.claude/.rot-canary-off.
+//
+// ponytail: 833 lines at declaration — a Claude Code hook SHIPS AND RUNS AS ONE STANDALONE
+// FILE (`hooks.json` invokes it as `node <this file>`, and build-plugin.mjs INLINES the
+// hooks/_shared partials into it for exactly that reason), so a split would need either a
+// runtime require of a sibling — which breaks the copy-one-file install the AG/PS/manual
+// paths rely on — or a bundler, which Phoenix #2 (zero-dep) forbids. The over-run is the
+// cost of that shipping model, not of low cohesion: the file is one hook's single Stop path.
+// N is HISTORY (dates this judgement); `wc -l` is the live count.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -438,8 +446,8 @@ function sweepStale(canaryActive) {
       // world-writable, which we would not tighten.
       fs.mkdirSync(markerDir, { recursive: true, mode: 0o700 });
       if (fs.lstatSync(markerDir).isSymbolicLink()) return; // dir-symlink → fail-closed, no write, no sweep
-      // `mode: 0o600` is defence-in-depth for the residual named four lines above, not
-      // alert-appeasement: when the dir already exists, mkdir's `mode` is a no-op, so a
+      // `mode: 0o600` is defence-in-depth for the residual named at the `mkdirSync` call
+      // above, not alert-appeasement: when the dir already exists, mkdir's `mode` is a no-op, so a
       // third party who pre-created `<tmp>/coalmine` world-writable leaves it permissive —
       // and in exactly that case this file's own default mode (0o666 & ~umask) is all that
       // stands between the stamp and another user. `flag: 'wx'` stays and is doing separate
