@@ -739,6 +739,69 @@ test('stop hook: an ALIASED (hard-linked) sweep marker is replaced, never writte
   }
 });
 
+test('stop hook: a FRESH symlink at the marker is never obeyed as a throttle — the sweep still runs (INSPECT M1/L1)', (t) => {
+  // The first version of the fix's own comment claimed a planted link "reads as no marker".
+  // Measured false: lstat does NOT throw on a link, it returns the LINK's own stat, so a
+  // just-created link has an mtime of ~now — without an explicit isSymbolicLink() arm the
+  // gate takes the `< 24h` branch, returns early, and the link SURVIVES while suppressing
+  // every sweep, refreshable by the planter forever (no write-through; an unbounded
+  // temp-cleanup DoS). This pins the arm that makes the self-healing claim actually true.
+  const tmp = mkTmp();
+  const target = mkTmp(); // what the planted link points at — must stay untouched
+  try {
+    const markerDir = path.join(tmp, 'coalmine');
+    fs.mkdirSync(markerDir, { recursive: true });
+    const marker = path.join(markerDir, 'rot-canary-sweep.marker');
+    try {
+      // junction = the unprivileged dir-link shim this box permits; 'dir' on POSIX.
+      fs.symlinkSync(target, marker, process.platform === 'win32' ? 'junction' : 'dir');
+    } catch (e) {
+      t.skip(`symlink/junction unavailable (${e.code}) — cannot plant a link at the marker`);
+      return; // t.skip does not stop the body; return so this is a visible skip, never a vacuous pass
+    }
+    // The sweep's observable: a backdated canary temp that only a RUNNING sweep deletes.
+    const bait = path.join(tmp, 'rot-canary-BAIT.touched');
+    fs.writeFileSync(bait, 'C:\\proj\\x.js\n');
+    const old = Date.now() - 99 * 24 * 60 * 60 * 1000;
+    fs.utimesSync(bait, new Date(old), new Date(old));
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'FRESHLNK', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0, 'fail-silent still exits 0 (Phoenix #4)');
+    // The DoS property, and the only one that holds for EVERY link type: the gate is not
+    // obeyed, so the sweep runs. Deliberately NOT asserting the link is gone — this fixture
+    // is a junction (dir-type), the unprivileged link this box permits, and rename onto a
+    // dir-type link fails EPERM (measured). Replacement is the FILE-symlink case, which is
+    // EPERM to create here; asserting it would encode an over-claim as a passing test.
+    assert.ok(!fs.existsSync(bait), 'the sweep must still run — a fresh link must not suppress it');
+    assert.equal(fs.readdirSync(target).length, 0, 'nothing written THROUGH the link into the target dir');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(target, { recursive: true, force: true });
+  }
+});
+
+test('stop hook: a stranded rename `.tmp` is reaped by the subdir sweep (INSPECT L3 — SIGKILL residue)', () => {
+  // The catch's unlinkSync covers the EXCEPTION path only; process death between the write
+  // and the rename strands `.sweep-<pid>.tmp`, which the subdir sweep could not collect while
+  // it matched `*.marker` alone. No privilege needed — the stranded file is simulated directly,
+  // since racing a real SIGKILL is not worth it (scripts-quality.md's own honest limit).
+  const tmp = mkTmp();
+  try {
+    const markerDir = path.join(tmp, 'coalmine');
+    fs.mkdirSync(markerDir, { recursive: true });
+    const stranded = path.join(markerDir, '.sweep-99999.tmp');
+    fs.writeFileSync(stranded, '');
+    const old = Date.now() - 99 * 24 * 60 * 60 * 1000; // past the >=1d clamped cutoff
+    fs.utimesSync(stranded, new Date(old), new Date(old));
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'STRAND', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    assert.ok(!fs.existsSync(stranded), 'a stale rename temp must be reaped, not orphaned forever (Phoenix #1)');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('stop hook: the sweep throttle marker RE-STAMPS its mtime (the `wx` trap — bare wx would freeze it)', () => {
   // Guards the trap the obvious fix walks into: the sibling markers (touch.js's .memmoved, the
   // AG conductor's session latch) are WRITE-ONCE latches where `wx`'s EEXIST IS the signal — but

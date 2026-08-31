@@ -402,20 +402,49 @@ function sweepStale(canaryActive) {
     const markerDir = path.join(tmp, 'coalmine');
     const marker = path.join(markerDir, 'rot-canary-sweep.marker');
     try {
-      // lstat, not stat: a symlink planted AT the marker path is not our gate, so it reads
-      // as "no marker" and falls through to the rename below, which atomically REPLACES it.
-      // Self-healing; on a real file lstat and stat report the same mtime.
-      if (Date.now() - fs.lstatSync(marker).mtimeMs < 24 * 60 * 60 * 1000) return;
+      // lstat, not stat: it stats the LINK, never the target, so we can neither read a
+      // throttle decision through a planted link nor write through one.
+      //
+      // The `isSymbolicLink()` arm is load-bearing, not decoration — lstat does NOT throw on
+      // a link, it returns the LINK's own stat (INSPECT M1: the first version of this comment
+      // claimed a planted link "reads as no marker", which is measurably false — a
+      // just-created link has an mtime of ~now, so without this arm the gate takes the
+      // `< 24h` branch, returns early, and the link SURVIVES while suppressing every sweep,
+      // refreshable by the planter forever: no write-through, but an unbounded temp-cleanup
+      // DoS, INSPECT L1). A link here is never OUR gate whatever its mtime says, so it is
+      // treated as "no marker" DELIBERATELY; the check is free, the stat is already in hand.
+      //
+      // What that buys, stated by link TYPE rather than as one blanket claim (measured both,
+      // because the over-claim is the exact defect this arm was bounced for):
+      //   - ANY link type: the gate is never obeyed, so the sweep always runs. That alone
+      //     closes L1 — suppression is what the DoS needed.
+      //   - FILE-type link: `renameSync` below replaces the directory entry, so the link is
+      //     also GONE afterwards. Self-healing, and the target is untouched (rename does not
+      //     follow the link).
+      //   - DIRECTORY-type link (a Windows junction, `symlink(...,'dir')`): rename onto it
+      //     fails EPERM, the catch unlinks the stamp, and the sweep still runs. The link
+      //     PERSISTS — never obeyed, never written through, but not self-healed. Do not
+      //     restate "rename replaces it" unqualified; that is only the file-link case.
+      const st = fs.lstatSync(marker);
+      if (!st.isSymbolicLink() && Date.now() - st.mtimeMs < 24 * 60 * 60 * 1000) return;
     } catch {} // no marker yet → sweep now
     const stamp = path.join(markerDir, `.sweep-${process.pid}.tmp`);
     try {
+      // `mode` applies only when mkdir CREATES the dir — it is silently a no-op if the dir
+      // already exists (INSPECT N1), so this hardens the dir we make, it does not re-harden
+      // one somebody else made. Not a live hole: no shipped version ever created this dir
+      // without a mode (it did not exist at v3.10.0, and arrived at v3.11.0 already 0o700),
+      // and both writers we ship pass it. The residual is a third party pre-creating it
+      // world-writable, which we would not tighten.
       fs.mkdirSync(markerDir, { recursive: true, mode: 0o700 });
       if (fs.lstatSync(markerDir).isSymbolicLink()) return; // dir-symlink → fail-closed, no write, no sweep
       fs.writeFileSync(stamp, '', { flag: 'wx' });
       fs.renameSync(stamp, marker);
     } catch {
-      // Never leave the per-pid temp behind (Phoenix #1): the subdir sweep below only
-      // collects `*.marker`, so a leaked `.tmp` would sit there forever.
+      // Never leave the per-pid temp behind (Phoenix #1). This covers the EXCEPTION path
+      // only — process death between the write and the rename escapes it (no in-process
+      // cleanup survives SIGKILL, scripts-quality.md's own stated limit), which is why the
+      // subdir sweep below also reaps a stale `.tmp` rather than only `*.marker` (INSPECT L3).
       try { fs.unlinkSync(stamp); } catch {}
     }
     const staleDays = getTempSweepStaleDays();
@@ -456,7 +485,11 @@ function sweepStale(canaryActive) {
     try { markerFiles = fs.readdirSync(markerDir); } catch {} // absent on a CC-only / no-AG box
     for (const f of markerFiles) {
       if (f === 'rot-canary-sweep.marker') continue; // the throttle gate itself, re-stamped moments ago
-      if (!f.endsWith('.marker')) continue;
+      // `.tmp` too, not just `*.marker` (INSPECT L3): the rename stamp is unlinked on the
+      // exception path, but process death between the write and the rename strands one that
+      // nothing else we own could ever collect. A live stamp exists for microseconds and the
+      // cutoff is >= 1 day (clamped), so anything this reaps is definitionally dead.
+      if (!f.endsWith('.marker') && !f.endsWith('.tmp')) continue;
       const p = path.join(markerDir, f);
       try { if (fs.statSync(p).mtimeMs < cutoff) fs.unlinkSync(p); } catch {}
     }
