@@ -794,8 +794,14 @@ test('stop hook: the .scanned temp marker is created 0o600, not the default mode
   }
   const tmp = mkTmp();
   try {
+    // The touched path must EXIST at stop time or the hook correctly bails without nudging
+    // and never writes `.scanned` — which is exactly how the first version of this test
+    // failed on CI: it planted a non-existent `C:\proj\x.js`, so the marker under assertion
+    // was never created. Same real-file shape as the nudge tests above.
+    const real = path.join(tmp, 'edited-mode.js');
+    fs.writeFileSync(real, 'x');
     const touched = path.join(tmp, 'rot-canary-MODE.touched');
-    fs.writeFileSync(touched, 'C:\\proj\\x.js\n');
+    fs.writeFileSync(touched, real + '\n');
     const r = runHook(STOP, JSON.stringify({ session_id: 'MODE', stop_hook_active: false }), tmp);
     assert.equal(r.status, 0);
     const scanned = path.join(tmp, 'rot-canary-MODE.scanned');
@@ -807,6 +813,41 @@ test('stop hook: the .scanned temp marker is created 0o600, not the default mode
     );
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('touch hook: .touched and .smells are created 0o600, not the default mode (CWK-043 M1)', (t) => {
+  // Covers the two `appendFileSync` sites hardened for the THREAT rather than for the
+  // scanner (appendFileSync is not one of js/insecure-temporary-file's 14 modelled sinks, so
+  // nothing flags them) — they are flat os.tmpdir() writes carrying the user's edited paths
+  // and the findings against them. Previously untested because the assertion cannot run on
+  // this room's dev box; kept POSIX-only for the same access-model reason as the sibling above.
+  if (process.platform === 'win32') {
+    t.skip('POSIX mode bits are not the access model on Windows/NTFS (ACLs are) — nothing to assert');
+    return; // t.skip does not stop the body; return so this is a visible skip, never a vacuous pass
+  }
+  const tmp = mkTmp();
+  const proj = mkTmp(); // SIBLING of the sandbox TEMP, never nested inside it: touch.js drops
+  try {                 // any file under os.tmpdir() from recording (the v3.12.2 scope guard).
+    fs.mkdirSync(path.join(proj, '.git'));
+    const f = path.join(proj, 'big.js');
+    fs.writeFileSync(f, 'const x=1;\n'.repeat(900)); // >800 lines → also produces .smells
+    const r = runHook(
+      TOUCH,
+      JSON.stringify({ session_id: 'T600', tool_name: 'Write', tool_input: { file_path: f }, cwd: proj }),
+      tmp,
+      [],
+      proj,
+    );
+    assert.equal(r.status, 0);
+    for (const suffix of ['.touched', '.smells']) {
+      const p = path.join(tmp, 'rot-canary-T600' + suffix);
+      assert.ok(fs.existsSync(p), `${suffix} must have been written`);
+      assert.equal(fs.statSync(p).mode & 0o777, 0o600, `${suffix} must be owner-only`);
+    }
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+    fs.rmSync(proj, { recursive: true, force: true });
   }
 });
 
