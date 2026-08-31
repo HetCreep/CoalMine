@@ -1,0 +1,387 @@
+[
+ {
+  "tag": "v3.18.2",
+  "name": "v3.18.2 - sweep-marker symlink hardening",
+  "body": "## Security\n\n**rot-canary Stop hook: the tmp-sweep throttle marker no longer writes through a planted symlink (CWK-031/U8, CoalBoard nasa-L3 round).** The 24h throttle marker sat flat in the shared tmp root under a fixed name, written with the default `w` flag, which follows a symlink at the destination. On Unix the shared `/tmp` let any local user pre-plant a link at that name; the victim next Stop truncated the link target (truncate-to-empty / empty-file creation, not arbitrary content).\n\nFixed by moving the marker into the private `os.tmpdir()/coalmine/` subdir (mode 0700 + the lstat dir guard) and re-stamping via a per-pid temp + rename rather than a plain write. A symlink at the marker path is never obeyed as a gate, so it cannot suppress the sweep either.\n\nFull detail: CHANGELOG.md [3.18.2].\n\n**Full Changelog**: https://github.com/HetCreep/CoalMine/compare/v3.18.1...v3.18.2",
+  "id": 379532122,
+  "pre": false
+ },
+ {
+  "tag": "v3.18.1",
+  "name": "v3.18.1 - SKILL.md body-lean campaign pass",
+  "body": "## Fixed\n\nSKILL.md body-lean campaign (campaign #6 unit 6, belt 2/board 2). Measured via  before touching anything; 8 of 9 skills declared already-lean (no fat found, no forced cuts); gold-standard (the one skill over the ~5000-tok body budget) had a Discipline section restating Prohibitions P10/P11/P12 and Degrade-path D1 near-verbatim -- collapsed to two lines pointing at the ledgers, matching this room's own established Dedup convention.\n\nFull 3-tier variance walk (weak/medium/strong, 11 leaves) on the changed prose: zero variance on every enumerated rail.\n\nFull detail: CHANGELOG.md [3.18.1].\n\n**Full Changelog**: https://github.com/HetCreep/CoalMine/compare/v3.18.0...v3.18.1",
+  "id": 374990491,
+  "pre": false
+ },
+ {
+  "tag": "v3.18.0",
+  "name": "v3.18.0 - CLASSIFY-BLOCK grants sections on 8 skills",
+  "body": "## Added\n\nRetrofits `skill-authoring.md` §5b (CLASSIFY-BLOCK, board #93) onto 8 of CoalMine's 9 skills: a declared \"Grants & denials\" table stating each skill's read/write(/network) grants and what a permission denial does (report + never claim done, never a false clean bill) -- `source-grounding` deliberately excluded (read+network only, its own D1 already covers the one hot class).\n\nNew shared partial `skills/_shared/classify-block.md` injected via a new `<!-- SHARED:CLASSIFY_BLOCK -->` marker in `render.mjs`; `verify.mjs` now enforces both content-match AND presence for the marker across all 9 skills.\n\nFull findings-back + RE-INSPECT trail (INSPECT: 3 MEDIUM + 2 LOW, all closed, SHIP verdict) in CHANGELOG.md.\n\n**Full Changelog**: https://github.com/HetCreep/CoalMine/compare/v3.17.4...v3.18.0\n",
+  "id": 374318824,
+  "pre": false
+ },
+ {
+  "tag": "v3.17.4",
+  "name": "v3.17.4 - claude-ai-trim surrogate-pair fix",
+  "body": "## Fixed\n\n- claude-ai-trim.mjs surrogate-pair fix (board #40 fixback F3) -- a non-BMP character at the trim boundary could split mid-surrogate-pair with no ASCII word break to rescue it.\n- Least-privilege token on claude-ai-zips.yml (board #117/#118): contents: write moved off the top level onto the one job that needs it; a workflow_dispatch-on-main hole closed (a re-run against the default branch could no longer attempt a Release tagged \"main\").\n- create-or-update release-publishing tooling (scripts/lib/publish-release.mjs) plus its own 422-already-exists race-window close.\n\nSee CHANGELOG.md for full detail.",
+  "id": 371284157,
+  "pre": false
+ },
+ {
+  "tag": "v3.17.3",
+  "name": "v3.17.3 - three more hook config gates clamped",
+  "body": "Board #113: clamps `enableConductor`/`disabledCanaries`/`rotCanaryMode` (+ their legacy aliases `conductor`/`disable`/`mode`) through the same safer-value-wins merge `updateMode` got in board #112 -- Node and the PowerShell twin both. Also fixes `main`'s own CI, which had been red since v3.17.0: `ps-config.test.ps1` was asserting pre-#112 semantics and nobody caught it locally because `pwsh` is absent on the dev box, so the pre-commit gate silently skips the PowerShell suite.",
+  "id": 369956143,
+  "pre": false
+ },
+ {
+  "tag": "v3.17.2",
+  "name": "v3.17.2 - zips-run proof claim corrected",
+  "body": "Fixes the claude-ai-zips Release-creation race for real this time. v3.17.0 failed at the upload step (release not found); v3.17.1 fixed that race but its own `view || create` probe failed silently on a Release that already existed, still failing the step. This tag switches to a create-first attempt that treats \"already exists\" as its one expected success path.",
+  "id": 369915248,
+  "pre": false
+ },
+ {
+  "tag": "v3.17.1",
+  "name": "v3.17.1 - SHA256SUMS on claude.ai ZIPs + workflow fix",
+  "body": "## Fixed\n\n- **`SHA256SUMS.txt` now published alongside every claude.ai ZIP** (board #99) — verify a downloaded ZIP with `sha256sum --ignore-missing -c SHA256SUMS.txt`.\n- **The v3.17.0 release's own CI run failed** at the asset-upload step (`release not found` — the workflow fired on tag push, before this release existed). Fixed: the workflow now ensures the Release exists before uploading, and this tag proves it live.\n\nv3.17.0's own Release page has no assets from that failed run — this tag supersedes it for anyone wanting the ZIP packaging.",
+  "id": 369913463,
+  "pre": false
+ },
+ {
+  "tag": "v3.17.0",
+  "name": "v3.17.0 - claude.ai ZIP packaging via CI",
+  "body": "## What shipped\n\n- **Security fix (board #112):** two escalation holes closed in the conductor's `updateMode` safer-value-wins clamp — a project-only `.coalmine.json` could silently escalate to `auto` (standing-consent network update-check) unchallenged, and a differently-cased project value could dodge the clamp entirely. Fixed in both the Node hooks and the PowerShell twin. Three more unclamped gates (`enableConductor`, `disabledCanaries`, `rotCanaryMode`) were found and named as follow-up — not yet closed.\n- **`verify.mjs`'s DESC_CAP gate now also checks `.claude-plugin/plugin.json`'s own description field (board #64).**\n- **claude.ai ZIP packaging via CI (board #40)** — every skill is now attached to this release as a ready-to-upload ZIP for claude.ai, description pre-trimmed to its 200-char cap.\n- **Stop hook fix (board #82):** the memory-drift note no longer forces a phantom second turn that could eat a `-p --output-format json` session's result.\n\nSee CHANGELOG.md for full detail.",
+  "id": 369903975,
+  "pre": false
+ },
+ {
+  "tag": "v3.16.0",
+  "name": "v3.16.0 - per-project config under an agent dir",
+  "body": "Namespace campaign #69+#39: per-project `.coalmine.json` moves to `<project>/.<agent-dir>/coal/coalmine.json` (read order `.claude` -> `.agents` -> `.gemini` -> legacy root dotfile, first-found-wins; legacy shape still read - zero breakage). Self-update stamp relocates to `~/.claude/coal/coalmine/`. Full detail in CHANGELOG 3.16.0.",
+  "id": 367293795,
+  "pre": false
+ },
+ {
+  "tag": "v3.15.0",
+  "name": "v3.15.0 - ReportFindings panel adoption + code-only factory scope",
+  "body": "### Added\n- **Seven canaries adopt Claude Code's `ReportFindings` panel as their reporting surface — call-if-callable, fallback-to-text-on-anything-else.** Panel-decision study (`scratchpad/dispatch/panel-decision-2026-08-07.md`): the panel wins UX/lifecycle/noise/anti-duplication (click-to-file, walk-through-in-diff, fixed/skipped/no-change marks on re-report, out of the chat transcript, no-duplication built into the tool contract); text wins severity vocabulary/SUSPECTED-discipline/universality — both encodable onto the panel, so the panel wins the tiebreak. The branch collapses to one sentence: call `ReportFindings` when callable; not callable (tool absent, call fails) → the existing text table, unchanged, no host-detection, no request-sensing prose. Shape: severity prefixed into `summary` (`[HIGH] …`), ranked most-severe first, SUSPECTED as `verdict: PLAUSIBLE`, confirmed as `CONFIRMED`; chat carries only the wrap-up line (counts · coverage gaps · overflow past the panel's 32-finding cap) + the choice-gated fix menu — never a restatement of a finding already in the panel. **Wires three real functions, not display-only** (panel-decision §6): **F1** click-nav/diff-walk needs precise coordinates, so every finding's `file` + 1-indexed `line` must be the defect site, not the enclosing function — an unresolvable line is reported with its best guess and named imprecise in the wrap-up, never dropped and never faked. **F2** an Apply-fixes click is consent to the SAFE-fix class only, composing with (never bypassing) each canary's existing checkpoint→apply→build/test→revert-if-red discipline; the never-auto-fix list is unchanged and those items are skipped with reasons. **F3** after any fix round (menu- or button-driven), re-report the same findings with `outcome: fixed`/`skipped`/`no_change_needed` — the panel then marks each row; a round that skips this is unfinished, same force as \"pushed is not a report\". New shared partial `skills/_shared/reporting-footer.md` (say-it-once — one canonical block, seven canaries point at it via a new `<!-- SHARED:REPORTING_FOOTER -->` marker — named to match the file→marker pattern the other three partials already follow (`escalation-footer.md`→`ESCALATION_FOOTER`) — wired into `render.mjs` alongside the three existing SHARED markers), placed after each canary's Output section: `rot-canary`, `drift-canary`, `resilience-audit`, `scale-canary`, `supply-chain-audit` (whose `file` maps to the manifest/lockfile that named the package, per a skill-specific line in its own `SKILL.md`), `telemetry-canary`, `testability-canary`. **`gold-standard` and `source-grounding` do NOT get it** — their Output sections don't map onto the tool's per-defect schema (`file`/`line`/`summary`/`failure_scenario`/`category`/`verdict`/`outcome`): `gold-standard`'s Output is a 5-part AUDIT REPORT (bar/scorecard/percentages/gaps/verdict), not per-defect findings; `source-grounding`'s Output is verified/unverified annotations with no `failure_scenario` or severity at all. Forcing either into the panel schema would misrepresent what they produce. A user can do something they couldn't before (panel navigation + fix lifecycle tracking on the seven finding-shaped canaries) — MINOR-minimum per `scripts-quality.md` §3's decisive test.\n\n### Changed\n- **`rot-canary`'s default scan scope is code files only, for every SCOPE value — not just the auto-triggered touched-files path.** The touched-files auto-scan was already code-only via `watchedExtensi",
+  "id": 367166636,
+  "pre": false
+ },
+ {
+  "tag": "v3.14.3",
+  "name": "v3.14.3 - source-grounding ledger carve + membership-test audit",
+  "body": "### Changed\n- **`source-grounding`'s consent gates, prohibitions, and degrade paths now have a countable home instead of scattered prose — the third canary carve, and the first made on measured ground (`SKILL-VARIANCE-WALK.md` §Run 39/40/41).** Post-fix-prohibition-scoping (`v3.14.2`), the un-carved rails — prohibitions and degrade paths — were the worst in both lanes (55.6%–66.7%), exactly as the two prior canaries' baselines predicted, while the config-key rail held its now-four-time reproduction at 0.0% (Agent) — the shape this carve copies. Added three declared ledgers to the body: **Consent gates (G1–G4)** with a per-lane column (G1, the tier pick, is the only Agent-only row — matches the scoring key exactly, Agent=4/Hook=3) · **Prohibitions (P1–P6)**, atomizing every \"never\"/\"don't\" clause in the body and the shared partials, with the shared footer's fix-prohibition explicitly excluded and named — this skill defines no Fix mode section, so that clause is vacuous here, not merely redundant (the distinction `gold-standard`'s own carve got wrong) · **Degrade paths (D1–D4)** (lane split corrected below, post-walk). `.coalmine.json` `trustedDomains`/`defaultTier` — the positive control, reproduced 0.0%/2-of-9 across three independent draws — are untouched, byte-identical. Lean pass alongside the carve: the Source hierarchy's per-rank justification glosses (why each rank sits where it does) moved to `references/sources.md`, which already carried the more detailed per-claim-type source map — the body keeps the bare ranked list (a rail: which source to prefer) and points to the reference for the rationale (an explanation). Nothing behavioural dropped: every ledger row points back to (or restates) an existing sentence. **One de-duplication was needed, the same shape as `gold-standard`'s: the shared \"degrade gracefully / never fake parallelism\" rule is stated at four sites in the shared partials — one row (D2), four mentions, noted in the body so a reader counting mentions doesn't overshoot the declared total.** One rail relocation: `— never block` moved out of the \"Non-interactive runs\" sentence and into D1's own row, still in the body — a rail moving into a countable home, not a drop. Body chars, before this paragraph's fix: source 2,366 → 4,719 (+2,353), reference 1,904 → 2,625 (+721) — prose that left the body landed in the reference, not the void; shipped 5,940 → 8,293 (+39.6%).\n\n**A post-carve walk (`SKILL-VARIANCE-WALK.md` §Run 42, both lanes, judged against the record's own published noise floor) found two ledger defects — and confirmed the carve is working: Q1 and Q2 both hit 0.0%, 9 of 9, in both lanes; ledger uptake 18 of 18 (every walker reasons in row IDs, not paraphrase); the phantom fix-gate stayed dead at 0 of 18.** The two defects are the ledgers converting vague prose into a falsifiable claim, and the walk falsifying it — prose could not have been wrong this precisely. **Output declared 3 \"annotation forms\", the third being \"stable fact → no annotation needed\" — the absence of an output, counted as one.** 0 of 9 Agent walkers matched 3; modal was 2, both lanes. Fixed by stating the membership test in the body (*a location is a place this skill writes something a reader can see; the absence of an annotation is not one*) and recomputing the total to **2**. **D1 was labelled `universal` and cannot fire in the Agent lane** — its condition is non-interactive, and Agent Context is interactive by definition; a walker quoted verbatim excluding it for exactly that reason. Relabelled `Hook only`. Auditing every remaining D-row the same way (not just the one measured wrong) found a second, unmeasured mislabel: **D2** (no capability lever for the target tier) can likewise never fire in Hook, since Hook is unconditionally fixed at Light and Light needs no lever — relabelled `Agent only`. D3 was checked and confirmed correctly `universal` (it fires wherever `ask_question` fires: Agent always, Hook when interactive — the same shape already established for G2–G4, not a new one). The G- and P-ledgers were audited for the same class and found clean: G2–G4 already carry (or now carry, via a added footnote) the interactive-Hook caveat that keeps their \"both lanes\" label accurate, and every P row is a lane-independent negative constraint, not a positive branch, so the \"fires only in one lane\" confusion does not structurally apply to prohibitions. Body chars after this fix: source 4,719 → 5,766 (+1,047), shipped 8,293 → 9,340 (+1,047, identical delta).",
+  "id": 365183881,
+  "pre": false
+ },
+ {
+  "tag": "v3.14.2",
+  "name": "v3.14.2 - scope the fix-prohibition to skills that actually fix",
+  "body": "### Fixed\n- **`v3.14.1`'s escalation-footer reword removed the phantom fix-menu OFFER but left its PREMISE standing one clause to the right.** The Hook Context sentence's trailing `Never fix without a chosen option.` presupposes that this skill fixes something — true for the seven canaries with a Fix mode section, **true but redundantly carried for `gold-standard`** (it fixes code too, via its own CONFORM act — \"checkpoint → one fix → build+tests → revert if newly red\" — gated independently at G3, P2 and P7, so the prohibition already binds there through those rows without this clause's help), and false only for `source-grounding` (no fix path at all). Measured (`SKILL-VARIANCE-WALK.md` §Run 39, `source-grounding`, post-reword): 0 of 3 weak-tier walkers manufactured a gate from the reworded offer clause, but **all 3 strong-tier walkers counted a 4th consent gate from this trailing prohibition**, one naming it verbatim as `Applying any fix | any point a fix would be made in Hook Context`. A prohibition about fixing is itself an assertion that fixing is on the table. Reworded to `Where a Fix mode section exists, never fix without a chosen option.` — same clause shape as the sentence before it (`if it defines one`), so it stays a live rail for the seven skills that fix and asserts nothing for the two that don't. Verified true for all nine by checking `## Fix mode` heading presence directly (`grep -c \"^## Fix mode\" skills/*/SKILL.md`): 7 present (rot-canary, the four Agent-scoped, the two lane-silent), 2 absent (gold-standard, source-grounding) — the conditional resolves live for the first group, vacuously true for the second, matching each skill's actual behavior (`gold-standard`'s absence here is covered by its own G3/P2/P7 redundancy, not by having nothing to fix). **Known limitation, not fixed here:** the conditional discriminates on a heading (`## Fix mode`) rather than on fix capability — `gold-standard` is the proof the two can differ, since it fixes code without carrying that heading. A future canary that fixes without a `## Fix mode` section and without its own gate ledger would be silently released from this footer's only fix prohibition, and nothing in the repo would flag it. Scoping the conditional to capability rather than heading presence is a shared-file change that needs its own variance walk — out of scope for this unit. Two more fix-presupposing sentences in the shared partials were swept and named, not changed: `language-header.md`'s \"menu labels\" is a localization instruction listing output kinds, not a rail asserting a menu exists; the tier rubric's \"findings will drive code changes\" is a scoring condition (\"if they will\"), not an assertion that this skill changes code — neither forces behavior a skill without a fix path doesn't already correctly skip. `orchestration.md` swept clean. Reaches all nine shipped skill bodies (`build-plugin.mjs` re-render).\n\n  **Reconciling `b6b289a`'s commit type against its release:** that commit is typed `feat(gold-standard):`, and conventional-commits maps `feat` to a MINOR bump — but its change was classified `### Changed` here and shipped as PATCH `v3.14.1`. The CHANGELOG classification is the correct one: the carve gave existing rails (consent gates, prohibitions, degrade paths) a countable presentation and added no new user-facing capability — `refactor` or `docs` would have been the accurate commit type. Recorded here rather than rewritten into history.",
+  "id": 365026664,
+  "pre": false
+ },
+ {
+  "tag": "v3.14.1",
+  "name": "v3.14.1 - shared-footer correction + gold-standard ledger carve",
+  "body": "### Fixed\n- **The shared Escalation footer promised \"offer the fix menu\" in Hook Context — a promise defensible for only 3 of the nine canaries.** `rot-canary`'s own Fix mode section explicitly covers \"hook-nudged auto-scan\", so the promise held there. `resilience-audit` and `supply-chain-audit` state no lane at all for their own fix menus, so an unqualified promise held for them too. The other six did not: four (`drift-canary`, `scale-canary`, `telemetry-canary`, `testability-canary`) explicitly scope their fix menu to \"In Agent Context, after the report...\" — directly contradicting the footer's Hook-lane promise. `gold-standard` defines no fix menu at all — it gates ADOPT and CONFORM through `ask_question` instead, a different mechanism than a post-report menu. `source-grounding` defines neither a menu nor a gate the promise could refer to. Measured live: 2 of 3 weak-tier readers of `gold-standard`'s pre-carve body seated the phantom menu as a consent gate and dropped two real ones to make room for it. Reworded the footer's Hook Context sentence to stop asserting a fixed lane and noun, and defer to each skill's own Fix mode section instead: *\"Interactive session (a user is present) → follow this skill's own Fix mode section, if it defines one, for what to offer after the report; non-interactive → report-only.\"* True for all nine simultaneously — the three where the old promise held keep the same behavior, and the four Agent-scoped canaries' hook lane is now **definitively offer-free** (previously undefined between what the footer said and what each skill's own body said), resolved in favor of each skill's own text. Reaches all nine shipped skill bodies (`build-plugin.mjs` re-render); `gold-standard`'s own shipped body grew by 60 chars from this shared change alone (13,220 → 13,280 chars, projecting to a **4,622–4,767 token band** at this skill's own measured ratio's rounding — **4.7%–7.6% headroom** against the ~5k ceiling, narrower than the carve baseline recorded below, from this shared edit, not a new carve). A same-day fix closed a contradiction this left behind: `gold-standard`'s own Degrade ledger still carried a numbered `D5 — offer the fix menu after the report` row the footer no longer states and this skill has no Fix mode section to justify — merged into the report-only branch, ledger renumbered D1–D6 (detail in the ledger entry below).\n\n- **`rot-canary`'s fix-mode section never ordered the agent to read `.coalmine.json`, and a first attempt at the rail got the config's own cascade wrong.** The section made the fix menu conditional on `autoFixMode` and called the config \"standing consent\" without a step to actually read it, or a stated fallback when the file is absent. Added the missing rail: read the global `~/.claude/.coalmine.json` then the project `<gitroot>/.coalmine.json` (project wins per key, matching every other consumer of this file) before deciding fix mode; neither present → `autoFixMode` = `interactive`. A same-day fix corrected the rail's first wording, which claimed a bare repo-root read with \"absent → every key defaults\" — false whenever a global config exists, which would have silently overridden a user's standing `autoFixMode: off`/`safe` back to `interactive`. Found by an internal variance walk of a CoalMine canary.\n\n### Changed\n- **`gold-standard`'s consent gates, prohibitions, and degrade paths now have a countable home instead of scattered prose.** An internal variance walk (nine independent readers per lane, two lanes) measured those three rails wobbling 66.7%–77.8% while a fifth rail naming exactly one config key in one bolded sentence measured 0% — the same readers, the same file, at the same blob. Added three declared ledgers to the body: **Consent gates (G1–G6)** with a per-lane column (the Hook lane silently suppresses the model-tier question; that exception now has a column instead of a paragraph a reader had to resolve on their own, and a footnote states the column assumes an interactive Hook session) · **Prohibitions (P1–P15)** · **Degrade paths (D1–D6)**, split into 4 universal branches and 2 Hook-lane-only branches (the Hook lane's own extra degrade branches were previously ungrouped with the universal ones, which is why that rail read worse from inside the lane it addresses). The existing numbered Output section is now declared at 5 locations and scoped to the AUDIT report only, so a rule/tombstone/issue write elsewhere in the body can no longer be miscounted as a sixth output location. No rail was removed — every ledger row points back to (or restates) an existing sentence; three pairs of restated sentences (a retired-rule rule, a RE-VALIDATE choice-gate rule, an unsourced-exemplar rule) are called out as one row each rather than two, and a fourth rule (degrade to model tier + reasoning, restated at four sites) is one row, four mentions. A same-day fix added a degrade row (falling back to a numbered text menu when the host has no question tool) that the first pass had left untagged, and corrected the wobble range above (55.6% belonged to a fourth, uncarved rail, not to the three named here). A second same-day fix, downstream of the shared-footer wording change described above, merged what was a separate \"offer the fix menu\" Hook-lane row into the report-only branch — this skill has no Fix mode section, so once the footer stopped asserting a fixed offer, that row and the report-only row described the same outcome — and renumbered the ledger to D1–D6. **Carve baseline for the regrowth ratchet (skill-authoring.md §5(2)): 13,220 shipped chars, ~4.7k tokens projected on-invoke at this skill's own measured ratio (0.353 tok/char, `claude plugin details`) — ~7% headroom against the ~5k body budget. `gold-standard` is now the largest canary body in the suite; the next carve of this size on this skill would breach it.** The shared-footer defect noted here (the Hook lane's escalation footer promised a \"fix menu\" this skill does not define) is fixed in the shared-footer entry above, its own unit.",
+  "id": 364992598,
+  "pre": false
+ },
+ {
+  "tag": "v3.14.0",
+  "name": "v3.14.0 - scanExcludePaths + installer git-hook fixes",
+  "body": "**MINOR — `scanExcludePaths`: the auto-scan learns to skip your lab bench.**\n\nThe rot-canary session-end auto-scan gains a user-declared exclude list for throwaway lab instruments (scratch probes, one-shot harnesses) — while shipped source stays always-scanned:\n\n- `scanExcludePaths` (String[], path fragments / `*` wildcards, case-insensitive, Windows `\\` and `/` both match) in `.coalmine.json`\n- **UNION merge** across global ∪ project (a project may add exclusions, never remove yours — hooks-safety §9 direction)\n- Filtered **before** the scan cap, so excluded files never eat scan slots; the nudge appends a `N file(s) skipped` clause whenever the list bites (a working autopilot stays visible)\n- Matching runs on a **linear segment matcher** — ReDoS-immune by construction (no regex compiled from config)\n\nAlso ships the installer git-hook fixes: `installGitHooks` now honors `core.hooksPath` (husky/lefthook/`.githooks/` repos no longer get an inert gate behind a success message), and pre-v2.4.0 CoalMine hooks are recognized as ours during install/uninstall.\n\nFull detail: CHANGELOG 3.14.0.",
+  "id": 362259284,
+  "pre": false
+ },
+ {
+  "tag": "v3.13.0",
+  "name": "v3.13.0 - declared over-run tripwire + fail-loud enumeration sweep",
+  "body": "MINOR. The size tripwire now honors a declared over-run (`// ponytail: <N> lines at declaration`) and is bounded against a measured 5.4s ReDoS poison line. Every swallowed-enumeration hole in the gate tooling now fails loud (manifest, version pins, doctrine mirrors), and a tombstone ledger found inside a rule tree FAILs with the correct remedy. Full detail: CHANGELOG 3.13.0.",
+  "id": 360326465,
+  "pre": false
+ },
+ {
+  "tag": "v3.12.4",
+  "name": "v3.12.4 - doc claims re-grounded + gold-standard rationale to the reference",
+  "body": "A pattern-conform pass: doc claims re-grounded against the code, and one gold-standard rationale paragraph moved out of the always-loaded SKILL.md body. No behavior change in any hook or script.\n\n### Changed\n- **`skills/gold-standard/SKILL.md` FILL step slimmed — the 30d/90d rationale moved to `references/method.md`.** The rail stays inline (stamp each rule · 30d for fast-moving surfaces · 90d for general engineering · an advisory EVENT re-validates before the calendar); only the *why* moved to the on-demand reference. Shipped `plugin/` dist rebuilt to match.\n\n### Fixed\n- **`CONTRIBUTING.md` no longer claims `consistency.mjs` is part of the automatic gate.** The installer wires `verify.mjs` + the `node --test` suite into `.git/hooks`; `consistency.mjs` is a separate on-demand check. Corrected in both places that asserted it, and the gate code-block gained the missing `node scripts/test.mjs` line. Project Layout gained the `commands/` and `alt/` rows; the dev prerequisite is now Node 22+, matching the CI matrix.\n- **README benchmark headline corrected — four figures disagreed with the record.** \"100% on 6 of 7 suites\" is **5 of 7** (rot-canary's median is 92% on opus/haiku/AG). \"drift-canary is *the* discriminating suite\" is **two** suites — drift-canary and rot-canary. \"82 planted-defect fixtures\" is **60 planted defects + 22 clean decoys**. The engine list said four and named five; Haiku 4.5 ran only the original rot-canary benchmark, not the 7-canary matrix. The org landing already stated it correctly — this surface was missed by a sweep 16 days ago.\n- **`SECURITY.md` SkillSpector line-reference re-synced** from `hooks/rot-canary-stop.js:160` to `:240`, the flagged text itself. A line-ref re-sync, **not** a re-scan — the scan version/score pin is deliberately untouched.\n- **`SECURITY.md` commit-signing wording corrected.** Dependabot/CI commits were called \"unsigned by design\"; they are signed, with GitHub's own key rather than the maintainer key. The verify-the-release-tag instruction is unchanged.\n- **README Antigravity badge no longer overclaims** — `validated` became `validated canaries · wired auto-cadence`, matching the honest tier split already in the compatibility matrix.\n- **`ci.yml` `setup-node` comment** corrected `# v6` → `# v7.0.0` to match the pinned SHA (comment only).\n\n### What you need to do\nNothing. Update at your convenience — `claude plugin update`. No config key changed, no migration step, no behavior difference at runtime.\n\nGate at press: VERIFY PASS · 123/123 tests · dist in sync.",
+  "id": 359676637,
+  "pre": false
+ },
+ {
+  "tag": "v3.12.3",
+  "name": "v3.12.3 - quiet memory-drift advisory",
+  "body": "The v3.12.0 memory-drift exit-gate advisory is revamped to be quiet and non-reporting - it is not a canary finding.\n\n- Decoupled from the rot-canary scan report: the loud decision:block scan nudge is now pure scan; the drift note rides the Stop hook model-only hookSpecificOutput.additionalContext channel (never displays, never blocks).\n- A drift-only stop (code edited then deleted, MEMORY.md never updated) surfaces the quiet note alone.\n- Guards unchanged: memoryDriftNudge (default on), root-MEMORY.md probe, .memmoved satisfier. Antigravity still emits the no-op {}.\n- Charter widened: rot-canary Stop hook = the session-end hygiene surface (code-rot scan + memory-drift advisory). The DOCS half lives in CoalLedger (docsDriftNudge) with disjoint triggers.\n\nGate: VERIFY PASS - 123/123 - hooks 52/52 - PS-parity green. Review: 14 adversarial probes PASS.",
+  "id": 359662168,
+  "pre": false
+ },
+ {
+  "tag": "v3.12.2",
+  "name": "v3.12.2 - rot-canary skips os.tmpdir() scratch",
+  "body": "**PATCH.** The rot-canary touch hook now records NOTHING when the edited file resolves to inside `os.tmpdir()` — the hook keeps its own state there, and a session scratchpad of throwaway lab/IC harness files lives there too; none of it is ship code.\n\n- Dogfood-found: a long IC campaign kept nagging the session-end scan on one-shot harness `.mjs` under the temp scratchpad.\n- `isUnderTmpdir` = resolve + win32 case-fold + a `(tmp + sep)` boundary so a sibling like `/tmpX/foo` never matches `/tmp`. Guard sits before both the `.memmoved` marker and the watched-extension gate.\n- +3 hermetic tests (temp-excluded / normal-project-recorded / sibling-prefix-not-excluded); suite 119 -> 122, VERIFY PASS.",
+  "id": 359450434,
+  "pre": false
+ },
+ {
+  "tag": "v3.12.1",
+  "name": "v3.12.1 - atomic .memmoved marker (CodeQL follow-up)",
+  "body": "Hardens the v3.12.0 memory-drift marker write: the .memmoved marker is now created with an atomic wx open (create-only), closing the CodeQL js/insecure-temporary-file TOCTOU window. No behavior change otherwise. Back-dated Release for an already-published tag - see CHANGELOG [3.12.1].",
+  "id": 359662167,
+  "pre": false
+ },
+ {
+  "tag": "v3.12.0",
+  "name": "v3.12.0 - memory-drift exit-gate advisory",
+  "body": "**MINOR** - the rot-canary Stop hook gains a memory-drift exit-gate advisory: a session that edited code but never touched MEMORY.md gets a one-line localized nudge before it ends (5 languages).\n\n- Fires only when the project actually uses the MEMORY.md convention (a read-only root-file probe), rides the existing scan nudge (never standalone, never blocks; the Antigravity no-op `{}` is unchanged), and carries a standing off-switch: the new `memoryDriftNudge` config key (bool, default on).\n- Named v1 limitations (board-reviewed, documented): a version-bump-only session emits nothing; the check is session-global, not per-repo; rot-canary `manual`/`off` silences it too.\n- +5 hermetic spawn tests (hooks suite 48; full gate 119/119, VERIFY PASS).\n- Ride-along: `cadence.md` + `escalation.md` freshness stamps re-verified 2026-07-23.\n\nFull detail: [CHANGELOG](https://github.com/HetCreep/CoalMine/blob/main/CHANGELOG.md).",
+  "id": 359373678,
+  "pre": false
+ },
+ {
+  "tag": "v3.11.4",
+  "name": "v3.11.4 - AG adapter emits the current injectSteps contract",
+  "body": "The Antigravity PreInvocation adapter now emits the current {injectSteps:[{ephemeralMessage}]} contract (the pilot-era additionalContext key was a dead letter); conductor/rot-canary hooks read conversationId-first + workspacePaths[0]; docs swept. Wired, not live-validated on AG.",
+  "id": 358699178,
+  "pre": false
+ },
+ {
+  "tag": "v3.11.3",
+  "name": "v3.11.3 - installer ownership-gate",
+  "body": "**Fixed (HIGH, nasa-L3 audit):** the installer no longer delete-then-writes a directory it does not own. `isForeignSkillDir` proves ownership (absent/empty · manifest-listed · `skill-meta.json` marker) before any `rmSync`; a foreign collision is refused fail-loud (exit 1); an owned install still upgrades. The root spanned three delete sites, not just the one the finding named.",
+  "id": 355503151,
+  "pre": false
+ },
+ {
+  "tag": "v3.11.2",
+  "name": "v3.11.2 - HOOK-LEAN onboarding self-silence + DESC_CAP gate",
+  "body": "**Changed**: the conductor's onboarding offer auto-suppresses once a verified gold-standard stamp exists in the repo's rule roots (hasVerifiedStamp; skipOnboarding still forces off), decided against the same cwd each mode's own scan uses (payload cwd on AG/Gemini, process.cwd() on CC/file-copy). verify.mjs gains the flock DESC_CAP=1024 description gate (+ desc-cap.mjs lib + 7 unit cases).\n\nFull detail: CHANGELOG.md 3.11.2",
+  "id": 354629023,
+  "pre": false
+ },
+ {
+  "tag": "v3.11.1",
+  "name": "v3.11.1 - marker subdir symlink guard",
+  "body": "**PATCH** - security hardening follow-up: closes the dir-symlink residual the wx-latch left open. `mkdirSync(recursive)` silently follows a symlink pre-planted at the marker subdir (bypassing the 0o700 mode) - an `lstatSync` no-follow check now rejects a symlink subdir and fail-closes. Completes the CodeQL `js/insecure-temporary-file` mitigation. One-flock across CoalMine/CoalHearth/CoalFace. Tests green; verify PASS.",
+  "id": 354564677,
+  "pre": false
+ },
+ {
+  "tag": "v3.11.0",
+  "name": "v3.11.0 - 5 new platforms + Gemini full auto-cadence + FileCopy mode",
+  "body": "**MINOR** - five more platforms gain hook-configs (GitHub Copilot CLI, Kiro, Augment, Devin CLI, JetBrains Junie - works-with tier), Gemini CLI reaches full SessionStart-driven auto-cadence (nested hookSpecificOutput output mode; wired, not yet live-validated), and file-copy installs get an honest `FileCopy` conductor mode (KIND-2 only - no plugin-update offer, no shared-stamp consumption).\n\n**Security**: closes the four 2026-07-14 CodeQL HIGHs (insecure-temporary-file x2 + file-system-race x2) - the AG once-marker is now an atomic wx-latch in a private 0o700 tmp subdir; the stale-marker sweep gained a second pass and now runs before the rot-canary mode gates (ownership split).\n\nGate: verify PASS - hooks 38/38 - full suite 99/99. Full detail: CHANGELOG.md.",
+  "id": 354551894,
+  "pre": false
+ },
+ {
+  "tag": "v3.10.0",
+  "name": "v3.10.0 - Antigravity 2.0 auto-cadence",
+  "body": "The 9-canary auto-cadence now runs on Antigravity 2.0 (its IDE hooks.json engine), not just Claude Code. The 3 Node hooks gained a dual-mode path via an event-name argv - zero Claude Code behavior change.\n\n- Conductor rides the first PreInvocation on AG (once-per-session guarded); the rot-canary Stop-scan maps directly (pilot-proven live 2026-07-12).\n- Emits additionalContext JSON on AG; the KIND-1 self-update stays Claude-Code-only.\n- Tier = wired: built + hermetically tested vs the verified AG spec; live injected-context delivery pending.\n\nGate: verify PASS + 92/92 tests.",
+  "id": 353731696,
+  "pre": false
+ },
+ {
+  "tag": "v3.9.3",
+  "name": "v3.9.3 - updateMode safer-value-wins + config floors + count gate",
+  "body": "### Fixed\n- **`updateMode` now safer-value-wins across the two-level cascade** (Node + PS twins, all 5 hook hosts): an untrusted project config can no longer flip a global `off` up to `auto` (a consent escalation contradicting PRIVACY.md). Corrects the v3.9.1 \"monotonic = FP\" verdict - right for `autoFixMode` (agent-read), wrong to generalize to the hook-read `updateMode`.\n- **`tempSweepStaleDays` floored to >=1** - `0` swept every rot-canary temp including the live session's own marker.\n- **consistency.mjs gates the conductor's \"9 quality canaries\" string** against the skills/ count.\n- **The three /stats-only freshness keys documented honestly** - the auto-nudge honors each stamp's own literal `revalidate Nd` first; the platform/definition keys actuate on `/coalmine:stats` only.\n\nCredit: the user's CoalBoard nasa audit (2026-07-09), findings M1/M10/M11. Gate: 86 node + 14 + 20 PS.",
+  "id": 351466430,
+  "pre": false
+ },
+ {
+  "tag": "v3.9.2",
+  "name": "v3.9.2 - destroy the Work Execution Gate from the shipped templates",
+  "body": "### Removed\n- **The \"Work Execution Gate\" paragraph, from all 4 shipped platform templates** (`clinerules`, `copilot-instructions`, `cursor.mdc`, `windsurf.md`) — it was the dev machine's personal task-gate workflow that had leaked into ship surfaces, never a CoalMine skill feature. Each template's canary proactive-offer paragraph is KEPT (that is the skill's real function), and the standalone language-adaptivity line is restored (it was the deleted block's only non-gate content). v3.9.1 removed the README's public claim; the user then ordered full destruction — this release completes it. Successor ownership: CoalFace's fan-out/in-flight discipline + each conductor's consent-gated offers.",
+  "id": 351430275,
+  "pre": false
+ },
+ {
+  "tag": "v3.9.1",
+  "name": "v3.9.1 - README honesty + config clamps",
+  "body": "### Removed\n- **README §\"Work Execution Gate & Haldane Safety\" — a false plugin-feature claim.** It was advertised as if the installed plugin performs it, but it lives only in the gitignored AGENTS.md (Rule 5, local dev-governance); the shipped plugin has no code for it. Removed from the README (Rule 5 stays as this repo's governance). Board-2 dogfood finding, the \"false claim worse than none\" class.\n\n### Fixed\n- **Config read-time clamps** on three raw numeric keys — `ruleRevalidateDays`, `tripwireMaxFileSizeKb`, `tripwireMaxLines`. A negative/0/NaN project value broke the gate (mass false nagging / a silently-disabled tripwire). Floored to a positive integer (Node + PS twin), matching the existing `tempSweepStaleDays`/`autoScanFileCap` clamps. +1 hermetic regression.\n\n### Notes\n- Board-2's \"monotonic config\" (safer-value-wins) flag is a verified FALSE POSITIVE for CoalMine and was NOT shipped: every hook-read key is Phoenix-13 side-effect-free, and the one auto-EDIT key (`autoFixMode`) is agent-read from the raw file, not hook-merged — a hook-side guard would protect nothing.",
+  "id": 351399827,
+  "pre": false
+ },
+ {
+  "tag": "v3.9.0",
+  "name": "v3.9.0 - two-level config cascade (global + project)",
+  "body": "**MINOR - the two-level config cascade lands**, bringing CoalMine to key-parity with its four siblings.\n\n- **Global config layer:** every hook now reads `~/.claude/.coalmine.json` and overlays it per key with the project `<gitroot>/.coalmine.json` (**project wins**). Either file alone works. Keys named `__proto__`/`constructor`/`prototype` are dropped at merge - an untrusted project config cannot pollute the prototype. Shipped in the shared config partial, so all three Node hooks **and** both PowerShell twins gain it in one place (Node = PS parity).\n- **`configure.mjs --global`:** writes the global layer (directory created if missing) instead of the project git-root file.\n- **Hermetic regressions:** global-only honored, project-wins-per-key, proto-key dropped at merge (Node); global honored + project wins (PS twins); `--global` writes home-not-project (configure). Gates: 79 Node + 12+16 PS tests, VERIFY PASS.\n\nInstall/update: `claude plugin update coalmine@coalmine` - Full history: [CHANGELOG.md](https://github.com/HetCreep/CoalMine/blob/main/CHANGELOG.md)",
+  "id": 351157757,
+  "pre": false
+ },
+ {
+  "tag": "v3.8.5",
+  "name": "v3.8.5 - platform refresh + Configure truth",
+  "body": "**PATCH — the July 2026 platform-landscape refresh + a Configure truth fix.**\n\n- Windsurf → **Devin Desktop (ex-Windsurf)**; Gemini CLI mentions annotated **(superseded by Antigravity CLI, Jun 2026)** — names refreshed, every install path/CLI token/mechanic kept verbatim.\n- The Configure intro now states CoalMine's TRUE config model: a **single per-project `.coalmine.json` read from the git root** (no global layer — code-verified), with the off-switch named (`enableConductor: false`).\n- Rolls in the Apache-2.0 relicense note.\n\nPart of the flock doc-conform sweep. Full detail: CHANGELOG.md.",
+  "id": 351144156,
+  "pre": false
+ },
+ {
+  "tag": "v3.8.4",
+  "name": "v3.8.4 - clamp tempSweepStaleDays at read time (board round-3 LOW)",
+  "body": "Board round-3 LOW: a config read-time clamp the earlier Board #2 pass missed on the same-class sibling.\n\n## Fixed\n\n- **[LOW] `tempSweepStaleDays` was read raw with no read-time clamp** (`hooks/rot-canary-stop.js`), unlike its clamped sibling `autoScanFileCap`. A negative value in an untrusted project `.coalmine.json` pushes the sweep cutoff into the future, so `sweepStale` would delete EVERY `rot-canary-*` temp (including a concurrent session’s fresh temp). Now clamped `Math.max(0, Math.floor(n))` with a `Number.isFinite` guard (schema `min:0`, default 7) in BOTH the Node hook and the PowerShell twin. Confined to CoalMine’s own `os.tmpdir()` + fail-silent + self-inflicted config = LOW. New hermetic regression (negative override must not delete a fresh concurrent temp).\n\nGate: build + verify PASS + 75 node tests (+1 regression, negative-control proven). Node↔PS parity verified.",
+  "id": 348079494,
+  "pre": false
+ },
+ {
+  "tag": "v3.8.3",
+  "name": "v3.8.3 - conductor ReDoS + CI test-gate guard",
+  "body": "**PATCH** — two HIGH + a MED + 3 LOW, all judge-reproduced by two independent nasa dogfood boards:\n\n- **[HIGH] conductor ReDoS** — the SessionStart stamp scan was O(n²) on a poisoned rules file (many un-terminated `<!-- coalmine: verified` openers; 2MB ≈ 9s). Bounded to a 2048-char window per opener (mirrors the sibling `consistency.mjs` fix) → linear (2MB ≈ 0.47s). +2 regression tests.\n- **[HIGH] CI test-gate hole** — a raw `node --test` file list silently greens a *missing* test on Node 24. New guarded `scripts/test.mjs` (existsSync + orphan + fail-loud); CI + both git hooks converge on it (one list, no drift).\n- **[MED]** PRIVACY.md now discloses the `~/.claude/` update-stamp + mode writes.\n- **LOWs** — disabledCanaries example, stats.md section count, a dead tripwire alt.\n\nGate: build + verify + 74 node tests + PS 26 (Win 5.1) PASS, adversarially work-reviewed (ReDoS timing 19.5× at 2MB, anti-tautology confirmed).\n\nUpdate: `claude plugin update coalmine@coalmine`\n",
+  "id": 347919709,
+  "pre": false
+ },
+ {
+  "tag": "v3.8.2",
+  "name": "v3.8.2 - gold-standard wizard CHANGE-path recompute + re-consent",
+  "body": "**PATCH** - gold-standard wizard CHANGE-path correctness (parity with CoalBoard v1.4.2).\n\n### Fixed\n- **Wizard `change` recomputes the bill + re-consents** (`bill -> change -> bill -> pay`). The programmer-path confirm said \"go / change / cancel -> spawn only on go\" but never specified that `change` must loop back, RECOMPUTE the bill, and re-present a FRESH consent box -> a change (Heavy fan-out / +FILL / +CONFORM) could score/spawn on a stale, un-reconsented bill. Now spelled out.\n\nThe previously-unreleased PowerShell/CI repo fixes (the CRITICAL `disabledCanaries` single-element-array kill-switch fix on PS 5.1, the `=======` tripwire co-occurrence guard, the CI test-parity fix) ride along on this tag.\n\nGate: build + verify + 72 node tests PASS.",
+  "id": 342556418,
+  "pre": false
+ },
+ {
+  "tag": "v3.8.1",
+  "name": "v3.8.1 - gold-standard wizard flow-correctness + token-min",
+  "body": "**PATCH** — gold-standard wizard flow-correctness + token-minimization. The v3.8.0 wizard shipped with an embed defect and a latent double-ask; fixed via two adversarial loop-until-correct dogfood passes.\n\n### Fixed\n- **EMBED — layman `go deeper` now firmly binds the rules.** It was `AUDIT + FILL` (rules written to disk but not in force this session → a separate redundant ADOPT gate was needed to bind them). Now `AUDIT + FILL + ADOPT` in that one consent — the gaps are written into the project's rules home AND made binding, so gold rules firmly bind without a second prompt. CONFORM (existing-code retrofit) stays a separate explicit gate.\n- **Latent double-ask on the layman path closed** — the layman box now states the Standard default IS the resident escalation-footer's tier, so the footer fires no second tier question on that path.\n\n### Changed\n- **Token-minimized** — the on-demand wizard squeezed 1551 → 1449 ch; every cut re-verified against all 4 correctness bars (flow · no-double-ask · embed · no-dup), 11 further cuts rejected as bar-breaking. `SKILL.md` (resident) untouched.\n\nGate: build + 69 node tests + consistency + verify PASS. Update: `claude plugin update coalmine@coalmine` + restart.\n",
+  "id": 342503853,
+  "pre": false
+ },
+ {
+  "tag": "v3.8.0",
+  "name": "v3.8.0 - gold-standard interactive setup wizard",
+  "body": "**MINOR** — gold-standard gains an interactive setup wizard. Manual `/gold-standard` only; the auto/keyword path is untouched and pays nothing for it.\n\n- **Layman** (bare `/gold-standard` / \"audit my rules\"): the AI picks safe defaults (relevant dimensions from one cheap scan · Standard · AUDIT), then asks ONE plain jargon-free question — `go` · `go deeper` (also fill the gaps) · `cancel`.\n- **Programmer** (`advanced` / `ACTION=`): one batched question-box (ACT · DIMENSIONS · TIER) → bill computed FROM the picks → `go`/`change`/`cancel`. Order → bill → pay (bill after the picks = never a stale default).\n- On-demand `references/wizard.md` — the always-resident `SKILL.md` body and the cheap auto/keyword path are unchanged.\n\nToken-economy: the wizard's tier question folds into the resident escalation-footer's existing tier-pick (never asked twice — no duplicate round-trip).\n\nGate: build + 69 node tests + consistency + verify PASS. Update: `claude plugin update coalmine@coalmine` + restart.\n",
+  "id": 342499413,
+  "pre": false
+ },
+ {
+  "tag": "v3.7.12",
+  "name": "v3.7.12 - board-audit round-2 config-clamp hardening",
+  "body": "**PATCH** — board-audit round-2 fixes (sub4-reproduced); config-clamp hardening, behavior unchanged on valid config.\n\n- **#2** rot-canary stop-hook clamps `autoScanFileCap` / `autoScanFileCapSlice` at read (`Math.max(1, Math.floor(n))`) — `{0}` no longer emits an empty-list \"capped at 0\" nudge, `{-1}` no longer silently drops the last touched file, and the PowerShell twin clamps identically (`Select-Object -First -1` no longer throws → Node≡PS parity restored).\n- **#4/#5** `updateCheckDays` parity — config-schema adds `max:365` (had `min:1` only); the conductor guard is now `Number.isInteger(v) && 1≤v≤365` (was `≥1` only — accepted `1.5`/`99999`). Matches CoalBoard + CoalTipple.\n- +5 hermetic regression tests (64 → 69 node tests) proving each clamp closes its edge case.\n\nGate: build + 69 tests + consistency + verify PASS. Update: `claude plugin update coalmine@coalmine` + restart.\n",
+  "id": 342497088,
+  "pre": false
+ },
+ {
+  "tag": "v3.7.11",
+  "name": "v3.7.11 - board-audit bugfixes (28 confirmed)",
+  "body": "**PATCH** — board-audit fixes (verify-triaged from the whole-Colliery nasa board; 28/139 confirmed, the rest FP/by-design/no-overkill). Bugfixes only — no canary behavior change.\n\n- **PS-config parity test now gated** in pre-commit + pre-push (skip-if-absent pwsh; fail-loud when present) — closes the scripts-quality §2 gap where a PowerShell-side regression could ship silently.\n- **JSONC-stripper sync gate** (`consistency.mjs checkJsoncRegexSync`) — the hand-duplicated comment-stripper regex in `jsonc.mjs` and `node-config.js` can no longer silently diverge.\n- **rot-canary tripwire fixes** — `=======` flags only with a co-occurring real `<<<<<<< `/`>>>>>>> ` marker (no banner false-positive); the `>maxLines` off-by-one at exactly the cap is fixed.\n- **5 platform hook templates** quote the node script path (no word-split on a path with spaces; hooks-safety §3).\n- **fix-mode safety guard** added to the scale/telemetry/testability/drift \"Apply safe …\" bullets (checkpoint → build/test → revert-if-red).\n- **`install.mjs`** copyDefaultConfig warn is now fail-loud; **README** Configuration-Schema table completed to all 23 keys; **issue-template** Antigravity added to the dropdown; CHANGELOG 3.7.8 erratum (Antigravity is **not** \"scrapped\" — it remains a supported install target).\n\nGate: build + 64 tests + consistency + verify PASS. Update: `claude plugin update coalmine@coalmine` + restart.\n",
+  "id": 342486880,
+  "pre": false
+ },
+ {
+  "tag": "v3.7.10",
+  "name": "v3.7.10 - SKILL.md load-path carve (token economy)",
+  "body": "**PATCH** — SKILL.md load-path carve (token economy); every canary's behavior unchanged.\n\n- **#9 / #18 carve** — the escalation footer (the 2 shared partials injected ×9) compressed **−27.6%** (4170 → 3019 chars/injection = **−10,359 resident chars** across the 9 skills); the per-platform Heavy-lever table + Heavy-durability prose moved to a new shared `references/escalation.md` (build-injected into all 9, loaded **on-demand**, off the Light/auto/Stop-hook path) + per-skill body trims. Total always-loaded resident cost **−17%** (68,343 → 56,695 chars). The always-resident footer keeps every auto/hook-path behavior — the tier rubric, the +1 scoring, the `ask_question` gate, Hook Context, the entanglement domain-map, self-error-report.\n- New `scripts/lib/render.mjs` shared-references mechanism (one source written verbatim into each skill's `references/`, propagated to dist + every install target + manifest hashing) + a `verify.mjs` `checkSharedReferences` byte-sync check (with a negative test). 61 → 64 node tests.\n\nGate: build + 64 node tests + consistency + verify PASS. Update: `claude plugin update coalmine@coalmine` + restart.\n",
+  "id": 342427409,
+  "pre": false
+ },
+ {
+  "tag": "v3.7.9",
+  "name": "v3.7.9 - round-2 audit fixes",
+  "body": "Round-2 audit (CoalBoard whole-Colliery) — CLI + consistency-gate bugfixes. **PATCH** — the shipped skill runtime is unchanged.\n\n### Fixed\n- **CM-2:** `scripts/configure.mjs` `parseValue` reuses `validateValue` (enforces `max`, not just `min`) — the CLI no longer silently accepts out-of-bounds (`--autoScanFileCap 1001` is rejected). Kills the two-parser drift + the float-truncate footgun.\n- **CM-1:** `scripts/lib/consistency.mjs` runs `STAMP_RE` over a bounded window (2048 chars/opener) — quadratic backtracking on a poisoned rules `.md` (reachable via `node scripts/consistency.mjs`) is now linear.\n- **sweep-guard:** `hooks/rot-canary-stop.js` runs the housekeeping sweep ONLY on the active (auto) path, matching the PowerShell twin (Node≡PS parity). +2 hermetic tests.\n- **CM-DM (doc):** `checkDoctrineMirrors` comment corrected to its honest scope (in-repo mirrors only; the org `.github` copy is a separate repo, out of runtime reach).\n\n**Update:** `claude plugin update coalmine@coalmine` + restart. Gate: build + verify + 61 tests + consistency PASS.\n",
+  "id": 342379801,
+  "pre": false
+ },
+ {
+  "tag": "v3.7.8",
+  "name": "v3.7.8 - hardening from the CoalBoard audit",
+  "body": "CoalBoard-audit hardening (dogfood) — PowerShell parity + doc/config accuracy.\n\n**Fixed**\n- **H3** PS hooks — `session_id` sandbox allowlist (`^[A-Za-z0-9_-]+$`), parity with the Node twins (Phoenix #10); a traversal-shaped sid can no longer escape `$env:TEMP`.\n- **H4** PS JSONC stripper — ported the Node string-aware `stripJsonc`; an inline `// comment` no longer silently voids the whole `.coalmine.json` on PS hooks. + a Node≡PS equivalence test + a hermetic PS test.\n- **M4** `config-schema.mjs` int validation (`Number.isInteger` + min/max bounds; degenerate `-1`/`0` values rejected).\n\n**Changed**\n- **M5** SECURITY.md scan guard-comment synced to the prose. **M9** dropped scrapped-Antigravity from the escalation footer (all 9 skills) + the issue dropdown; removed the unverifiable \"Windsurf (now Devin)\".\n\n**Removed**\n- the stray root `.coalmine.json` (maintainer machine config; config is create-if-absent, `platform-configs/` is the template).\n\nFound by a CoalBoard dogfood audit; verified (59/59 node + 16/16 PS tests, verify PASS).",
+  "id": 342346815,
+  "pre": false
+ },
+ {
+  "tag": "v3.7.7",
+  "name": "v3.7.7 - path-safety hardening",
+  "body": "Path-safety hardening — defense-in-depth on the hook + installer file paths.\n\n- **rot-canary hooks** (`rot-canary-touch.js`, `rot-canary-stop.js`) — the `session_id` used to build the temp-state path is validated (`/^[A-Za-z0-9_-]+$/`) before use, so a malformed/crafted session_id cannot traverse outside `os.tmpdir()` (Phoenix #10 sandbox containment).\n- **install.mjs `safeSkillNames`** — a skill name about to be removed must be a plain basename (regex + `s === path.basename(s)`); anything else is dropped, never deleted. + a hermetic traversal test in `hooks.test.mjs`.\n\nPropagate: `claude plugin update coalmine@coalmine` then restart.",
+  "id": 341912743,
+  "pre": false
+ },
+ {
+  "tag": "v3.7.6",
+  "name": "v3.7.6 - doc-accuracy",
+  "body": "Doc-accuracy pass.\n\n- **SECURITY.md** — pins the last actual SkillSpector scan (v3.7.3, 2026-06-17); scanning is periodic, not per-release (an unscanned version is unverified — dropped the \"covers later versions\" claim).\n- **`autoScanFileCapSlice`** help clarified — a file COUNT (most-recently-modified files kept), not a fraction.\n- **rot-canary \"dead code\"** — named the heuristic: zero-reference reachability across ALL entry routes.\n- **Escalation footer** — dropped the now-stale \"no fan-out: Gemini CLI / Cline / Windsurf\" (all shipped parallel subagents through 2026) → a churn-resilient \"verify your platform\" note.\n\nUpdate: `claude plugin update coalmine@coalmine` + restart.",
+  "id": 341620391,
+  "pre": false
+ },
+ {
+  "tag": "v3.7.5",
+  "name": "v3.7.5 - opt-in consent-gated self-updating",
+  "body": "**Self-Updating** — an opt-in, consent-gated update system that stays silent by default.\n\n## Added\n- **Self-Updating (two kinds), silent until due.** New config `updateMode` (`ask`/`auto`/`remind`/`off`, factory `ask`) + `updateCheckDays` (factory `14`). The conductor stays silent until `updateCheckDays` elapse since the last check (a crash-safe `~/.claude` stamp, throttled once per window), then:\n  - **kind 1 (plugin version):** `ask` prompts once how to handle updates (auto / remind / off); `auto` has the agent compare the latest tag to the installed version and offer `claude plugin update` (standing consent — the only token-spending path); `remind` is a free periodic reminder; `off` is silent. **The hook itself never networks or spends** — the version-check lives only in the new `/coalmine:update` agent procedure, with a graceful offline fallback.\n  - **kind 2 (rule freshness):** a free, local nudge when a gold-standard `revalidate Nd` stamp is past due — lifting `/coalmine:stats` past-due detection from pull-only to automatic.\n\n## Why\n`claude plugin update` does not auto-detect plugin staleness for community marketplaces (auto-update is opt-in, off by default). This fills that gap for users who keep auto-update off — without a fake offline version-check: the **agent** verifies, the **hook** only schedules.\n\n---\nUpdate: `claude plugin update coalmine@coalmine` + restart Claude Code.\n",
+  "id": 341471483,
+  "pre": false
+ },
+ {
+  "tag": "v3.7.4",
+  "name": "v3.7.4 - .coalmine.json config-loss fix (#12)",
+  "body": "Ships the **#12 `.coalmine.json` config-loss fix** to users. The fix had landed under 3.7.3, so version-keyed updaters (such as Claude Code's `claude plugin update`) never delivered it; bumping to 3.7.4 propagates it. Plus **#13** (Thai leak removed from two skills) and the retired-skill-name install sweep.\n\nDocs: SECURITY.md now records an actual SkillSpector run (v2.2.3, 58/100, 3 false positives) with scan provenance; CONTRIBUTING added; README/SECURITY trimmed.\n\n**Update** through your agent's normal plugin/skill update, then restart it. For example, Claude Code: `claude plugin update coalmine@coalmine`; other agents: re-run the install (see the README). CoalMine runs on every major AI coding agent, not only Claude Code.",
+  "id": 341030267,
+  "pre": false
+ },
+ {
+  "tag": "v3.7.3",
+  "name": "v3.7.3 - security hardening + doctrine to the org",
+  "body": "A CodeQL/security hardening pass, the series-doctrine move to the org, and a CI cleanup.\n\n**Series doctrine moved to the org.** The Phoenix-13 (hooks-safety) and scripts-quality docs are now hosted canonically at [`TheColliery/.github`](https://github.com/TheColliery/.github) alongside DESIGN-PRINCIPLES. CoalMine dropped its `docs/` copies; `SECURITY.md` links the org, and the doctrine-mirror gate now checks the two machine-local rule homes.\n\n**Fixed:** CodeQL `js/file-system-race` in `install.mjs`, `configure.mjs`, and the `rot-canary-touch.js` tripwire (read-and-handle / fstat-on-fd, all benign in context); markdownlint MD060 disabled; the detection benchmark is now dated inline.\n\n**Security:** workflow actions pinned to commit SHAs (closes Scorecard PinnedDependencies). Dependabot still tracks them. The remaining by-design Scorecard findings are dismissed with documented reasons.\n\nTo update: `claude plugin update coalmine@coalmine` then restart Claude Code.",
+  "id": 339404885,
+  "pre": false
+ },
+ {
+  "tag": "v3.7.2",
+  "name": "v3.7.2 - Design Principles at the series level + git-optional fix-mode",
+  "body": "## v3.7.2: Design Principles at the series level + a git-optional fix-mode\n\n### Changed\n- **The Quantum 11 Design Principles moved up to the series umbrella.** They are series doctrine - every tool in TheColliery obeys them - so the canonical, tool-agnostic copy now lives at <https://github.com/TheColliery/.github/blob/main/DESIGN-PRINCIPLES.md>. CoalMine's repo-local `DESIGN-PRINCIPLES.md` is removed; the README links the series doc.\n- **The README now cross-links the series** (CoalMine <-> CoalTipple). The link was one-directional before - CoalTipple pointed here, but not the reverse.\n\n### Fixed\n- **`rot-canary` fix-mode no longer assumes git.** The safe-fix checkpoint is now \"git stash/commit in a git repo; else copy the file aside\", and the auto-revert restores whichever was used - a non-git user gets the same safe auto-revert. This enforces a new series rule, **no external assumption**: no shipped feature HARD-requires git, GitHub, a network, or a CLI the user may not have (they are optional enhancements with a graceful fallback).\n\nGate: build-plugin 9/9, verify PASS, 35 tests. Commit + tag SSH-signed (Verified).",
+  "id": 339211434,
+  "pre": false
+ },
+ {
+  "tag": "v3.7.1",
+  "name": "v3.7.1 - config-honesty + SkillSpector v2.1.4",
+  "body": "## v3.7.1: config-honesty + SkillSpector v2.1.4\n\n### Changed\n- **Config-honesty pass: every documented `.coalmine.json` key now has a real consumer.** Seven keys that were defined and documented but never read are now wired into the canaries and the conductor: `defaultTier`, `autoFixMode`, `schemaPaths`/`migrationDirs`, `packageManifests`, `trustedDomains`, `skipOnboarding`. Adds a conductor `skipOnboarding` test (gate suite 35).\n\n### Removed\n- **Tombstoned `skillUpdateCheckDays`**: no consumer, and offline skill-staleness is not verifiable by a fail-silent hook (the marketplace/host owns update checks).\n\n### Security\n- **SkillSpector refreshed to v2.1.4**: the static pass scores 58/100, and all 3 findings remain reviewed false-positives (an HTML-comment freshness stamp, the consent-gate line itself, a session-scoped temp file). The LLM semantic pass does not complete on the available API tier, so the headline falls back to the pessimistic static number. The real assurance is structural (Phoenix-13). See SECURITY.md.\n\n### Added (carried from Unreleased)\n- **Version-pin drift gate**: any doc line with a `version-pin:` marker must quote the current `plugin.json` version, or `verify.mjs` fails.\n\nGate: build-plugin 9/9, verify PASS, 35 tests. Commit + tag SSH-signed (Verified).",
+  "id": 339198045,
+  "pre": false
+ },
+ {
+  "tag": "v3.7.0",
+  "name": "v3.7.0 - install.mjs all (auto-detect install)",
+  "body": "## install.mjs `all` — auto-detect install\n\n`node scripts/install.mjs all` installs CoalMine to **every agent already configured in your project** — detected by its marker dir (`.cursor/`, `.agents/`, `.github/`, `.gemini/`, `.junie/`) — and skips the rest, printing what it detected vs skipped (fail-loud, never a silent no-op). Claude Code and Cline (both rooted at `.claude/`) are left out of auto-detect so it can never double a plugin install; install those by name.\n\nIt is the low-risk form of \"install everywhere\": every source-grounded vendor path is kept (no silent coverage drop) while the convergent majority is covered in one command. Unknown or brand-new agents route to a [platform report](https://github.com/HetCreep/CoalMine/issues/new?template=platform-report.yml), not a path map that quietly rots.\n\n### Also in 3.7.0\n- **Agent-count drift gate** (batched from Unreleased): the README agent-table row count must equal the targets in `scripts/lib/targets.mjs`, or `verify.mjs` fails.\n- Docs: the SECURITY.md `git tag -v` verify example is now number-free (`git describe`); version placeholders carry greppable `version-pin` markers.\n- Gate suite: 33 tests.\n\n**Full changelog:** https://github.com/HetCreep/CoalMine/blob/main/CHANGELOG.md",
+  "id": 338982389,
+  "pre": false
+ },
+ {
+  "tag": "v3.6.0",
+  "name": "v3.6.0 - drop dead Roo Code, fix Cline path, platform-aware escalation tiers",
+  "body": "### Removed\n- Dropped the **Roo Code** target — upstream repo archived 2026-05-15 (team pivoted to Roomote, \"IDEs aren't the future\"). Supported targets 12 -> 11. Existing Roo forks can still copy a conformed SKILL.md manually.\n\n### Fixed\n- Corrected the **Cline** skills path (`.agents/skills` -> `.claude/skills`; Cline does not read `.agents/`). Re-source-grounded every agent skill-path against agentskills.io (Jun 2026).\n\n### Changed\n- **Platform-aware Escalation Tiers**: tiers are now capability targets with a degrade-gracefully rule (no faking parallelism a platform lacks) + a per-platform Heavy-lever map (Claude Dynamic Workflows/`ultracode`, Codex `xhigh`+Cloud, Cursor Max+Cloud Agents, Antigravity Agent Manager, Amp Oracle, ...). Keyed on stable mode names, not volatile model IDs.",
+  "id": 338956706,
+  "pre": false
+ },
+ {
+  "tag": "v3.5.1",
+  "name": "v3.5.1 - manifest integrity traversal-guard fix (security)",
+  "body": "rot-canary auto-scan on the v3.5.0 SFC-lite code caught a real path-traversal-guard bypass: a Windows-backslash manifest key slipped past the /-split guard, letting verify.mjs <target> hash a file outside the install dir (read-only oracle). Fixed with a resolve-and-contain check covering both separators, absolute, and drive-relative keys; escape test extended. Same class as the v2.6.1 safeSkillNames fix. Full details in CHANGELOG.md.",
+  "id": 338934845,
+  "pre": false
+ },
+ {
+  "tag": "v3.5.0",
+  "name": "v3.5.0 - Windows-grade hardening: distrust your own artifacts",
+  "body": "Self-consistency layer (cross-document facts, byte-identical doctrine mirrors, stamp shape) + SFC-lite installed-artifact integrity (per-file SHA-256 in the manifest, re-checked by verify.mjs <target>) + memory/rule poison detection in gold-standard RE-VALIDATE. Closes the two HIGH trust-surface gaps an FMEA found: the suite now verifies what it trusts (memory, installed copies, doctrine mirrors), not only what it ships. Gate 30 tests. Full details in CHANGELOG.md.",
+  "id": 338933988,
+  "pre": false
+ },
+ {
+  "tag": "v3.4.0",
+  "name": "v3.4.0 - Fat-trim: shared hook regions, schema table, conductor diet",
+  "body": "Conductor session injection -37% chars; stop-nudge tails -40% in all 5 languages; hook config plumbing deduplicated into hooks/_shared and synced via coalmine-shared marker regions (verify gates drift; hooks stay copy-one-file portable); 22-key config schema becomes one table shared by verify.mjs and configure.mjs (validation, CLI flags, and --help all generate from it); gate suite 25 tests. Full details in CHANGELOG.md.",
+  "id": 338687656,
+  "pre": false
+ },
+ {
+  "tag": "v3.3.0",
+  "name": "v3.3.0 - .coalmine.json config system (programmer overrides, zero-config defaults)",
+  "body": "Categorized 22-key .coalmine.json with a fully commented template dropped at install; configure.mjs CLI with validation and legacy-key migration; hooks resolve config from the git root and honor legacy v3.0.0 keys; deterministic 24h temp-sweep throttle (Phoenix #8); worktree/submodule installs via gitdir: resolution; installer self-destruct guard; hook stdin BOM hardening. Closes issue #5 (7/7 findings). Full details in CHANGELOG.md.",
+  "id": 338687677,
+  "pre": false
+ },
+ {
+  "tag": "v3.2.1",
+  "name": "v3.2.1 - Tier rubric freshness cap",
+  "body": "Freshness cap: a scope already audited at Standard or higher this session now caps the tier recommendation at Light regardless of size score - caught live during the first dogfood of the plugin-served skill. Full details in CHANGELOG.md.",
+  "id": 338687688,
+  "pre": false
+ }
+]

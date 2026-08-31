@@ -1,0 +1,497 @@
+[
+ {
+  "tag": "v3.18.2",
+  "name": "v3.18.2 - sweep-marker symlink hardening",
+  "entry": true,
+  "eh": "Security",
+  "bh": "",
+  "anyHeading": true,
+  "blen": 892
+ },
+ {
+  "tag": "v3.18.1",
+  "name": "v3.18.1 - SKILL.md body-lean campaign pass",
+  "entry": true,
+  "eh": "Fixed",
+  "bh": "",
+  "anyHeading": true,
+  "blen": 686
+ },
+ {
+  "tag": "v3.18.0",
+  "name": "v3.18.0 - CLASSIFY-BLOCK grants sections on 8 skills",
+  "entry": true,
+  "eh": "Added,Fixed",
+  "bh": "",
+  "anyHeading": true,
+  "blen": 806
+ },
+ {
+  "tag": "v3.17.4",
+  "name": "v3.17.4 - claude-ai-trim surrogate-pair fix",
+  "entry": true,
+  "eh": "Fixed",
+  "bh": "",
+  "anyHeading": true,
+  "blen": 616
+ },
+ {
+  "tag": "v3.17.3",
+  "name": "v3.17.3 - three more hook config gates clamped",
+  "entry": true,
+  "eh": "Security",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 480
+ },
+ {
+  "tag": "v3.17.2",
+  "name": "v3.17.2 - zips-run proof claim corrected",
+  "entry": true,
+  "eh": "Fixed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 362
+ },
+ {
+  "tag": "v3.17.1",
+  "name": "v3.17.1 - SHA256SUMS on claude.ai ZIPs + workflow fix",
+  "entry": true,
+  "eh": "Added",
+  "bh": "",
+  "anyHeading": true,
+  "blen": 547
+ },
+ {
+  "tag": "v3.17.0",
+  "name": "v3.17.0 - claude.ai ZIP packaging via CI",
+  "entry": true,
+  "eh": "Added,Fixed,Security",
+  "bh": "",
+  "anyHeading": true,
+  "blen": 1001
+ },
+ {
+  "tag": "v3.16.0",
+  "name": "v3.16.0 - per-project config under an agent dir",
+  "entry": true,
+  "eh": "Added",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 333
+ },
+ {
+  "tag": "v3.15.0",
+  "name": "v3.15.0 - ReportFindings panel adoption + code-only factory scope",
+  "entry": true,
+  "eh": "Added,Changed,Fixed",
+  "bh": "Added,Changed",
+  "anyHeading": true,
+  "blen": 3500
+ },
+ {
+  "tag": "v3.14.3",
+  "name": "v3.14.3 - source-grounding ledger carve + membership-test audit",
+  "entry": true,
+  "eh": "Changed",
+  "bh": "Changed",
+  "anyHeading": true,
+  "blen": 4528
+ },
+ {
+  "tag": "v3.14.2",
+  "name": "v3.14.2 - scope the fix-prohibition to skills that actually fix",
+  "entry": true,
+  "eh": "Fixed",
+  "bh": "Fixed",
+  "anyHeading": true,
+  "blen": 3470
+ },
+ {
+  "tag": "v3.14.1",
+  "name": "v3.14.1 - shared-footer correction + gold-standard ledger carve",
+  "entry": true,
+  "eh": "Fixed,Changed",
+  "bh": "Fixed,Changed",
+  "anyHeading": true,
+  "blen": 6044
+ },
+ {
+  "tag": "v3.14.0",
+  "name": "v3.14.0 - scanExcludePaths + installer git-hook fixes",
+  "entry": true,
+  "eh": "Added,Fixed,Changed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 1100
+ },
+ {
+  "tag": "v3.13.0",
+  "name": "v3.13.0 - declared over-run tripwire + fail-loud enumeration sweep",
+  "entry": true,
+  "eh": "Added,Fixed,Changed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 377
+ },
+ {
+  "tag": "v3.12.4",
+  "name": "v3.12.4 - doc claims re-grounded + gold-standard rationale to the reference",
+  "entry": true,
+  "eh": "Changed,Fixed",
+  "bh": "Changed,Fixed",
+  "anyHeading": true,
+  "blen": 2550
+ },
+ {
+  "tag": "v3.12.3",
+  "name": "v3.12.3 - quiet memory-drift advisory",
+  "entry": true,
+  "eh": "Changed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 860
+ },
+ {
+  "tag": "v3.12.2",
+  "name": "v3.12.2 - rot-canary skips os.tmpdir() scratch",
+  "entry": true,
+  "eh": "Fixed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 701
+ },
+ {
+  "tag": "v3.12.1",
+  "name": "v3.12.1 - atomic .memmoved marker (CodeQL follow-up)",
+  "entry": true,
+  "eh": "Security",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 285
+ },
+ {
+  "tag": "v3.12.0",
+  "name": "v3.12.0 - memory-drift exit-gate advisory",
+  "entry": true,
+  "eh": "Added,Fixed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 925
+ },
+ {
+  "tag": "v3.11.4",
+  "name": "v3.11.4 - AG adapter emits the current injectSteps contract",
+  "entry": true,
+  "eh": "Fixed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 279
+ },
+ {
+  "tag": "v3.11.3",
+  "name": "v3.11.3 - installer ownership-gate",
+  "entry": true,
+  "eh": "Fixed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 379
+ },
+ {
+  "tag": "v3.11.2",
+  "name": "v3.11.2 - HOOK-LEAN onboarding self-silence + DESC_CAP gate",
+  "entry": true,
+  "eh": "Changed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 425
+ },
+ {
+  "tag": "v3.11.1",
+  "name": "v3.11.1 - marker subdir symlink guard",
+  "entry": true,
+  "eh": "Security",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 421
+ },
+ {
+  "tag": "v3.11.0",
+  "name": "v3.11.0 - 5 new platforms + Gemini full auto-cadence + FileCopy mode",
+  "entry": true,
+  "eh": "Added,Fixed,Security",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 766
+ },
+ {
+  "tag": "v3.10.0",
+  "name": "v3.10.0 - Antigravity 2.0 auto-cadence",
+  "entry": true,
+  "eh": "Added,Fixed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 580
+ },
+ {
+  "tag": "v3.9.3",
+  "name": "v3.9.3 - updateMode safer-value-wins + config floors + count gate",
+  "entry": true,
+  "eh": "Fixed",
+  "bh": "Fixed",
+  "anyHeading": true,
+  "blen": 894
+ },
+ {
+  "tag": "v3.9.2",
+  "name": "v3.9.2 - destroy the Work Execution Gate from the shipped templates",
+  "entry": true,
+  "eh": "Removed",
+  "bh": "Removed",
+  "anyHeading": true,
+  "blen": 697
+ },
+ {
+  "tag": "v3.9.1",
+  "name": "v3.9.1 - README honesty + config clamps",
+  "entry": true,
+  "eh": "Removed,Fixed",
+  "bh": "Removed,Fixed",
+  "anyHeading": true,
+  "blen": 1094
+ },
+ {
+  "tag": "v3.9.0",
+  "name": "v3.9.0 - two-level config cascade (global + project)",
+  "entry": true,
+  "eh": "Added,Changed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 1072
+ },
+ {
+  "tag": "v3.8.5",
+  "name": "v3.8.5 - platform refresh + Configure truth",
+  "entry": true,
+  "eh": "Changed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 596
+ },
+ {
+  "tag": "v3.8.4",
+  "name": "v3.8.4 - clamp tempSweepStaleDays at read time (board round-3 LOW)",
+  "entry": true,
+  "eh": "Fixed",
+  "bh": "",
+  "anyHeading": true,
+  "blen": 889
+ },
+ {
+  "tag": "v3.8.3",
+  "name": "v3.8.3 - conductor ReDoS + CI test-gate guard",
+  "entry": true,
+  "eh": "Fixed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 982
+ },
+ {
+  "tag": "v3.8.2",
+  "name": "v3.8.2 - gold-standard wizard CHANGE-path recompute + re-consent",
+  "entry": true,
+  "eh": "Fixed",
+  "bh": "Fixed",
+  "anyHeading": true,
+  "blen": 755
+ },
+ {
+  "tag": "v3.8.1",
+  "name": "v3.8.1 - gold-standard wizard flow-correctness + token-min",
+  "entry": true,
+  "eh": "Fixed,Changed",
+  "bh": "Fixed,Changed",
+  "anyHeading": true,
+  "blen": 1215
+ },
+ {
+  "tag": "v3.8.0",
+  "name": "v3.8.0 - gold-standard interactive setup wizard",
+  "entry": true,
+  "eh": "Added",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 1002
+ },
+ {
+  "tag": "v3.7.12",
+  "name": "v3.7.12 - board-audit round-2 config-clamp hardening",
+  "entry": true,
+  "eh": "Fixed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 894
+ },
+ {
+  "tag": "v3.7.11",
+  "name": "v3.7.11 - board-audit bugfixes (28 confirmed)",
+  "entry": true,
+  "eh": "Fixed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 1407
+ },
+ {
+  "tag": "v3.7.10",
+  "name": "v3.7.10 - SKILL.md load-path carve (token economy)",
+  "entry": true,
+  "eh": "Changed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 1146
+ },
+ {
+  "tag": "v3.7.9",
+  "name": "v3.7.9 - round-2 audit fixes",
+  "entry": true,
+  "eh": "Fixed",
+  "bh": "Fixed",
+  "anyHeading": true,
+  "blen": 1063
+ },
+ {
+  "tag": "v3.7.8",
+  "name": "v3.7.8 - hardening from the CoalBoard audit",
+  "entry": true,
+  "eh": "Fixed,Changed,Removed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 1046
+ },
+ {
+  "tag": "v3.7.7",
+  "name": "v3.7.7 - path-safety hardening",
+  "entry": true,
+  "eh": "Fixed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 642
+ },
+ {
+  "tag": "v3.7.6",
+  "name": "v3.7.6 - doc-accuracy",
+  "entry": true,
+  "eh": "Changed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 685
+ },
+ {
+  "tag": "v3.7.5",
+  "name": "v3.7.5 - opt-in consent-gated self-updating",
+  "entry": true,
+  "eh": "Added",
+  "bh": "",
+  "anyHeading": true,
+  "blen": 1409
+ },
+ {
+  "tag": "v3.7.4",
+  "name": "v3.7.4 - .coalmine.json config-loss fix (#12)",
+  "entry": true,
+  "eh": "Fixed,Changed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 734
+ },
+ {
+  "tag": "v3.7.3",
+  "name": "v3.7.3 - security hardening + doctrine to the org",
+  "entry": true,
+  "eh": "Changed,Fixed,Security",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 974
+ },
+ {
+  "tag": "v3.7.2",
+  "name": "v3.7.2 - Design Principles at the series level + git-optional fix-mode",
+  "entry": true,
+  "eh": "Changed,Fixed",
+  "bh": "Changed,Fixed",
+  "anyHeading": true,
+  "blen": 1135
+ },
+ {
+  "tag": "v3.7.1",
+  "name": "v3.7.1 - config-honesty + SkillSpector v2.1.4",
+  "entry": true,
+  "eh": "Added,Changed,Removed,Security",
+  "bh": "Changed,Removed,Security,Added",
+  "anyHeading": true,
+  "blen": 1294
+ },
+ {
+  "tag": "v3.7.0",
+  "name": "v3.7.0 - install.mjs all (auto-detect install)",
+  "entry": true,
+  "eh": "Added",
+  "bh": "",
+  "anyHeading": true,
+  "blen": 1254
+ },
+ {
+  "tag": "v3.6.0",
+  "name": "v3.6.0 - drop dead Roo Code, fix Cline path, platform-aware escalation tiers",
+  "entry": true,
+  "eh": "Removed,Fixed,Changed",
+  "bh": "Removed,Fixed,Changed",
+  "anyHeading": true,
+  "blen": 797
+ },
+ {
+  "tag": "v3.5.1",
+  "name": "v3.5.1 - manifest integrity traversal-guard fix (security)",
+  "entry": true,
+  "eh": "Fixed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 437
+ },
+ {
+  "tag": "v3.5.0",
+  "name": "v3.5.0 - Windows-grade hardening: distrust your own artifacts",
+  "entry": true,
+  "eh": "Added,Added,Fixed,Added",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 469
+ },
+ {
+  "tag": "v3.4.0",
+  "name": "v3.4.0 - Fat-trim: shared hook regions, schema table, conductor diet",
+  "entry": true,
+  "eh": "Changed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 424
+ },
+ {
+  "tag": "v3.3.0",
+  "name": "v3.3.0 - .coalmine.json config system (programmer overrides, zero-config defaults)",
+  "entry": true,
+  "eh": "Added,Fixed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 437
+ },
+ {
+  "tag": "v3.2.1",
+  "name": "v3.2.1 - Tier rubric freshness cap",
+  "entry": true,
+  "eh": "Fixed",
+  "bh": "",
+  "anyHeading": false,
+  "blen": 237
+ }
+]
