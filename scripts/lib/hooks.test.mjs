@@ -830,8 +830,13 @@ test('touch hook: .touched and .smells are created 0o600, not the default mode (
   const proj = mkTmp(); // SIBLING of the sandbox TEMP, never nested inside it: touch.js drops
   try {                 // any file under os.tmpdir() from recording (the v3.12.2 scope guard).
     fs.mkdirSync(path.join(proj, '.git'));
+    // Pin the threshold in the fixture instead of leaning on the 800 default and writing a
+    // 900-line file: this is a MODE test, and coupling it to a tripwire constant it does not
+    // care about would make it fail for an unrelated reason the day that default moves.
+    // Same shape the sibling `tripwireMaxLines override` test above already uses.
+    fs.writeFileSync(path.join(proj, '.coalmine.json'), JSON.stringify({ tripwireMaxLines: 5 }), 'utf8');
     const f = path.join(proj, 'big.js');
-    fs.writeFileSync(f, 'const x=1;\n'.repeat(900)); // >800 lines → also produces .smells
+    fs.writeFileSync(f, 'const x=1;\n'.repeat(10)); // 11 lines > the pinned 5 → also yields .smells
     const r = runHook(
       TOUCH,
       JSON.stringify({ session_id: 'T600', tool_name: 'Write', tool_input: { file_path: f }, cwd: proj }),
