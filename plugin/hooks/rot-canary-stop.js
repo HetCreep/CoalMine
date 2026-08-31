@@ -452,9 +452,13 @@ function sweepStale(canaryActive) {
       // and in exactly that case this file's own default mode (0o666 & ~umask) is all that
       // stands between the stamp and another user. `flag: 'wx'` stays and is doing separate
       // work (O_EXCL refuses a pre-planted name, link or not); it is not what mode replaces.
-      // It also closes CodeQL js/insecure-temporary-file #66/#67, whose sink fires on a
-      // temp-dir write with no `mode` (or a mode whose low 6 bits are not all zero) —
-      // re-derived from the query source: it reads the mode argument ONLY, never the flag,
+      // It also closes CodeQL js/insecure-temporary-file #66/#67 — and precisely: 0o600
+      // SATISFIES THE QUERY'S OWN SINK PREDICATE (`isSecureMode` is `mode & 0o77 == 0`, the
+      // whole group+other field), which is not the same thing as "the rule's remediation".
+      // The query's qhelp actually recommends a library like `tmp`, which Phoenix #2
+      // (zero-dep) forbids us — so the recommended path is unavailable, not unattractive,
+      // and this fix stands on the threat argument above rather than on borrowed authority.
+      // Re-derived from source: the predicate reads the mode argument ONLY — never the flag,
       // the dir's 0o700, the lstat guards, or filename randomness. A random suffix, the
       // other fix proposed for this, would not have closed it.
       fs.writeFileSync(stamp, '', { flag: 'wx', mode: 0o600 });
@@ -815,6 +819,10 @@ function main() {
     // (no private subdir at all here), so on a shared Unix /tmp the file's own mode is the
     // only thing scoping it to this user. Same CodeQL sink class (#66/#67's rule), caught by
     // the batch sweep rather than by an alert — this site was never reported.
+    // Residual (CWK-043 INSPECT N1): `mode` is open(2)'s CREATION mode, ignored when the
+    // file already exists. The `wx` sites are always newly created so it is vacuous there,
+    // but this marker is rewritten every batch — a `.scanned` left by a pre-CWK-043 version
+    // at 0o666 is NOT tightened by this code. Self-heals on the next tmp clear.
     fs.writeFileSync(scanned, String(touchedMtime), { encoding: 'utf8', mode: 0o600 });
   } catch {}
 

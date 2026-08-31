@@ -563,7 +563,14 @@ function main() {
   const isWin = process.platform === 'win32';
   const fCompare = isWin ? normF.toLowerCase() : normF;
   const existingCompare = isWin ? existing.map((x) => x.toLowerCase()) : existing;
-  if (!existingCompare.includes(fCompare)) { try { fs.appendFileSync(touched, normF + '\n'); } catch {} }
+  // `mode: 0o600` for the same threat reason as the sibling markers, NOT because a scanner
+  // asked: `appendFileSync` is genuinely not one of js/insecure-temporary-file's 14 modelled
+  // sinks, so nothing flags this line — but it is a FLAT os.tmpdir() write in the same
+  // directory as `.memmoved`, and it carries MORE than that empty stamp does: the user's
+  // edited file paths. Letting the scanner's sink list draw our threat boundary would be the
+  // tail wagging the dog (CWK-043 INSPECT M1). `mode` applies at CREATE only — the first
+  // append makes the file 0o600, later appends leave it alone, which is what we want.
+  if (!existingCompare.includes(fCompare)) { try { fs.appendFileSync(touched, normF + '\n', { mode: 0o600 }); } catch {} }
 
   // Tripwire scan — skip very large files to stay inside the latency budget
   // (Phoenix #3: ≤100ms with scan). Default cap 100KB (tripwireMaxFileSizeKb) to
@@ -601,7 +608,11 @@ function main() {
   }
   if (smells.length) {
     // One line per file — the stop hook reports each .smells line verbatim.
-    try { fs.appendFileSync(base + '.smells', `${normF}: ${smells.join('; ')}\n`); } catch {}
+    // `mode: 0o600` on the same threat grounds as `.touched` above (CWK-043 INSPECT M1):
+    // flat os.tmpdir(), and this one carries the user's paths PLUS the findings against
+    // them. Unmodelled by the query (appendFileSync is not one of its 14 sinks) and
+    // hardened anyway — the threat, not the sink list, is the boundary.
+    try { fs.appendFileSync(base + '.smells', `${normF}: ${smells.join('; ')}\n`, { mode: 0o600 }); } catch {}
   }
 }
 
