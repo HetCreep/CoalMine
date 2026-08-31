@@ -21,3 +21,6 @@ skills-lock.json
 # claude.ai ZIP-packaging staging dir (scripts/build-claude-ai-zips.mjs, board #40) —
 # a build artifact, zipped and attached to the GitHub Release, never committed
 dist-claude-ai/
+
+# Working scratch — dispatch prompts, plans, audit JSON. Machine-local, never shipped.
+scratchpad/
