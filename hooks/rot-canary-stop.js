@@ -458,7 +458,10 @@ function sweepStale(canaryActive) {
       //     Metadata: marker EXISTENCE and MTIME — i.e. that a session ran and roughly when
       //     — plus, for the conductor's sibling marker, a djb2 hash of its session key in
       //     the FILENAME. Filenames are readable from the directory itself, so 0o600 never
-      //     hid those. NOT obtainable: our marker CONTENTS (0o600 since CWK-043 — and both
+      //     hid those. That key is whichever session identifier the conductor finds first,
+      //     which MAY be a transcript file path rather than an opaque id, and djb2 is not a
+      //     secrecy mechanism — the full precision is stated at that hook's own copy of this
+      //     block; do not read "a hash" here as implying the preimage is unguessable. NOT obtainable: our marker CONTENTS (0o600 since CWK-043 — and both
       //     markers are written EMPTY, so there is nothing in them to learn); any write
       //     THROUGH a path we own (rename replaces a directory entry; `wx` refuses a
       //     pre-planted name); and this residual has NO reach at all to `.touched`,

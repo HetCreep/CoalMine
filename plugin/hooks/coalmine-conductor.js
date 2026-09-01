@@ -598,8 +598,15 @@ function agMain(cfg, updateMode) {
     //     content of the injected payload can be altered by it.
     //     Metadata: marker existence + mtime, and the djb2 hash of the session key carried
     //     in the FILENAME — directory entries are listable whatever the file's mode, so
-    //     0o600 never concealed that. It is a hash of a session id, not the id itself, and
-    //     not a credential. NOT obtainable: the marker's CONTENTS (0o600, and it is written
+    //     0o600 never concealed that. Be exact about what that hash covers, because the key
+    //     is whichever of conversationId / session_id / sessionId / transcript_path /
+    //     transcriptPath is found FIRST (see the `key` derivation above): it may be an
+    //     opaque session id, but it may equally be a transcript FILE PATH, which can carry
+    //     a username or project name. djb2 is non-cryptographic and is used here only to
+    //     make a short stable filename — it is NOT a secrecy mechanism, so treat this as a
+    //     stable per-session fingerprint whose preimage is guessable when the key was a
+    //     path. It is still not a credential, and nothing authenticates on it.
+    //     NOT obtainable: the marker's CONTENTS (0o600, and it is written
     //     EMPTY — nothing in it to learn), and any write THROUGH a path we own (`wx` is
     //     O_CREAT|O_EXCL, so a pre-planted name is refused rather than followed).
     //
