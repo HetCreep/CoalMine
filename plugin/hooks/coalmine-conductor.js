@@ -584,6 +584,42 @@ function agMain(cfg, updateMode) {
     // sink; the flag is not read). Real work, not appeasement: mkdir's `mode` above is a
     // no-op when the dir already exists, so a pre-created world-writable `<tmp>/coalmine`
     // leaves this file's own mode as the only per-user scoping on a shared /tmp.
+    //
+    // ── WHAT THAT RESIDUAL ACTUALLY BUYS AN ATTACKER (CWK-044) ─────────────────────────
+    // Stated HERE rather than cross-referenced, so a reader who finds the residual named
+    // finds its bounds without leaving the file. PRECONDITION: another local user creates
+    // <tmp>/coalmine before we do — unreachable on Windows (%TEMP% is per-user) and on a
+    // single-user box; live only on a shared Unix host.
+    //
+    // (a) BOUNDED WORST CASE — DENIAL and METADATA only.
+    //     Denial: this session's nudge is skipped, see (b). Cost is one missed ADVISORY
+    //     line — by the fail-closed choice above, that is already the lesser evil we
+    //     deliberately accept. Nothing the user owns is read, written, or deleted, and no
+    //     content of the injected payload can be altered by it.
+    //     Metadata: marker existence + mtime, and the djb2 hash of the session key carried
+    //     in the FILENAME — directory entries are listable whatever the file's mode, so
+    //     0o600 never concealed that. It is a hash of a session id, not the id itself, and
+    //     not a credential. NOT obtainable: the marker's CONTENTS (0o600, and it is written
+    //     EMPTY — nothing in it to learn), and any write THROUGH a path we own (`wx` is
+    //     O_CREAT|O_EXCL, so a pre-planted name is refused rather than followed).
+    //
+    // (b) FORGERY / SUPPRESSION — REACHABLE, and it is the same mechanism as our own
+    //     latch. Planting this exact filename makes our `wx` create hit EEXIST, which we
+    //     read as "already injected this session" and fail closed → the nudge is skipped
+    //     for that session. We cannot distinguish a forged marker from our own: the file
+    //     carries no authenticator, and EEXIST is a bare fact about the name. Content
+    //     forgery is vacuous (the marker is empty; only its EXISTENCE is semantic).
+    //     Deleting it has the opposite effect — the latch re-opens and the nudge may repeat.
+    //
+    // (c) DELETE vs READ — different exposures, kept apart on purpose.
+    //     READ is governed by the FILE's mode (0o600 → another user cannot read it).
+    //     DELETE / RENAME / REPLACE is governed by the DIRECTORY's write+execute bits,
+    //     which we do not control when someone else created the dir; 0o600 does not bear on
+    //     unlink at all (measured in the sibling hook: a 0600 file is removable from a 0777
+    //     dir — a file's mode never protects its directory ENTRY). Hence (b) is open while
+    //     the contents stay private. Cross-user unlink is POSIX semantics rather than a
+    //     local measurement — it needs a second account this box does not have.
+    // ───────────────────────────────────────────────────────────────────────────────────
     fs.writeFileSync(marker, '', { flag: 'wx', mode: 0o600 });
   } catch { return; } // EEXIST (already ran) OR any write failure -> fail-closed, no emit
   // Resolved ONCE, shared by the onboarding check (buildLines) and KIND 2 below — the payload

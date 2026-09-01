@@ -2,6 +2,12 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [Unreleased]
+
+### Changed
+
+- **The `<tmp>/coalmine` residual now states its own bounds where it is named (CWK-044).** `rot-canary-stop.js` and `coalmine-conductor.js` each already named the residual — `mkdirSync`'s `mode` is a no-op when the directory already exists, so a third party who pre-creates `<tmp>/coalmine` world-writable leaves it permissive. Each block now also states, in the same place rather than a file away: the **bounded worst case** (denial and metadata only — a suppressed sweep or a skipped advisory nudge, plus marker existence/mtime and the conductor's djb2 filename hash; never our marker contents, never a write through a path we own, and no reach at all to `.touched`/`.smells`/`.scanned`, which sit flat under `/tmp`'s own sticky bit); the **forgery/suppression** case (planting a regular file at the marker path makes the throttle read "already swept", or makes the conductor's `wx` create hit EEXIST and fail closed — reachable by design, because the marker carries no authenticator and a forged one is indistinguishable from ours; content forgery is vacuous since both markers are written empty); and the **delete-vs-read distinction** (reading is governed by the file's `0o600`, but delete/rename/replace is governed by the *directory's* bits, which we do not control — `0o600` does not bear on `unlink` at all, measured: a `0600` file is removable from a `0777` directory). Comment-only — the non-comment diff is empty and the `plugin/` twins are byte-identical to source by `git hash-object`. Filed under Changed rather than Security deliberately: it fixes no vulnerability and changes no behaviour, it bounds one already-named and already-accepted residual.
+
 ## [3.18.3] - 2026-08-31
 
 ### Security

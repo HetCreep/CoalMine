@@ -444,6 +444,47 @@ function sweepStale(canaryActive) {
       // without a mode (it did not exist at v3.10.0, and arrived at v3.11.0 already 0o700),
       // and both writers we ship pass it. The residual is a third party pre-creating it
       // world-writable, which we would not tighten.
+      //
+      // ── WHAT THAT RESIDUAL ACTUALLY BUYS AN ATTACKER (CWK-044) ───────────────────────
+      // Bounds live HERE, beside the residual, so a reader who finds the hole named finds
+      // its limits in the same place. PRECONDITION: another local user creates
+      // <tmp>/coalmine before we do. Unreachable on Windows (%TEMP% is per-user) and on a
+      // single-user box; a shared Unix host is the only place this is live.
+      //
+      // (a) BOUNDED WORST CASE — DENIAL and METADATA, and nothing beyond them.
+      //     Denial: our sweep and/or the AG nudge can be suppressed, see (b). Cost is temp
+      //     garbage accumulating (Phoenix #1) and one advisory nudge missed. No scan result
+      //     changes, no file of the user's is read, written, or deleted by this.
+      //     Metadata: marker EXISTENCE and MTIME — i.e. that a session ran and roughly when
+      //     — plus, for the conductor's sibling marker, a djb2 hash of its session key in
+      //     the FILENAME. Filenames are readable from the directory itself, so 0o600 never
+      //     hid those. NOT obtainable: our marker CONTENTS (0o600 since CWK-043 — and both
+      //     markers are written EMPTY, so there is nothing in them to learn); any write
+      //     THROUGH a path we own (rename replaces a directory entry; `wx` refuses a
+      //     pre-planted name); and this residual has NO reach at all to `.touched`,
+      //     `.smells` or `.scanned`, which live FLAT in os.tmpdir() under /tmp's own sticky
+      //     bit (1777, measured), not in this subdir.
+      //
+      // (b) FORGERY / SUPPRESSION — REACHABLE, deliberately, and bounded to denial.
+      //     Planting a REGULAR file here with a fresh mtime makes the throttle above read
+      //     "already swept" and suppresses our sweep indefinitely. The CWK-031/U8
+      //     isSymbolicLink() arm rejects a planted SYMLINK — it does NOT reject a planted
+      //     regular file, and cannot: the marker carries no authenticator, so our own
+      //     marker and an identical forged one are indistinguishable by construction.
+      //     CONTENT forgery is vacuous (the file is empty; only existence+mtime are
+      //     semantic). DELETING our marker has the opposite and harmless effect — the
+      //     throttle releases and we simply sweep more often.
+      //
+      // (c) DELETE vs READ — NOT the same exposure; do not blur them.
+      //     READ is governed by the FILE's mode: 0o600, so another user cannot read our
+      //     markers. DELETE / RENAME / REPLACE is governed by the DIRECTORY's write+execute
+      //     bits, which we do not control when a third party created the dir — and 0o600 is
+      //     IRRELEVANT to unlink. Measured: removing a 0600 file from a 0777 dir succeeds;
+      //     a file's own mode never protects its directory ENTRY. That asymmetry is exactly
+      //     why (b) stays open while contents stay private — they can replace the marker,
+      //     they cannot read it. (Cross-user unlink is POSIX semantics, not measured here:
+      //     it needs a second account this box does not have.)
+      // ─────────────────────────────────────────────────────────────────────────────────
       fs.mkdirSync(markerDir, { recursive: true, mode: 0o700 });
       if (fs.lstatSync(markerDir).isSymbolicLink()) return; // dir-symlink → fail-closed, no write, no sweep
       // `mode: 0o600` is defence-in-depth for the residual named at the `mkdirSync` call
