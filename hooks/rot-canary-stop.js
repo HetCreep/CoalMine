@@ -466,7 +466,8 @@ function sweepStale(canaryActive) {
       //     THROUGH a path we own (rename replaces a directory entry; `wx` refuses a
       //     pre-planted name); and this residual has NO reach at all to `.touched`,
       //     `.smells` or `.scanned`, which live FLAT in os.tmpdir() under /tmp's own sticky
-      //     bit (1777, measured), not in this subdir.
+      //     bit (1777 — read under WSL2, same provenance caveat as (c) below: this box's
+      //     NTFS has no such bit to read), not in this subdir.
       //
       // (b) FORGERY / SUPPRESSION — REACHABLE, deliberately, and bounded to denial.
       //     Planting a REGULAR file here with a fresh mtime makes the throttle above read
@@ -482,10 +483,15 @@ function sweepStale(canaryActive) {
       //     READ is governed by the FILE's mode: 0o600, so another user cannot read our
       //     markers. DELETE / RENAME / REPLACE is governed by the DIRECTORY's write+execute
       //     bits, which we do not control when a third party created the dir — and 0o600 is
-      //     IRRELEVANT to unlink. Measured: removing a 0600 file from a 0777 dir succeeds;
-      //     a file's own mode never protects its directory ENTRY. That asymmetry is exactly
-      //     why (b) stays open while contents stay private — they can replace the marker,
-      //     they cannot read it. (Cross-user unlink is POSIX semantics, not measured here:
+      //     IRRELEVANT to unlink: a file's own mode never protects its directory ENTRY.
+      //     MEASURED UNDER WSL2/tmpfs, non-root — NOT on this repo's dev box, where NTFS
+      //     reports 666 for every file and directory so neither mode exists to test (that
+      //     is why the label has to name where): dir 0500 + file 0600 → unlink FAILS, and
+      //     dir 0700 + file 0400 → unlink SUCCEEDS. Two cases rather than one, because the
+      //     pair isolates the causal variable — the DIRECTORY bit decides, the file mode
+      //     does not participate. That asymmetry is exactly why (b) stays open while
+      //     contents stay private — they can replace the marker, they cannot read it.
+      //     (The CROSS-USER leg is POSIX semantics, not measured anywhere by us:
       //     it needs a second account this box does not have.)
       // ─────────────────────────────────────────────────────────────────────────────────
       fs.mkdirSync(markerDir, { recursive: true, mode: 0o700 });

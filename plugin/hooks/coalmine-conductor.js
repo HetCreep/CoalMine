@@ -601,8 +601,11 @@ function agMain(cfg, updateMode) {
     //     0o600 never concealed that. Be exact about what that hash covers, because the key
     //     is whichever of conversationId / session_id / sessionId / transcript_path /
     //     transcriptPath is found FIRST (see the `key` derivation above): it may be an
-    //     opaque session id, but it may equally be a transcript FILE PATH, which can carry
-    //     a username or project name. djb2 is non-cryptographic and is used here only to
+    //     opaque session id on a spec-conformant payload — `conversationId` is the current
+    //     AG spec's documented field and comes first — but it FALLS BACK to a transcript
+    //     FILE PATH when those id fields are absent, and such a path can carry a username or
+    //     project name. Reachable, not equiprobable: the ordering at the `key` derivation is
+    //     the whole reason. djb2 is non-cryptographic and is used here only to
     //     make a short stable filename — it is NOT a secrecy mechanism, so treat this as a
     //     stable per-session fingerprint whose preimage is guessable when the key was a
     //     path. It is still not a credential, and nothing authenticates on it.
@@ -622,10 +625,13 @@ function agMain(cfg, updateMode) {
     //     READ is governed by the FILE's mode (0o600 → another user cannot read it).
     //     DELETE / RENAME / REPLACE is governed by the DIRECTORY's write+execute bits,
     //     which we do not control when someone else created the dir; 0o600 does not bear on
-    //     unlink at all (measured in the sibling hook: a 0600 file is removable from a 0777
-    //     dir — a file's mode never protects its directory ENTRY). Hence (b) is open while
-    //     the contents stay private. Cross-user unlink is POSIX semantics rather than a
-    //     local measurement — it needs a second account this box does not have.
+    //     unlink at all — a file's mode never protects its directory ENTRY. Measured under
+    //     WSL2/tmpfs, non-root, and cited with its provenance because this repo's dev box is
+    //     NTFS, where every file and directory reports 666 and neither mode exists to test:
+    //     dir 0500 + file 0600 → unlink FAILS; dir 0700 + file 0400 → unlink SUCCEEDS — the
+    //     pair isolates the DIRECTORY bit as the causal variable. Hence (b) is open while
+    //     the contents stay private. The CROSS-USER leg is POSIX semantics rather than any
+    //     measurement of ours — it needs a second account this box does not have.
     // ───────────────────────────────────────────────────────────────────────────────────
     fs.writeFileSync(marker, '', { flag: 'wx', mode: 0o600 });
   } catch { return; } // EEXIST (already ran) OR any write failure -> fail-closed, no emit
