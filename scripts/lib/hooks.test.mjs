@@ -1055,6 +1055,91 @@ test('scanExcludePaths (CWK-054): anti-cry-wolf holds — a stop that touched NO
   }
 });
 
+test('scanEverything (CWK-057): bypasses scanExcludePaths — an excluded file IS scanned, and the run says so', () => {
+  // THE SABOTAGE TARGET. Remove either bypass in rot-canary-stop.js and this goes RED:
+  // the early return in getScanExcludePaths(), or the !scanEverythingOn() guard on the cap.
+  const tmp = mkTmp();
+  try {
+    fs.mkdirSync(path.join(tmp, '.claude'), { recursive: true });
+    // GLOBAL layer carries the key: a project-level true would be CLAMPED to false by
+    // hooks-safety.md §9 (that clamp has its own test below), so arming it from the project
+    // layer here would prove the clamp works, not that the bypass works.
+    fs.writeFileSync(path.join(tmp, '.claude', '.coalmine.json'), JSON.stringify({ scanEverything: true }), 'utf8');
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ scanExcludePaths: ['scratchpad'] }), 'utf8');
+    const excluded = path.join(tmp, 'scratchpad-probe.js');
+    fs.writeFileSync(excluded, 'x');
+    const base = path.join(tmp, 'rot-canary-SE11');
+    fs.writeFileSync(base + '.touched', excluded + '\n');
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'SE11', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    const out = JSON.parse(r.stdout);
+    // The cut is genuinely bypassed: the file the exclude names is IN the scan list.
+    assert.equal(out.decision, 'block', 'a scan report must exist — the excluded file was scanned');
+    assert.ok(out.reason.includes('scratchpad-probe.js'), 'scanEverything must defeat scanExcludePaths');
+    assert.ok(!out.reason.includes('skipped per scanExcludePaths'), 'nothing was skipped, so no skip clause');
+    // And the run discloses its own scope, on the SAME quiet channel (CWK-054's twin).
+    assert.ok(out.systemMessage && out.systemMessage.includes('scanEverything'),
+      'an unfiltered run must be as legible as a suppressed one');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('scanEverything (CWK-057): bypasses the autoScanFileCap slice — every touched file is scanned, not the newest N', () => {
+  // The cap is the more dangerous of the two cuts: an excluded path is at least NAMED in
+  // config, a capped file is dropped by mtime with nothing pointing at it.
+  const tmp = mkTmp();
+  try {
+    fs.mkdirSync(path.join(tmp, '.claude'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, '.claude', '.coalmine.json'), JSON.stringify({ scanEverything: true }), 'utf8');
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ autoScanFileCap: 2, autoScanFileCapSlice: 1 }), 'utf8');
+    const files = [];
+    for (let i = 0; i < 4; i++) {
+      const f = path.join(tmp, `capped-${i}.js`);
+      fs.writeFileSync(f, 'x');
+      files.push(f);
+    }
+    const base = path.join(tmp, 'rot-canary-SE13');
+    fs.writeFileSync(base + '.touched', files.join('\n') + '\n');
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'SE13', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    const out = JSON.parse(r.stdout);
+    for (const f of files) {
+      assert.ok(out.reason.includes(path.basename(f)), `${path.basename(f)} must survive the cap under scanEverything`);
+    }
+    assert.ok(!out.reason.includes('Auto-scan capped'), 'no cap notice — the cap did not fire at all');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('scanEverything (CWK-057): a PROJECT-level true is clamped to false when the global layer is silent (hooks-safety.md §9)', () => {
+  // A cloned repo must not be able to force a full scan on your machine. Same safer-value-wins
+  // shape as enableConductor/rotCanaryMode, opposite polarity: here `true` is the LOUDER side.
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'),
+      JSON.stringify({ scanEverything: true, scanExcludePaths: ['scratchpad'] }), 'utf8');
+    const excluded = path.join(tmp, 'scratchpad-probe.js');
+    const kept = path.join(tmp, 'real-code.js');
+    fs.writeFileSync(excluded, 'x');
+    fs.writeFileSync(kept, 'x');
+    const base = path.join(tmp, 'rot-canary-SE12');
+    fs.writeFileSync(base + '.touched', kept + '\n' + excluded + '\n');
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'SE12', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    const out = JSON.parse(r.stdout);
+    assert.ok(!out.reason.includes('scratchpad-probe.js'), 'the clamp holds: a project-only true does NOT bypass the exclude');
+    assert.ok(out.reason.includes('skipped per scanExcludePaths'), 'the exclude still fired, so its skip clause still shows');
+    assert.ok(!(out.systemMessage || '').includes('scanEverything is ON'), 'and the override notice must not claim an override that was clamped away');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('scanExcludePaths honors a * wildcard fragment (lightweight glob, not a full glob engine)', () => {
   const tmp = mkTmp();
   try {

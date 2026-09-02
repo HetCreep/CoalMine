@@ -209,6 +209,16 @@ const SAFER_ENUM = {
   updateMode: { order: ['off', 'remind', 'ask', 'auto'], default: 'ask' },
   enableConductor: { order: [false, true], default: true, legacy: 'conductor' }, // index 0 = safest; default = config-schema.mjs's declared factory default (README Configure table)
   rotCanaryMode: { order: ['off', 'manual', 'auto'], default: 'auto', legacy: 'mode' },
+  // scanEverything (CWK-057): boolean-as-enum-of-two, same shape as enableConductor but the
+  // OPPOSITE polarity — here `true` is the LOUDER side (every scope cut off = more files
+  // scanned = more tokens), so index 0 is `false`. §9's blast test decides the direction, not
+  // the key's name: a clone-borne project config forcing a full scan is exactly the escalation
+  // the clamp exists to stop. The owner's own GLOBAL `true` is UNAFFECTED — the loop below
+  // `continue`s when the project expressed no opinion, so a project file's SILENCE can never
+  // clamp a global away; only a project that sets the key is constrained, and it may still
+  // QUIETEN (`true`→`false`). No legacy alias: the key is new, it has never shipped under
+  // another name.
+  scanEverything: { order: [false, true], default: false },
 };
 // UNION-MERGE KEYS (hooks-safety.md section 9): a strArr key here is QUIETEN-only —
 // more entries can only REDUCE what a hook acts on, never escalate spend/consent — so

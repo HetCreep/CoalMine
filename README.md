@@ -182,6 +182,7 @@ Zero-config to start — and two config levels when you want them: a global `~/.
 | `defaultTier` | `auto` | Force an execution tier (`Light` \| `Standard` \| `Heavy` \| `auto`) |
 | `disabledCanaries` | `[]` | Canaries to disable (e.g. `["rot-canary"]` or `["all"]`) |
 | `scanExcludePaths` | `[]` | Path fragments/globs skipped by the session-end auto-scan — lab tooling only (scratch probes, one-shot harnesses); shipped/tracked source is never excluded by this key |
+| `scanEverything` | `false` | **The override.** `true` bypasses EVERY scan-scope cut for the run — `scanExcludePaths` ignored, `autoScanFileCap` not applied. Positive polarity: `true` = more scanning. Does NOT re-enable a disabled canary, and does not reach the recording-side cuts (`watchedExtensions`, tmpdir). **Clamped safer-value-wins:** a project-level `true` is forced to `false` unless your global layer also says `true`, so a cloned repo cannot force a full scan on your machine |
 
 Full key reference: every key + default lives in [`scripts/lib/config-schema.mjs`](scripts/lib/config-schema.mjs) and the commented template [`platform-configs/.coalmine.json`](platform-configs/.coalmine.json) — or run `node scripts/configure.mjs --help`.
 

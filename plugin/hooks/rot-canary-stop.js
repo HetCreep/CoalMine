@@ -235,6 +235,16 @@ const SAFER_ENUM = {
   updateMode: { order: ['off', 'remind', 'ask', 'auto'], default: 'ask' },
   enableConductor: { order: [false, true], default: true, legacy: 'conductor' }, // index 0 = safest; default = config-schema.mjs's declared factory default (README Configure table)
   rotCanaryMode: { order: ['off', 'manual', 'auto'], default: 'auto', legacy: 'mode' },
+  // scanEverything (CWK-057): boolean-as-enum-of-two, same shape as enableConductor but the
+  // OPPOSITE polarity — here `true` is the LOUDER side (every scope cut off = more files
+  // scanned = more tokens), so index 0 is `false`. §9's blast test decides the direction, not
+  // the key's name: a clone-borne project config forcing a full scan is exactly the escalation
+  // the clamp exists to stop. The owner's own GLOBAL `true` is UNAFFECTED — the loop below
+  // `continue`s when the project expressed no opinion, so a project file's SILENCE can never
+  // clamp a global away; only a project that sets the key is constrained, and it may still
+  // QUIETEN (`true`→`false`). No legacy alias: the key is new, it has never shipped under
+  // another name.
+  scanEverything: { order: [false, true], default: false },
 };
 // UNION-MERGE KEYS (hooks-safety.md section 9): a strArr key here is QUIETEN-only —
 // more entries can only REDUCE what a hook acts on, never escalate spend/consent — so
@@ -586,8 +596,43 @@ function sweepStale(canaryActive) {
 // fragment is over-broad (a bare '*'/'**' matches every path) — the skip-count
 // clause in the nudge (below) is the visibility net for that case, not a
 // prevention.
+// scanEverything (CWK-057) — the owner's scan-override law, the antivirus shape: every
+// scope-cutting feature stays exactly as it is for other users, and this ONE key turns them
+// all off for a run. An antivirus with a permanent exclusion list is a scanner with a hole.
+// POSITIVE POLARITY BY DESIGN: `true` means MORE scanning, never a double negative
+// (`ignoreExclusions`/`disableFilters` would both invert at every read site and read as a
+// bug the first time someone skims them).
+// Read through the EXISTING cascade (loadCfg), never a new read path — so it inherits the
+// §9 clamp declared in node-config.js's SAFER_ENUM for free, and Phoenix #10's sandbox roots
+// are untouched.
+// WHAT IT REACHES, and the boundary is deliberate — SCAN-SCOPE ONLY:
+//   BYPASSED: scanExcludePaths (here) and the autoScanFileCap slice (below).
+//   NOT bypassed, each for its own reason, NAMED rather than left silent:
+//   - disabledCanaries / rotCanaryMode 'off'|'manual' — these are the canary's ON/OFF
+//     switch, not a scope cut. "Scan everything" means "when scanning, scan everything",
+//     never "scan even when you turned me off". Overriding them would also make the key
+//     unusable as a permanent global, which is the owner's own stated use of it.
+//   - watchedExtensions (touch hook) — a ROOM BOUNDARY, not stinginess: code is CoalMine's
+//     pole and docs are CoalLedger's. Overriding it would have rot-canary scan prose, which
+//     is wrong on the merits, not merely out of reach.
+//   - isUnderTmpdir (touch hook) — excludes the session's own scratchpad. The antivirus
+//     argument is about shipped code HIDING behind an exclusion; a throwaway harness is not
+//     shipped code.
+//   - the tripwire's tripwireMaxFileSizeKb cap (touch hook) — Phoenix #3 latency on a
+//     PostToolUse hook, and it hides nothing: the file is still recorded and still scanned
+//     at Stop, only its EDIT-TIME pre-flag is skipped.
+//   STRUCTURAL reason the last three cannot be reached from here even if we wanted them:
+//   they are RECORDING-side, and a Stop-time key cannot retroactively record a file the
+//   touch hook never wrote to `.touched`.
+function scanEverythingOn() {
+  try {
+    const cfg = loadCfg();
+    return !!(cfg && cfg.scanEverything === true); // strict: only a real boolean true arms it
+  } catch { return false; }
+}
 function getScanExcludePaths() {
   try {
+    if (scanEverythingOn()) return []; // no fragments = the filter below never runs, skippedCount stays 0
     const cfg = loadCfg();
     if (cfg && Array.isArray(cfg.scanExcludePaths)) {
       return cfg.scanExcludePaths.filter((x) => typeof x === 'string' && x);
@@ -636,7 +681,8 @@ const TRANSLATIONS = {
     memoryDrift: '\n\nMemory-drift check: code changed this session but no MEMORY.md was updated — if this work is worth keeping, update the project MEMORY/status line + crystallize before ending. (Advisory; disable: memoryDriftNudge=false in .coalmine.json)',
     capNotice: '\n\n(Auto-scan capped at {N} files to prevent token leakage; remaining files can be scanned manually)',
     scanExcludeNotice: '\n\n({N} file(s) skipped per scanExcludePaths — lab/throwaway tooling only, never shipped code; autopilot is still running)',
-    allExcludedNotice: 'Scan scope: all {N} touched file(s) were skipped per scanExcludePaths — no code-health scan ran this session. A suppressed scan is not a clean one; scan them by narrowing scanExcludePaths, or invoke rot-canary manually. (A scanEverything override that bypasses every scope cut is PLANNED but NOT yet implemented — do not look for it in your config.)',
+    allExcludedNotice: 'Scan scope: all {N} touched file(s) were skipped per scanExcludePaths — no code-health scan ran this session. A suppressed scan is not a clean one; scan them by narrowing scanExcludePaths, or invoke rot-canary manually. (Set scanEverything to true to bypass every scope cut at once.)',
+    scanEverythingNotice: 'Scan scope: scanEverything is ON — every scope cut was bypassed for this run (scanExcludePaths ignored, autoScanFileCap not applied). Set scanEverything to false to restore your normal scan scope.',
     reason: (list, smellText) =>
       'Code-health auto-check (session end): code files were edited this session. Before stopping, ' +
       'invoke the rot-canary skill at DEPTH=QUICK with SCOPE = these touched files + their direct callers:\n' +
@@ -648,7 +694,8 @@ const TRANSLATIONS = {
     memoryDrift: '\n\nตรวจ memory-drift: เซสชันนี้แก้โค้ดแต่ไม่มีการอัพเดต MEMORY.md — ถ้างานนี้ควรเก็บ ให้อัพเดต MEMORY/status line ของโปรเจกต์ + crystallize ก่อนจบ (advisory; ปิด: ตั้ง memoryDriftNudge=false ใน .coalmine.json)',
     capNotice: '\n\n(จำกัดการสแกนอัตโนมัติที่ {N} ไฟล์หลักเพื่อป้องกันโทเค็นรั่วไหล คุณสามารถสั่งสแกนไฟล์ที่เหลือแบบแมนวลได้)',
     scanExcludeNotice: '\n\n(ข้าม {N} ไฟล์ตาม scanExcludePaths — เฉพาะเครื่องมือแล็ป/ของชั่วคราว ไม่ใช่โค้ดที่ ship จริง ระบบยังทำงานปกติ)',
-    allExcludedNotice: 'ขอบเขตสแกน: ไฟล์ที่แก้ทั้ง {N} ไฟล์ถูกข้ามตาม scanExcludePaths — เซสชันนี้ไม่ได้สแกน code-health เลย การสแกนที่ถูกระงับไม่เท่ากับสแกนแล้วสะอาด ถ้าต้องการสแกน ให้ลดขอบเขต scanExcludePaths หรือเรียก rot-canary เอง (ตัวเลือก scanEverything ที่ข้ามทุกข้อจำกัดขอบเขต อยู่ในแผน ยังไม่ได้ทำ — อย่าหาใน config)',
+    allExcludedNotice: 'ขอบเขตสแกน: ไฟล์ที่แก้ทั้ง {N} ไฟล์ถูกข้ามตาม scanExcludePaths — เซสชันนี้ไม่ได้สแกน code-health เลย การสแกนที่ถูกระงับไม่เท่ากับสแกนแล้วสะอาด ถ้าต้องการสแกน ให้ลดขอบเขต scanExcludePaths หรือเรียก rot-canary เอง (ตั้ง scanEverything เป็น true เพื่อข้ามตัวจำกัดขอบเขตทั้งหมด)',
+    scanEverythingNotice: 'ขอบเขตสแกน: scanEverything เปิดอยู่ — รอบนี้ข้ามตัวจำกัดขอบเขตทั้งหมด (ไม่สนใจ scanExcludePaths และไม่ใช้ autoScanFileCap) ตั้ง scanEverything เป็น false เพื่อกลับไปขอบเขตเดิม',
     reason: (list, smellText) =>
       'ระบบตรวจสอบสุขภาพโค้ดอัตโนมัติ (สิ้นสุดเซสชัน): มีการแก้ไขไฟล์โค้ดในเซสชันนี้ ก่อนที่คุณจะหยุดทำงาน ' +
       'โปรดเรียกใช้สกิล rot-canary ที่ DEPTH=QUICK โดยระบุ SCOPE = ไฟล์ที่แก้ไขเหล่านี้ + ไฟล์ที่เรียกใช้งานโดยตรง:\n' +
@@ -660,7 +707,8 @@ const TRANSLATIONS = {
     memoryDrift: '\n\nMemory-driftチェック: このセッションでコードが変更されましたが MEMORY.md は更新されていません — 保持すべき作業なら、終了前にプロジェクトの MEMORY/status line を更新してください。(参考情報; 無効化: .coalmine.json で memoryDriftNudge=false)',
     capNotice: '\n\n(トークン漏洩を防ぐため、自動スキャンは主要{N}ファイルに制限されています。残りのファイルは手動でスキャンできます)',
     scanExcludeNotice: '\n\n(scanExcludePaths により{N}ファイルをスキップ — ラボ/使い捨てツールのみが対象、出荷コードは対象外。自動チェックは正常に動作中)',
-    allExcludedNotice: 'スキャン範囲: 編集された {N} ファイルすべてが scanExcludePaths によりスキップされ、このセッションでは code-health スキャンが一度も実行されていません。抑制されたスキャンは「問題なし」ではありません。scanExcludePaths を狭めるか、rot-canary を手動で実行してください。（すべての範囲除外を無効化する scanEverything は計画中ですが、未実装です — 設定ファイルで探さないでください。）',
+    allExcludedNotice: 'スキャン範囲: 編集された {N} ファイルすべてが scanExcludePaths によりスキップされ、このセッションでは code-health スキャンが一度も実行されていません。抑制されたスキャンは「問題なし」ではありません。scanExcludePaths を狭めるか、rot-canary を手動で実行してください。（scanEverything を true にすれば、すべての範囲除外を一括でバイパスできます。）',
+    scanEverythingNotice: 'スキャン範囲: scanEverything が有効です — 今回の実行ではすべての範囲除外をバイパスしました（scanExcludePaths を無視し、autoScanFileCap を適用せず）。通常のスキャン範囲に戻すには scanEverything を false にしてください。',
     reason: (list, smellText) =>
       'コードヘルス自動チェック（セッション終了）: このセッションでコードファイルが編集されました。終了する前に、' +
       'DEPTH=QUICKでrot-canaryスキルを実行し、SCOPE = これらの編集されたファイル + 直接的呼び出し元を指定してください:\n' +
@@ -672,7 +720,8 @@ const TRANSLATIONS = {
     memoryDrift: '\n\nMemory-drift 检查：本会话修改了代码但未更新 MEMORY.md — 若此工作值得保留，请在结束前更新项目的 MEMORY/status line。（仅提示；停用: 在 .coalmine.json 设 memoryDriftNudge=false）',
     capNotice: '\n\n(为防止 Token 泄露，自动扫描限制为前 {N} 个主要文件；其余文件可手动扫描)',
     scanExcludeNotice: '\n\n(根据 scanExcludePaths 跳过了 {N} 个文件 — 仅限实验室/一次性工具，绝不包括已发布代码；自动检查仍在正常运行)',
-    allExcludedNotice: '扫描范围：本次触及的 {N} 个文件全部因 scanExcludePaths 被跳过，本会话未运行任何 code-health 扫描。被抑制的扫描不等于扫描通过；请收窄 scanExcludePaths，或手动调用 rot-canary。（可绕过所有范围限制的 scanEverything 已在计划中，但尚未实现 — 请勿在配置中寻找。）',
+    allExcludedNotice: '扫描范围：本次触及的 {N} 个文件全部因 scanExcludePaths 被跳过，本会话未运行任何 code-health 扫描。被抑制的扫描不等于扫描通过；请收窄 scanExcludePaths，或手动调用 rot-canary。（将 scanEverything 设为 true 即可一次性绕过所有范围限制。）',
+    scanEverythingNotice: '扫描范围：scanEverything 已开启 — 本次运行绕过了所有范围限制（忽略 scanExcludePaths，不应用 autoScanFileCap）。将 scanEverything 设为 false 即可恢复正常扫描范围。',
     reason: (list, smellText) =>
       '代码健康自动检查（会话结束）：此会话中编辑了代码文件。在停止之前，请运行 DEPTH=QUICK 的 rot-canary 技能，' +
       '并将 SCOPE 设置为这些被编辑的文件及其直接调用者：\n' +
@@ -684,7 +733,8 @@ const TRANSLATIONS = {
     memoryDrift: '\n\nComprobación memory-drift: se modificó código en esta sesión pero no se actualizó MEMORY.md — si este trabajo merece conservarse, actualice el MEMORY/status line del proyecto antes de terminar. (Consultivo; desactivar: memoryDriftNudge=false en .coalmine.json)',
     capNotice: '\n\n(Escaneo automático limitado a {N} archivos para evitar fugas de tokens; los archivos restantes se pueden escanear manualmente)',
     scanExcludeNotice: '\n\n({N} archivo(s) omitido(s) según scanExcludePaths — solo herramientas de laboratorio/desechables, nunca código publicado; el autopiloto sigue funcionando)',
-    allExcludedNotice: 'Alcance del análisis: los {N} archivo(s) tocados fueron omitidos según scanExcludePaths — no se ejecutó ningún análisis de code-health en esta sesión. Un análisis suprimido no equivale a uno limpio; redúzca scanExcludePaths o invoque rot-canary manualmente. (Una anulación scanEverything que omita todos los recortes de alcance está PLANIFICADA pero AÚN NO implementada — no la busque en su configuración.)',
+    allExcludedNotice: 'Alcance del análisis: los {N} archivo(s) tocados fueron omitidos según scanExcludePaths — no se ejecutó ningún análisis de code-health en esta sesión. Un análisis suprimido no equivale a uno limpio; redúzca scanExcludePaths o invoque rot-canary manualmente. (Ponga scanEverything en true para omitir todos los recortes de alcance a la vez.)',
+    scanEverythingNotice: 'Alcance del análisis: scanEverything está ACTIVADO — se omitieron todos los recortes de alcance en esta ejecución (scanExcludePaths ignorado, autoScanFileCap no aplicado). Ponga scanEverything en false para restaurar su alcance habitual.',
     reason: (list, smellText) =>
       'Autocomprobación de salud del código (fin de sesión): se editaron archivos de código en esta sesión. Antes de detenerse, ' +
       'invoque la habilidad rot-canary con DEPTH=QUICK y SCOPE = estos archivos modificados + sus llamadores directos:\n' +
@@ -834,6 +884,20 @@ function main() {
   // sanctioned-channel list in §13 does NOT grow. `systemMessage` on Stop is already one of
   // the three sanctioned channels and already carries the drift note; this adds a second
   // message to an existing channel, not a new channel. stdout/stderr are untouched.
+  // scanEverything's OWN disclosure — CWK-054's twin, and the same argument in reverse.
+  // That ticket's thesis is that a suppressed scan must not look like a clean one; the mirror
+  // obligation is that an UNFILTERED run must not look like an ordinary one, because the user's
+  // configured scope was silently not what ran. Same quiet `systemMessage` channel — Phoenix
+  // #13's sanctioned list does NOT grow, this is a third message on a channel that already
+  // carries two (drift, all-excluded).
+  // Gated on `extant.length` for the same anti-cry-wolf reason as the all-excluded note: a stop
+  // that scanned nothing has no scope to describe. Note it is MUTUALLY EXCLUSIVE with
+  // suppressedText by construction, not by a guard — with the key on, getScanExcludePaths()
+  // returns [], so the filter never runs and skippedCount is always 0.
+  const overrideText = (extant.length && scanEverythingOn())
+    ? (t.scanEverythingNotice || TRANSLATIONS.en.scanEverythingNotice)
+    : '';
+
   let suppressedText = '';
   if (!extant.length && skippedCount) {
     suppressedText = (t.allExcludedNotice || TRANSLATIONS.en.allExcludedNotice)
@@ -862,8 +926,12 @@ function main() {
       }
     } catch {}
 
+    // scanEverything bypasses the cap too — a cap that survives a full-scan request would
+    // silently re-introduce the very blind spot the key exists to remove, and it is the more
+    // dangerous of the two cuts: an excluded path is at least NAMED in the config, while a
+    // capped file is dropped by mtime with nothing pointing at it.
     let capNoticeText = '';
-    if (scan.length > fileCap) {
+    if (!scanEverythingOn() && scan.length > fileCap) {
       // Sort by mtime (newest first) and slice to protect the token budget —
       // one stat per file, not one per comparison.
       const mtimes = new Map();
@@ -927,6 +995,7 @@ function main() {
   // Both quiet notes share the one sanctioned `systemMessage` channel. Suppression first:
   // it is a fact about THIS stop's scan, while drift is about the session's record-keeping.
   const quiet = [];
+  if (overrideText) quiet.push(overrideText.trim());
   if (suppressedText) quiet.push(suppressedText.trim());
   if (driftText) quiet.push(driftText.trim());
   if (quiet.length) { out.systemMessage = quiet.join('\n\n'); }
