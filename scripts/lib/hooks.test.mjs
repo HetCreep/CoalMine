@@ -1007,6 +1007,54 @@ test('scanExcludePaths (2026-07-30): a matching touched file is dropped from the
   }
 });
 
+test('scanExcludePaths (CWK-054): when EVERY touched file is excluded, the stop discloses it on the quiet channel instead of going silent', () => {
+  // Before CWK-054 this case emitted `{}` — byte-identical to a session where the scan
+  // ran and found nothing. A suppressed scan must not look like a clean one.
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ scanExcludePaths: ['scratchpad'] }), 'utf8');
+    const a = path.join(tmp, 'scratchpad-a.js');
+    const b = path.join(tmp, 'scratchpad-b.js');
+    fs.writeFileSync(a, 'x');
+    fs.writeFileSync(b, 'x');
+    const base = path.join(tmp, 'rot-canary-SE9');
+    fs.writeFileSync(base + '.touched', `${a}
+${b}
+`);
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'SE9', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    const out = JSON.parse(r.stdout);
+    assert.ok(out.systemMessage, 'the all-excluded case must surface SOMETHING, not stay silent');
+    assert.ok(out.systemMessage.includes('2'), 'the note carries the suppressed COUNT');
+    assert.ok(out.systemMessage.includes('scanExcludePaths'), 'the note NAMES the knob that did the cutting');
+    assert.ok(out.systemMessage.includes('scanEverything'), 'the note names the override key by its positive polarity');
+    // QUIET, not loud: no severity table, no fix menu, no blocking Stop.
+    assert.equal(out.decision, undefined, 'the note must NOT ride the loud blocking reason');
+    assert.equal(out.reason, undefined, 'no scan report is owed — nothing was scanned');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('scanExcludePaths (CWK-054): anti-cry-wolf holds — a stop that touched NOTHING is still fully silent', () => {
+  // The new disclosure fires on "touched AND all cut", never on "touched nothing".
+  const tmp = mkTmp();
+  try {
+    fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ scanExcludePaths: ['scratchpad'] }), 'utf8');
+    const base = path.join(tmp, 'rot-canary-SE10');
+    fs.writeFileSync(base + '.touched', '');
+
+    const r = runHook(STOP, JSON.stringify({ session_id: 'SE10', stop_hook_active: false }), tmp);
+    assert.equal(r.status, 0);
+    // Total silence here is an EMPTY stdout, not '{}': with no extant file, no drift and
+    // nothing suppressed the hook returns BEFORE the emit block and writes nothing at all.
+    assert.equal(r.stdout, '', 'nothing touched → nothing written at all, exactly as before');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('scanExcludePaths honors a * wildcard fragment (lightweight glob, not a full glob engine)', () => {
   const tmp = mkTmp();
   try {
@@ -1103,7 +1151,14 @@ test('scanExcludePaths fragments use "/" portably — a "/"-separated fragment s
 
     const r = runHook(STOP, JSON.stringify({ session_id: 'SE7', stop_hook_active: false }), tmp);
     assert.equal(r.status, 0);
-    assert.equal(r.stdout, '', 'the "/"-separated example fragment must exclude the file regardless of the OS path separator — nothing left to report, no drift');
+    // AMENDED CWK-054: was `stdout === ''`. That assertion proved the file produced no LOUD
+    // report, which is weaker than what this test is actually for — an emit of nothing at all
+    // would also pass it. The all-excluded quiet note now carries the skip COUNT, so the
+    // exclusion itself is directly observable: count 1 means the fragment matched.
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.reason, undefined, 'excluded file must not reach the loud scan report');
+    assert.ok(out.systemMessage && out.systemMessage.includes('all 1 touched file(s)'),
+      'the "/"-separated example fragment must exclude the file regardless of the OS path separator — the skip count proves the match');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
@@ -1155,13 +1210,26 @@ test('scanExcludePaths: a literal "?" in a fragment matches its literal target (
     fs.writeFileSync(base + '.touched', literalFile + '\n');
     const r = runHook(STOP, JSON.stringify({ session_id: 'SE5B', stop_hook_active: false }), tmp);
     assert.equal(r.status, 0);
-    assert.equal(r.stdout, '', 'the fragment must match its own literal target — file excluded, nothing left to report, no drift');
+    // AMENDED CWK-054, same reason as the separator test above — and this arm is the one
+    // that would have gone red on the Unix CI runners while SKIPPING here, the exact
+    // shape that reddened CI in CWK-043. Fixed on the same pass, not left for CI to find.
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.reason, undefined, 'excluded file must not reach the loud scan report');
+    assert.ok(out.systemMessage && out.systemMessage.includes('all 1 touched file(s)'),
+      'the fragment must match its own literal target — the skip count proves the exclusion');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
 
-test('scanExcludePaths: every touched file excluded + no memory-drift → the hook stays fully silent (never "capped at 0"-style empty nudge)', () => {
+test('scanExcludePaths: every touched file excluded + no memory-drift → no LOUD nudge (never a "capped at 0"-style empty scan report)', () => {
+  // AMENDED CWK-054. This test previously asserted `stdout === ''` — total silence — and that
+  // assertion encoded the RETIRED design as expected behaviour: it would have gone red against
+  // the very fix that closed the defect, which is the "a passing test that asserts the old shape
+  // is part of the defect, not a regression guard" shape this room has already paid for once.
+  // What it was actually protecting is still protected and is what it now asserts: NO empty-list
+  // loud nudge. The all-excluded case is disclosed on the quiet channel instead (its own test
+  // above); it is no longer indistinguishable from a session that scanned and found nothing.
   const tmp = mkTmp();
   try {
     fs.writeFileSync(path.join(tmp, '.coalmine.json'), JSON.stringify({ scanExcludePaths: ['probe'] }), 'utf8');
@@ -1172,7 +1240,9 @@ test('scanExcludePaths: every touched file excluded + no memory-drift → the ho
 
     const r = runHook(STOP, JSON.stringify({ session_id: 'SE4', stop_hook_active: false }), tmp);
     assert.equal(r.status, 0);
-    assert.equal(r.stdout, '', 'nothing left to report and no drift — the hook emits nothing, not an empty-list nudge');
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.decision, undefined, 'no blocking Stop — there is no scan report to make');
+    assert.equal(out.reason, undefined, 'no empty-list nudge: the loud report is not built at all');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

@@ -636,6 +636,7 @@ const TRANSLATIONS = {
     memoryDrift: '\n\nMemory-drift check: code changed this session but no MEMORY.md was updated — if this work is worth keeping, update the project MEMORY/status line + crystallize before ending. (Advisory; disable: memoryDriftNudge=false in .coalmine.json)',
     capNotice: '\n\n(Auto-scan capped at {N} files to prevent token leakage; remaining files can be scanned manually)',
     scanExcludeNotice: '\n\n({N} file(s) skipped per scanExcludePaths — lab/throwaway tooling only, never shipped code; autopilot is still running)',
+    allExcludedNotice: 'Scan scope: all {N} touched file(s) were skipped per scanExcludePaths — no code-health scan ran this session. A suppressed scan is not a clean one; these files are never scanned unless scanEverything is on.',
     reason: (list, smellText) =>
       'Code-health auto-check (session end): code files were edited this session. Before stopping, ' +
       'invoke the rot-canary skill at DEPTH=QUICK with SCOPE = these touched files + their direct callers:\n' +
@@ -647,6 +648,7 @@ const TRANSLATIONS = {
     memoryDrift: '\n\nตรวจ memory-drift: เซสชันนี้แก้โค้ดแต่ไม่มีการอัพเดต MEMORY.md — ถ้างานนี้ควรเก็บ ให้อัพเดต MEMORY/status line ของโปรเจกต์ + crystallize ก่อนจบ (advisory; ปิด: ตั้ง memoryDriftNudge=false ใน .coalmine.json)',
     capNotice: '\n\n(จำกัดการสแกนอัตโนมัติที่ {N} ไฟล์หลักเพื่อป้องกันโทเค็นรั่วไหล คุณสามารถสั่งสแกนไฟล์ที่เหลือแบบแมนวลได้)',
     scanExcludeNotice: '\n\n(ข้าม {N} ไฟล์ตาม scanExcludePaths — เฉพาะเครื่องมือแล็ป/ของชั่วคราว ไม่ใช่โค้ดที่ ship จริง ระบบยังทำงานปกติ)',
+    allExcludedNotice: 'ขอบเขตสแกน: ไฟล์ที่แก้ทั้ง {N} ไฟล์ถูกข้ามตาม scanExcludePaths — เซสชันนี้ไม่ได้สแกน code-health เลย การสแกนที่ถูกระงับไม่เท่ากับสแกนแล้วสะอาด ไฟล์เหล่านี้จะไม่ถูกสแกนเลยจนกว่า scanEverything จะเปิด',
     reason: (list, smellText) =>
       'ระบบตรวจสอบสุขภาพโค้ดอัตโนมัติ (สิ้นสุดเซสชัน): มีการแก้ไขไฟล์โค้ดในเซสชันนี้ ก่อนที่คุณจะหยุดทำงาน ' +
       'โปรดเรียกใช้สกิล rot-canary ที่ DEPTH=QUICK โดยระบุ SCOPE = ไฟล์ที่แก้ไขเหล่านี้ + ไฟล์ที่เรียกใช้งานโดยตรง:\n' +
@@ -658,6 +660,7 @@ const TRANSLATIONS = {
     memoryDrift: '\n\nMemory-driftチェック: このセッションでコードが変更されましたが MEMORY.md は更新されていません — 保持すべき作業なら、終了前にプロジェクトの MEMORY/status line を更新してください。(参考情報; 無効化: .coalmine.json で memoryDriftNudge=false)',
     capNotice: '\n\n(トークン漏洩を防ぐため、自動スキャンは主要{N}ファイルに制限されています。残りのファイルは手動でスキャンできます)',
     scanExcludeNotice: '\n\n(scanExcludePaths により{N}ファイルをスキップ — ラボ/使い捨てツールのみが対象、出荷コードは対象外。自動チェックは正常に動作中)',
+    allExcludedNotice: 'スキャン範囲: 編集された {N} ファイルすべてが scanExcludePaths によりスキップされ、このセッションでは code-health スキャンが一度も実行されていません。抑制されたスキャンは「問題なし」ではありません。scanEverything が有効でない限り、これらのファイルがスキャンされることはありません。',
     reason: (list, smellText) =>
       'コードヘルス自動チェック（セッション終了）: このセッションでコードファイルが編集されました。終了する前に、' +
       'DEPTH=QUICKでrot-canaryスキルを実行し、SCOPE = これらの編集されたファイル + 直接的呼び出し元を指定してください:\n' +
@@ -669,6 +672,7 @@ const TRANSLATIONS = {
     memoryDrift: '\n\nMemory-drift 检查：本会话修改了代码但未更新 MEMORY.md — 若此工作值得保留，请在结束前更新项目的 MEMORY/status line。（仅提示；停用: 在 .coalmine.json 设 memoryDriftNudge=false）',
     capNotice: '\n\n(为防止 Token 泄露，自动扫描限制为前 {N} 个主要文件；其余文件可手动扫描)',
     scanExcludeNotice: '\n\n(根据 scanExcludePaths 跳过了 {N} 个文件 — 仅限实验室/一次性工具，绝不包括已发布代码；自动检查仍在正常运行)',
+    allExcludedNotice: '扫描范围：本次触及的 {N} 个文件全部因 scanExcludePaths 被跳过，本会话未运行任何 code-health 扫描。被抑制的扫描不等于扫描通过；除非 scanEverything 开启，否则这些文件永远不会被扫描。',
     reason: (list, smellText) =>
       '代码健康自动检查（会话结束）：此会话中编辑了代码文件。在停止之前，请运行 DEPTH=QUICK 的 rot-canary 技能，' +
       '并将 SCOPE 设置为这些被编辑的文件及其直接调用者：\n' +
@@ -680,6 +684,7 @@ const TRANSLATIONS = {
     memoryDrift: '\n\nComprobación memory-drift: se modificó código en esta sesión pero no se actualizó MEMORY.md — si este trabajo merece conservarse, actualice el MEMORY/status line del proyecto antes de terminar. (Consultivo; desactivar: memoryDriftNudge=false en .coalmine.json)',
     capNotice: '\n\n(Escaneo automático limitado a {N} archivos para evitar fugas de tokens; los archivos restantes se pueden escanear manualmente)',
     scanExcludeNotice: '\n\n({N} archivo(s) omitido(s) según scanExcludePaths — solo herramientas de laboratorio/desechables, nunca código publicado; el autopiloto sigue funcionando)',
+    allExcludedNotice: 'Alcance del análisis: los {N} archivo(s) tocados fueron omitidos según scanExcludePaths — no se ejecutó ningún análisis de code-health en esta sesión. Un análisis suprimido no equivale a uno limpio; estos archivos nunca se analizan a menos que scanEverything esté activado.',
     reason: (list, smellText) =>
       'Autocomprobación de salud del código (fin de sesión): se editaron archivos de código en esta sesión. Antes de detenerse, ' +
       'invoque la habilidad rot-canary con DEPTH=QUICK y SCOPE = estos archivos modificados + sus llamadores directos:\n' +
@@ -809,8 +814,34 @@ function main() {
     }
   } catch {}
 
-  // Nothing extant to scan AND no drift → nothing to surface this stop.
-  if (!extant.length && !driftText) return;
+  // ALL-EXCLUDED disclosure (CWK-054) — a suppressed scan must not look like a clean one.
+  // Before this, `skippedCount` was only ever concatenated onto the loud `reason`, and
+  // `reason` is built only when `extant.length` — so the case where EVERY touched file was
+  // cut by scanExcludePaths produced TOTAL SILENCE, byte-identical to a session where the
+  // scan ran and found nothing. That is the one shape anti-cry-wolf must NOT buy: a user
+  // reads silence as "scanned, clean", and here nothing was scanned at all.
+  // ANTI-CRY-WOLF STILL BINDS, and this is why the condition is `!extant.length &&
+  // skippedCount` rather than just `skippedCount`: a stop that touched NOTHING stays silent
+  // exactly as today (skippedCount is 0 there by construction), and a PARTIAL cut keeps
+  // riding the existing loud `scanExcludeNotice` — this line fires only when files were
+  // touched AND all of them were cut, which is the only case that had no signal at all.
+  // CHANNEL: the quiet `systemMessage`, the same one the memory-drift note uses (board #82)
+  // — never `hookSpecificOutput.additionalContext` on Stop, which forces a phantom second
+  // turn that discards a `-p --output-format json` session's `result` field. Deliberately
+  // NOT the loud `reason`: no severity table, no "invoke rot-canary", no fix menu, no
+  // decision:block — there are no findings to report, only a scope fact to disclose.
+  // PHOENIX #13 IS NOT BREACHED, stated here because a reviewer will and should ask: the
+  // sanctioned-channel list in §13 does NOT grow. `systemMessage` on Stop is already one of
+  // the three sanctioned channels and already carries the drift note; this adds a second
+  // message to an existing channel, not a new channel. stdout/stderr are untouched.
+  let suppressedText = '';
+  if (!extant.length && skippedCount) {
+    suppressedText = (t.allExcludedNotice || TRANSLATIONS.en.allExcludedNotice)
+      .replace('{N}', String(skippedCount));
+  }
+
+  // Nothing extant to scan, no drift, and nothing suppressed → nothing to surface this stop.
+  if (!extant.length && !driftText && !suppressedText) return;
 
   // ---- Loud scan report (UNCHANGED) — built only when files still exist on disk ----
   let reason = '';
@@ -893,7 +924,12 @@ function main() {
   if (process.argv[2]) { process.stdout.write('{}\n'); return; }
   const out = {};
   if (reason) { out.decision = 'block'; out.reason = reason; }
-  if (driftText) { out.systemMessage = driftText.trim(); }
+  // Both quiet notes share the one sanctioned `systemMessage` channel. Suppression first:
+  // it is a fact about THIS stop's scan, while drift is about the session's record-keeping.
+  const quiet = [];
+  if (suppressedText) quiet.push(suppressedText.trim());
+  if (driftText) quiet.push(driftText.trim());
+  if (quiet.length) { out.systemMessage = quiet.join('\n\n'); }
   process.stdout.write(JSON.stringify(Object.keys(out).length ? out : {}));
 }
 
