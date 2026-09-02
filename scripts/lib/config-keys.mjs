@@ -25,10 +25,31 @@
 //   code identifier, all four declared in NOT_CONFIG below with a reason.
 //
 // UNDER-FIRES BY DESIGN — a miss is a bug, a flood is a dead gate, so the rule is
-// chosen to miss rather than to shout. NAMED misses, so nobody reads a clean run as
-// coverage: a single-word lowercase key (`language`) or a snake_case key would not
-// match KEY_SHAPE and would sail through. This flock has no such key today; the day
-// one is added, this rule must be revisited, and that is prose, not a machine.
+// chosen to miss rather than to shout. A single-word lowercase key or a snake_case key
+// does not match KEY_SHAPE and is invisible to this gate.
+//
+// THAT BLIND SPOT IS LIVE, NOT HYPOTHETICAL, and this comment used to say the opposite
+// (INSPECT MEDIUM-1). It read "this flock has no such key today; the day one is added,
+// this rule must be revisited" — measured FALSE against the very schema this module
+// consumes: of 26 keys, `language` fails KEY_SHAPE, and it is backticked in README.md,
+// an IN-SCOPE surface. The gate has been reading that line and discarding it since the
+// day it shipped, and the revisit trigger the sentence named had already passed and
+// could never fire. A claim about the repo, parked in a comment, is exactly the
+// documentation-vs-code divergence this gate exists to catch, committed inside the gate.
+//
+// SO THE CLAIM IS NOW A MACHINE: checkConfigKeys asserts its OWN precondition against
+// the schemaKeys it is handed and emits a visible SKIP naming every key KEY_SHAPE
+// cannot see. A comment rots silently; a SKIP that reads the live schema on every run
+// cannot. This also travels: AGENTS.md's 5 Standard Systems mandates `language` in
+// EVERY room, so an adopting room inherits the disclosure rather than the false claim.
+//
+// WIDENING KEY_SHAPE WAS CONSIDERED AND REJECTED, measured rather than argued: allowing
+// any lowercase identifier takes the residue on this repo's own surfaces from 4 to 37
+// (+33 false positives) — platform names (`claude`, `cursor`, `codex`, `windsurf`, ...),
+// language codes (`en`, `th`, `ja`, `zh`, `es`), enum values (`off`, `safe`, `auto`,
+// `manual`, `true`, `false`) and prose (`file`, `line`, `fs`). Closing a one-key blind
+// spot by requiring a 33-entry hand-kept NOT_CONFIG roster trades a named gap for the
+// exact allowlist rot this design refuses. An honest SKIP beats a flood.
 const KEY_SHAPE = /^[a-z][a-z0-9]*[A-Z][A-Za-z0-9]*$/;
 
 // A key that is NAMED but not yet IMPLEMENTED. CWK-054's whole point is that naming
@@ -152,6 +173,20 @@ export function checkConfigKeys({
 }) {
   const findings = [];
   const known = new Set(schemaKeys);
+
+  // PRECONDITION, asserted rather than assumed (INSPECT MEDIUM-1). Any key the schema
+  // declares that KEY_SHAPE cannot see is a key this gate is structurally blind to —
+  // named on every run, from the live schema, so the disclosure can never go stale the
+  // way the comment it replaced did.
+  const invisible = [...known].filter((k) => !KEY_SHAPE.test(k)).sort();
+  if (invisible.length) {
+    findings.push({
+      level: 'SKIP',
+      msg: 'blind to ' + invisible.length + ' schema key(s) whose shape this gate cannot detect: '
+        + invisible.join(', ') + ' — named on any surface, they are read and discarded; '
+        + 'widening the rule to catch them was measured at +33 false positives on this repo and rejected',
+    });
+  }
   const seen = new Map(); // candidate -> Set(file)
   const unreadable = [];  // a surface the caller named but we could not read
 

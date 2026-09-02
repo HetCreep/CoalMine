@@ -99,6 +99,45 @@ test('config-keys: PENDING_KEYS makes the HONEST case cheap -- a declared planne
   assert.deepEqual(declared, [], 'declared with its ticket -> silent: the honest case is one line');
 });
 
+test('config-keys: SELF-CLEANING 1, PENDING branch -- a planned key that LANDS in the schema FAILs, so the entry expires on the event', () => {
+  // LOW-1. The NOT_CONFIG half of rule 1 was tested; this half was not, and it is the half
+  // the whole expiry design rests on -- "an entry expires exactly when it stops being true",
+  // which is the argument for having no calendar date at all. Dormant today only because
+  // PENDING_KEYS is empty (scanEverything's own entry died this way in CWK-057), so the
+  // declarations are injected rather than relying on the module's live list.
+  const out = checkConfigKeys({
+    schemaKeys: [...BASE, 'futureKey'],           // it landed
+    mdFiles: ['a.md'],
+    read: mem({ 'a.md': 'A `futureKey` override is planned.' }),
+    pending: { futureKey: 'CWK-999, planned' },   // ...but the entry still claims it is pending
+    notConfig: {},
+  });
+  assert.equal(out.length, 1, 'the stale declaration is the only finding -- the key itself now resolves');
+  assert.equal(out[0].level, 'FAIL');
+  assert.match(out[0].msg, /futureKey/);
+  assert.match(out[0].msg, /now resolves in the schema/, 'the message must say WHY it expired');
+  assert.match(out[0].msg, /delete the entry/, 'and what to do about it');
+});
+
+test('config-keys: PRECONDITION -- a schema key the rule cannot SEE is disclosed as a SKIP, never assumed absent', () => {
+  // MEDIUM-1. `language` is a real key in this repo's own schema and fails KEY_SHAPE, so the
+  // gate is structurally blind to it. That fact used to live in a comment that claimed the
+  // opposite; it now comes from the live schema on every run and cannot go stale.
+  const out = checkConfigKeys({
+    schemaKeys: [...BASE, 'language'],
+    mdFiles: ['a.md'],
+    read: mem({ 'a.md': 'Set `language` to en.' }),
+    ...NONE,
+  });
+  assert.equal(out.filter((f) => f.level === 'FAIL').length, 0, 'a blind spot is a disclosure, not a failure');
+  assert.equal(out.length, 1);
+  assert.equal(out[0].level, 'SKIP');
+  assert.match(out[0].msg, /language/, 'the SKIP NAMES the key it cannot see');
+
+  const clean = checkConfigKeys({ schemaKeys: BASE, mdFiles: ['a.md'], read: mem({ 'a.md': 'nothing' }), ...NONE });
+  assert.deepEqual(clean, [], 'and stays silent when every schema key is detectable');
+});
+
 test('config-keys: SELF-CLEANING 1 -- a NOT_CONFIG entry that becomes a real key FAILs as a lie', () => {
   const tok = Object.keys(NOT_CONFIG)[0];
   const out = checkConfigKeys({
