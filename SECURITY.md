@@ -6,9 +6,7 @@ CoalMine is verified under the same framework as **[CoalTipple](https://github.c
 
 ## 🔒 Reporting a Vulnerability
 
-To report a security issue in a canary, hook, or installer:
-* Open a GitHub issue or request a private channel (avoid posting sensitive PoC logs in public).
-* We will investigate and address reported issues promptly.
+Report a security issue in this repo through GitHub's private vulnerability reporting — [Security → Report a vulnerability](https://github.com/HetCreep/CoalMine/security/advisories/new) — never a public issue. In scope: the 9 canary skills, the 3 shipped hooks, the installer and other `scripts/`, and the `plugin/` dist built from them. Out of scope: a vulnerability in a third-party skill or codebase a canary merely scans — report that to its own maintainer. This is a one-person-maintained project: expect the report to be read and acknowledged, triaged against the scope above, and disclosed once a fix ships, with no fixed response-time SLA. A public GitHub issue remains the right channel for an ordinary, non-security bug.
 
 ---
 
