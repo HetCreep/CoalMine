@@ -17,6 +17,7 @@ import { stripJsonc } from './lib/jsonc.mjs';
 import { REGION_TARGETS, extractRegion } from './lib/shared-regions.mjs';
 import { checkTracked } from './lib/consistency.mjs';
 import { checkDistChangelog } from './lib/dist-changelog.mjs';
+import { checkConfigKeys } from './lib/config-keys.mjs';
 import { verifyAgainstManifest } from './lib/manifest.mjs';
 import { descriptionCapCheck, DESC_CAP } from './lib/desc-cap.mjs';
 
@@ -166,6 +167,47 @@ try {
     else fail(f.msg);
   }
 } catch (e) { fail(`dist-changelog check crashed: ${e.message}`); }
+
+// 2.9 config-key drift (CWK-059): every config key NAMED on a user-facing surface must
+// RESOLVE in config-schema.mjs, or be declared in PENDING_KEYS / NOT_CONFIG. Born from
+// CWK-054's own MEDIUM -- six sites promising `scanEverything` while the key was measured
+// unimplemented -- and three sibling-room instances the same night. Proven against that
+// history, not a fixture: run over `693931b`'s own blobs it names the defect by key and file.
+//
+// SCOPE DERIVATION, stated rather than implied (AGENTS.md, THE MEASUREMENT'S OWN FOURTH
+// TENSE): the surfaces are WALKED, never enumerated -- every skill dir under skills/ and
+// every .js under hooks/ -- so a new skill or hook is covered the day it lands and no roster
+// has to be kept complete. What the walk does NOT reach is stated in config-keys.mjs's own
+// surface list, with the measurement behind each exclusion. Source only; the plugin/ twins
+// are byte-identical by the parity check below, so scanning them would double every finding.
+console.log('config keys:');
+try {
+  // NAME the intended surfaces; let the checker report what it could not read. A caller
+  // that existsSync-filters first hides its own scope gap -- the exact silent narrowing
+  // this gate exists to catch, committed by the gate's own wiring.
+  // Derived from listSkills(), the repo's OWN answer to "what is a skill dir" -- a raw
+  // readdir also returns skills/_shared/, which has no SKILL.md, and its permanent
+  // unreadability would have SKIPPED the declaration-pruning rule forever. Caught by
+  // running the gate and reading its own SKIP line rather than trusting the green.
+  const skillMd = skills.map((d) => path.join('skills', d, 'SKILL.md'));
+  skillMd.push('README.md');
+  const hooksDir = path.join(repo, 'hooks');
+  const hookJs = (fs.existsSync(hooksDir) ? fs.readdirSync(hooksDir) : [])
+    .filter((f) => f.endsWith('.js'))
+    .map((f) => path.join('hooks', f));
+  const findings = checkConfigKeys({
+    schemaKeys: CONFIG_SCHEMA.map((e) => e.key),
+    mdFiles: skillMd,
+    hookFiles: hookJs,
+    read: (f) => fs.readFileSync(path.join(repo, f), 'utf8'),
+  });
+  const hard = findings.filter((f) => f.level !== 'SKIP');
+  if (hard.length === 0) pass(`every config key named across ${skillMd.length} doc + ${hookJs.length} hook surfaces resolves in the schema`);
+  for (const f of findings) {
+    if (f.level === 'SKIP') console.log('  --   ' + f.msg);
+    else fail(f.msg);
+  }
+} catch (e) { fail(`config-key check crashed: ${e.message}`); }
 
 // 3. hooks present
 console.log('hooks:');

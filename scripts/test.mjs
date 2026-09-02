@@ -32,6 +32,7 @@ const TESTS = [
   'scripts/lib/conductor-update.test.mjs',
   'scripts/lib/desc-cap.test.mjs',
   'scripts/lib/dist-changelog.test.mjs',
+  'scripts/lib/config-keys.test.mjs',
   'scripts/lib/config-paths.test.mjs',
   'scripts/lib/claude-ai-trim.test.mjs',
   'scripts/lib/build-claude-ai-zips.test.mjs',

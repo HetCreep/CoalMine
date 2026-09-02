@@ -202,6 +202,32 @@ test('verify.mjs negative path: an over-cap .claude-plugin/plugin.json descripti
 // (same technique proven clean at the live tree during this task's manual RED-first
 // probe) so only checkDistChangelog's tag-diff fires, isolating the wiring assertion
 // from every OTHER thing verify.mjs checks.
+test('verify.mjs 2.9 config-keys: an undeclared key named in a SKILL.md fails the WHOLE gate -- proves the wiring, not just the module', () => {
+  // Task #38's H1, applied on the same pass rather than a later one: a module can be fully
+  // green while its verify.mjs block is not wired at all, and no unit test can tell.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-cfgkeys-'));
+  try {
+    for (const d of ['scripts', 'scripts/lib', 'skills', 'hooks', '.claude-plugin']) {
+      fs.mkdirSync(path.join(tmp, d), { recursive: true });
+    }
+    fs.cpSync(path.join(repo, 'scripts'), path.join(tmp, 'scripts'), { recursive: true });
+    fs.cpSync(path.join(repo, 'skills'), path.join(tmp, 'skills'), { recursive: true });
+    fs.cpSync(path.join(repo, 'hooks'), path.join(tmp, 'hooks'), { recursive: true });
+    fs.cpSync(path.join(repo, 'plugin'), path.join(tmp, 'plugin'), { recursive: true });
+    fs.cpSync(path.join(repo, '.claude-plugin'), path.join(tmp, '.claude-plugin'), { recursive: true });
+    fs.copyFileSync(path.join(repo, 'README.md'), path.join(tmp, 'README.md'));
+    // Plant the DEFECT: a key named in a doc that the schema does not carry.
+    const sk = path.join(tmp, 'skills', 'rot-canary', 'SKILL.md');
+    fs.appendFileSync(sk, String.fromCharCode(10) + 'Set `noSuchTunable` to true.' + String.fromCharCode(10));
+
+    const r = spawnSync(process.execPath, [path.join(tmp, 'scripts', 'verify.mjs')], { encoding: 'utf8' });
+    assert.equal(r.status, 1, 'the planted key must fail the whole gate, not just a module');
+    assert.match(r.stdout, /noSuchTunable/, 'and the gate must name the key it caught');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('verify.mjs 2.8 dist-changelog: a dist change with no CHANGELOG entry fails the WHOLE gate — proves the wiring, not just the module', () => {
   const tmp = mkTmp('cm-verify-distchangelog-');
   try {
