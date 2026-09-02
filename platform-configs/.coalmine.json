@@ -84,7 +84,8 @@
   // ## It does NOT re-enable a disabled canary (disabledCanaries / rotCanaryMode off|manual
   // ## are an on/off switch, not a scope cut), and it does NOT reach watchedExtensions or
   // ## the tmpdir exclusion — those decide what the touch hook RECORDS, which happens
-  // ## before a stop-time key can be read.
+  // ## before a stop-time key can be read — nor the tripwireMaxFileSizeKb cap (an over-cap
+  // ## file IS recorded and IS scanned; only its edit-time pre-flag is skipped).
   // ## CASCADE: this key is CLAMPED safer-value-wins. A project-level true is forced back
   // ## to false unless your GLOBAL layer also says true — so a cloned repo cannot make your
   // ## machine run a full scan. Your own global true is never clamped by a project's silence.

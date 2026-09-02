@@ -682,7 +682,7 @@ const TRANSLATIONS = {
     capNotice: '\n\n(Auto-scan capped at {N} files to prevent token leakage; remaining files can be scanned manually)',
     scanExcludeNotice: '\n\n({N} file(s) skipped per scanExcludePaths — lab/throwaway tooling only, never shipped code; autopilot is still running)',
     allExcludedNotice: 'Scan scope: all {N} touched file(s) were skipped per scanExcludePaths — no code-health scan ran this session. A suppressed scan is not a clean one; scan them by narrowing scanExcludePaths, or invoke rot-canary manually. (Set scanEverything to true to bypass every scope cut at once.)',
-    scanEverythingNotice: 'Scan scope: scanEverything is ON — every scope cut was bypassed for this run (scanExcludePaths ignored, autoScanFileCap not applied). Set scanEverything to false to restore your normal scan scope.',
+    scanEverythingNotice: 'Scan scope: scanEverything is ON — every SCAN-scope cut was bypassed for this run (scanExcludePaths ignored, autoScanFileCap not applied). Still narrower than "everything": files the touch hook never recorded are not here (non-code extensions, anything under the temp dir), and a file over tripwireMaxFileSizeKb was recorded but not pre-flagged at edit time. Set scanEverything to false to restore your normal scan scope.',
     reason: (list, smellText) =>
       'Code-health auto-check (session end): code files were edited this session. Before stopping, ' +
       'invoke the rot-canary skill at DEPTH=QUICK with SCOPE = these touched files + their direct callers:\n' +
@@ -695,7 +695,7 @@ const TRANSLATIONS = {
     capNotice: '\n\n(จำกัดการสแกนอัตโนมัติที่ {N} ไฟล์หลักเพื่อป้องกันโทเค็นรั่วไหล คุณสามารถสั่งสแกนไฟล์ที่เหลือแบบแมนวลได้)',
     scanExcludeNotice: '\n\n(ข้าม {N} ไฟล์ตาม scanExcludePaths — เฉพาะเครื่องมือแล็ป/ของชั่วคราว ไม่ใช่โค้ดที่ ship จริง ระบบยังทำงานปกติ)',
     allExcludedNotice: 'ขอบเขตสแกน: ไฟล์ที่แก้ทั้ง {N} ไฟล์ถูกข้ามตาม scanExcludePaths — เซสชันนี้ไม่ได้สแกน code-health เลย การสแกนที่ถูกระงับไม่เท่ากับสแกนแล้วสะอาด ถ้าต้องการสแกน ให้ลดขอบเขต scanExcludePaths หรือเรียก rot-canary เอง (ตั้ง scanEverything เป็น true เพื่อข้ามตัวจำกัดขอบเขตทั้งหมด)',
-    scanEverythingNotice: 'ขอบเขตสแกน: scanEverything เปิดอยู่ — รอบนี้ข้ามตัวจำกัดขอบเขตทั้งหมด (ไม่สนใจ scanExcludePaths และไม่ใช้ autoScanFileCap) ตั้ง scanEverything เป็น false เพื่อกลับไปขอบเขตเดิม',
+    scanEverythingNotice: 'ขอบเขตสแกน: scanEverything เปิดอยู่ — รอบนี้ข้ามตัวจำกัดขอบเขตของการสแกนทั้งหมด (ไม่สนใจ scanExcludePaths และไม่ใช้ autoScanFileCap) แต่ยังแคบกว่า "ทั้งหมด": ไฟล์ที่ touch hook ไม่เคยบันทึกจะไม่อยู่ในนี้ (นามสกุลที่ไม่ใช่โค้ด และไฟล์ใต้โฟลเดอร์ temp) ส่วนไฟล์ที่ใหญ่เกิน tripwireMaxFileSizeKb ถูกบันทึกแต่ไม่ได้ตรวจตอนแก้ไข ตั้ง scanEverything เป็น false เพื่อกลับไปขอบเขตเดิม',
     reason: (list, smellText) =>
       'ระบบตรวจสอบสุขภาพโค้ดอัตโนมัติ (สิ้นสุดเซสชัน): มีการแก้ไขไฟล์โค้ดในเซสชันนี้ ก่อนที่คุณจะหยุดทำงาน ' +
       'โปรดเรียกใช้สกิล rot-canary ที่ DEPTH=QUICK โดยระบุ SCOPE = ไฟล์ที่แก้ไขเหล่านี้ + ไฟล์ที่เรียกใช้งานโดยตรง:\n' +
@@ -708,7 +708,7 @@ const TRANSLATIONS = {
     capNotice: '\n\n(トークン漏洩を防ぐため、自動スキャンは主要{N}ファイルに制限されています。残りのファイルは手動でスキャンできます)',
     scanExcludeNotice: '\n\n(scanExcludePaths により{N}ファイルをスキップ — ラボ/使い捨てツールのみが対象、出荷コードは対象外。自動チェックは正常に動作中)',
     allExcludedNotice: 'スキャン範囲: 編集された {N} ファイルすべてが scanExcludePaths によりスキップされ、このセッションでは code-health スキャンが一度も実行されていません。抑制されたスキャンは「問題なし」ではありません。scanExcludePaths を狭めるか、rot-canary を手動で実行してください。（scanEverything を true にすれば、すべての範囲除外を一括でバイパスできます。）',
-    scanEverythingNotice: 'スキャン範囲: scanEverything が有効です — 今回の実行ではすべての範囲除外をバイパスしました（scanExcludePaths を無視し、autoScanFileCap を適用せず）。通常のスキャン範囲に戻すには scanEverything を false にしてください。',
+    scanEverythingNotice: 'スキャン範囲: scanEverything が有効です — 今回の実行ではスキャン範囲の除外をすべてバイパスしました（scanExcludePaths を無視し、autoScanFileCap を適用せず）。ただし「すべて」よりは狭い範囲です。touch フックが記録しなかったファイルは含まれません（コード以外の拡張子、一時ディレクトリ配下）。また tripwireMaxFileSizeKb を超えるファイルは記録されますが、編集時の事前チェックは行われません。通常のスキャン範囲に戻すには scanEverything を false にしてください。',
     reason: (list, smellText) =>
       'コードヘルス自動チェック（セッション終了）: このセッションでコードファイルが編集されました。終了する前に、' +
       'DEPTH=QUICKでrot-canaryスキルを実行し、SCOPE = これらの編集されたファイル + 直接的呼び出し元を指定してください:\n' +
@@ -721,7 +721,7 @@ const TRANSLATIONS = {
     capNotice: '\n\n(为防止 Token 泄露，自动扫描限制为前 {N} 个主要文件；其余文件可手动扫描)',
     scanExcludeNotice: '\n\n(根据 scanExcludePaths 跳过了 {N} 个文件 — 仅限实验室/一次性工具，绝不包括已发布代码；自动检查仍在正常运行)',
     allExcludedNotice: '扫描范围：本次触及的 {N} 个文件全部因 scanExcludePaths 被跳过，本会话未运行任何 code-health 扫描。被抑制的扫描不等于扫描通过；请收窄 scanExcludePaths，或手动调用 rot-canary。（将 scanEverything 设为 true 即可一次性绕过所有范围限制。）',
-    scanEverythingNotice: '扫描范围：scanEverything 已开启 — 本次运行绕过了所有范围限制（忽略 scanExcludePaths，不应用 autoScanFileCap）。将 scanEverything 设为 false 即可恢复正常扫描范围。',
+    scanEverythingNotice: '扫描范围：scanEverything 已开启 — 本次运行绕过了所有扫描范围限制（忽略 scanExcludePaths，不应用 autoScanFileCap）。但仍窄于“全部”：touch 钩子从未记录的文件不在其中（非代码扩展名、临时目录下的文件），超过 tripwireMaxFileSizeKb 的文件会被记录但不会在编辑时预检。将 scanEverything 设为 false 即可恢复正常扫描范围。',
     reason: (list, smellText) =>
       '代码健康自动检查（会话结束）：此会话中编辑了代码文件。在停止之前，请运行 DEPTH=QUICK 的 rot-canary 技能，' +
       '并将 SCOPE 设置为这些被编辑的文件及其直接调用者：\n' +
@@ -734,7 +734,7 @@ const TRANSLATIONS = {
     capNotice: '\n\n(Escaneo automático limitado a {N} archivos para evitar fugas de tokens; los archivos restantes se pueden escanear manualmente)',
     scanExcludeNotice: '\n\n({N} archivo(s) omitido(s) según scanExcludePaths — solo herramientas de laboratorio/desechables, nunca código publicado; el autopiloto sigue funcionando)',
     allExcludedNotice: 'Alcance del análisis: los {N} archivo(s) tocados fueron omitidos según scanExcludePaths — no se ejecutó ningún análisis de code-health en esta sesión. Un análisis suprimido no equivale a uno limpio; redúzca scanExcludePaths o invoque rot-canary manualmente. (Ponga scanEverything en true para omitir todos los recortes de alcance a la vez.)',
-    scanEverythingNotice: 'Alcance del análisis: scanEverything está ACTIVADO — se omitieron todos los recortes de alcance en esta ejecución (scanExcludePaths ignorado, autoScanFileCap no aplicado). Ponga scanEverything en false para restaurar su alcance habitual.',
+    scanEverythingNotice: 'Alcance del análisis: scanEverything está ACTIVADO — se omitieron todos los recortes del alcance de ANÁLISIS en esta ejecución (scanExcludePaths ignorado, autoScanFileCap no aplicado). Aún así es más estrecho que "todo": los archivos que el hook de registro nunca anotó no están aquí (extensiones que no son código, cualquier cosa bajo el directorio temporal), y un archivo mayor que tripwireMaxFileSizeKb se registra pero no se pre-marca al editar. Ponga scanEverything en false para restaurar su alcance habitual.',
     reason: (list, smellText) =>
       'Autocomprobación de salud del código (fin de sesión): se editaron archivos de código en esta sesión. Antes de detenerse, ' +
       'invoque la habilidad rot-canary con DEPTH=QUICK y SCOPE = estos archivos modificados + sus llamadores directos:\n' +
