@@ -17,7 +17,7 @@ import { stripJsonc } from './lib/jsonc.mjs';
 import { REGION_TARGETS, extractRegion } from './lib/shared-regions.mjs';
 import { checkTracked } from './lib/consistency.mjs';
 import { checkDistChangelog } from './lib/dist-changelog.mjs';
-import { checkConfigKeys } from './lib/config-keys.mjs';
+import { checkConfigKeys, checkConfigReadPath } from './lib/config-keys.mjs';
 import { verifyAgainstManifest } from './lib/manifest.mjs';
 import { descriptionCapCheck, DESC_CAP } from './lib/desc-cap.mjs';
 
@@ -219,6 +219,30 @@ try {
     else fail(f.msg);
   }
 } catch (e) { fail(`config-key check crashed: ${e.message}`); }
+
+// 2.10 config READ PATH (CWK-064): a surface that names the config must name the GLOBAL tier
+// too. The hook side is already machine-enforced by loadCfg's cascade; this covers the SECOND
+// read path -- an agent following ship-text -- which had no machine at all. Skills are checked
+// RENDERED because the rail lives in the shared escalation footer: checking raw source would
+// red-flag all nine skills for correctly inheriting it. Commands get no shared partial and are
+// checked raw.
+console.log('config read path:');
+try {
+  const surfaces = [];
+  let sharedForRead = null;
+  try { sharedForRead = loadShared(path.join(skillsSrc, '_shared')); } catch {}
+  for (const sk of skills) {
+    try { surfaces.push({ label: `skills/${sk}/SKILL.md`, text: sharedForRead ? renderSkillMd(path.join(skillsSrc, sk), sharedForRead) : fs.readFileSync(path.join(skillsSrc, sk, 'SKILL.md'), 'utf8') }); }
+    catch (e) { fail(`could not render skills/${sk}/SKILL.md: ${e.message}`); }
+  }
+  const cmdDir = path.join(repo, 'commands');
+  for (const f of (fs.existsSync(cmdDir) ? fs.readdirSync(cmdDir) : []).filter((x) => x.endsWith('.md'))) {
+    try { surfaces.push({ label: `commands/${f}`, text: fs.readFileSync(path.join(cmdDir, f), 'utf8') }); } catch {}
+  }
+  const findings = checkConfigReadPath({ surfaces });
+  if (findings.length === 0) pass(`every one of ${surfaces.length} agent surfaces that names the config also names the global tier`);
+  else for (const f of findings) fail(f.msg);
+} catch (e) { fail(`config read-path check crashed: ${e.message}`); }
 
 // 3. hooks present
 console.log('hooks:');

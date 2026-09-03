@@ -4,6 +4,8 @@ description: CoalMine self-update — check for a newer CoalMine version and off
 
 CoalMine keeps itself current through the conductor (session start), gated by `.coalmine.json` `updateMode` (ask | auto | remind | off, default ask) and throttled to once per `updateCheckDays` (default 14). This command is the agent procedure each mode triggers — and a manual entry point. Always answer in the user's language; offer choices via your question tool; never spend tokens or change config without a chosen option.
 
+**Read `updateMode` (and every other key) as the CASCADE, never the bare project file: `~/.claude/.coalmine.json` first, then the project config (own agent dir → other known agent dirs → legacy `<gitroot>/.coalmine.json`), project wins per key.** A bare project read misses the user's global tier — and this command's whole branch depends on which mode it finds.
+
 **ask** — present the 3-way choice via your question tool:
 - **auto** — the agent web-checks on a ~`updateCheckDays` cadence and offers updates (~1-2K tokens/check).
 - **remind** — a free periodic reminder; the user runs the update themselves.

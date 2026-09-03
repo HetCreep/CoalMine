@@ -12,6 +12,8 @@ Count every CoalMine canary invocation visible in this session (manual or hook-n
 Grep the project's rules home (`.claude/rules/`, `.agents/rules/`, `AGENTS.md`) for `coalmine: verified` stamps. For each stamped rule:
 | rule (file) | verified | revalidate | status |
 Status = ✅ current · ⚠️ due within 7 days · ❌ OVERDUE.
+**Read every key below as the CASCADE, never the bare project file: `~/.claude/.coalmine.json` first, then the project config (own agent dir → other known agent dirs → legacy `<gitroot>/.coalmine.json`), project wins per key.** A bare project read misses the user's global tier.
+
 To calculate the revalidation threshold (days) for each rule:
 - If the stamp has `revalidate 30d` (platform rule), check `platformRuleRevalidateDays` from `.coalmine.json` (default: 30).
 - If the stamp has `revalidate 90d` (general rule), check `ruleRevalidateDays` from `.coalmine.json` (default: 90).

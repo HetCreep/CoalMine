@@ -394,3 +394,52 @@ export function checkConfigKeys({
 
   return findings;
 }
+
+// ---------------------------------------------------------------------------
+// ONE CONFIG-READ PATH PER ROOM (CWK-064) -- the owner's improve-and-unify ruling.
+// No key is read from a bare project file, by hook or by agent instruction.
+//
+// The HOOK side is machine-enforced already: every hook reads through loadCfg's cascade,
+// and CWK-064's hermetic probe confirmed the global tier reaches with no project file
+// present (with a non-vacuous control). What has no machine is the SECOND read path -- an
+// agent following ship-text. A skill that says "honor `.coalmine.json` <key>" with no
+// cascade named sends the agent to `<gitroot>/.coalmine.json`, which on a machine whose
+// user configured only the GLOBAL tier is ABSENT: the agent reads nothing and silently
+// uses defaults. That is a live failure today, not a hypothetical -- the owner has the
+// house switched on globally.
+//
+// THE CHECK: a surface that NAMES the config must also NAME the global tier. Deliberately
+// coarse -- it does not try to tell "instructs an agent read" from "describes hook
+// behaviour", because that distinction is a judgment a regex cannot make and getting it
+// wrong in the permissive direction is exactly the defect. The cost of the coarse rule is
+// one rail sentence on a surface that arguably did not need one; the cost of a clever rule
+// is a silent miss. Cheap side chosen deliberately.
+//
+// SKILLS ARE CHECKED RENDERED, NOT RAW, and this is load-bearing rather than incidental:
+// the rail lives in the SHARED escalation footer, so it reaches all nine skills by
+// construction and appears in NO skill's own source. A source-side check would red-flag
+// every skill that correctly inherits it -- a cry-wolf path created by the gate itself.
+// verify.mjs already imports renderSkillMd for its dist comparison, so the rendered text
+// costs nothing new. Commands receive no shared partial and are checked raw.
+//
+// HONEST BOUND, and this room states it every time: a hook-side clamp is enforced with
+// probability 1; an instruction an agent follows is enforced below that. This gate makes
+// the INSTRUCTION's presence machine-checked. It does NOT make the agent obey it. What is
+// CLOSED is "a surface can silently lack the rail"; what stays PROSE-STRENGTH is the
+// agent's compliance with the rail once it is there.
+export function checkConfigReadPath({ surfaces = [], configName = '.coalmine.json', globalHome = '~/.claude/' }) {
+  const findings = [];
+  const globalToken = globalHome + configName;
+  for (const { label, text } of surfaces) {
+    if (typeof text !== 'string' || !text.includes(configName)) continue;
+    if (text.includes(globalToken)) continue;
+    findings.push({
+      level: 'FAIL',
+      msg: label + ' names ' + configName + ' without naming the global tier (' + globalToken
+        + ') -- an agent following it reads the bare project file, which is ABSENT on a machine '
+        + 'configured only globally, and silently falls back to defaults. State the cascade: '
+        + globalToken + ' first, then the project config, project wins per key',
+    });
+  }
+  return findings;
+}

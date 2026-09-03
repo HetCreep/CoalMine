@@ -2,7 +2,7 @@ const NEWLINE = String.fromCharCode(10);
 const BSN = String.fromCharCode(92) + 'n';
 import test from 'node:test';
 import assert from 'node:assert';
-import { checkConfigKeys, PENDING_KEYS, NOT_CONFIG, BLIND_KEYS } from './config-keys.mjs';
+import { checkConfigKeys, checkConfigReadPath, PENDING_KEYS, NOT_CONFIG, BLIND_KEYS } from './config-keys.mjs';
 
 // In-memory surfaces: `read` is injected, so these drive the checker with no disk IO.
 const mem = (files) => (f) => {
@@ -279,4 +279,52 @@ test('config-keys: an absent surface is a visible SKIP, never a silent pass and 
   assert.match(out[0].msg, /missing\.md/);
   assert.ok(!out.some((f) => /protects nothing/.test(f.msg)),
     'and it must NOT convict the declaration -- a 0-hit proves nothing when the scope was incomplete');
+});
+
+// --- CWK-064: one config-read path per room -------------------------------------------
+
+test('read-path: a surface naming the config WITHOUT the global tier FAILs -- the live defect', () => {
+  // The failure this catches is not cosmetic: on a machine configured only globally, the bare
+  // project file is ABSENT, so an agent following such a line reads nothing and silently uses
+  // defaults. The owner's machine is in exactly that state today.
+  const out = checkConfigReadPath({
+    surfaces: [{ label: 'skills/x/SKILL.md', text: 'honor `.coalmine.json` `schemaPaths` if set' }],
+  });
+  assert.equal(out.length, 1);
+  assert.equal(out[0].level, 'FAIL');
+  assert.match(out[0].msg, /skills\/x\/SKILL\.md/, 'the FAIL names the surface');
+  assert.match(out[0].msg, /ABSENT on a machine/, 'and states the consequence, not just the rule');
+});
+
+test('read-path: naming the global tier satisfies it', () => {
+  const out = checkConfigReadPath({
+    surfaces: [{ label: 'a.md', text: 'read `~/.claude/.coalmine.json` then the project config' }],
+  });
+  assert.deepEqual(out, []);
+});
+
+test('read-path: a surface that never names the config at all is not a finding', () => {
+  const out = checkConfigReadPath({ surfaces: [{ label: 'b.md', text: 'no config here' }] });
+  assert.deepEqual(out, [], 'the rail is owed only where a config read is implied');
+});
+
+test('read-path: the check is COARSE on purpose -- it does not try to tell a read from a description', () => {
+  // A regex cannot distinguish "instructs an agent read" from "describes hook behaviour", and
+  // guessing wrong in the permissive direction is the defect itself. The price is a rail
+  // sentence on a surface that arguably did not need one; the alternative price is a silent
+  // miss. This test pins the cheap side so nobody "improves" it into cleverness later.
+  const out = checkConfigReadPath({
+    surfaces: [{ label: 'c.md', text: 'the conductor is gated by `.coalmine.json` `updateMode`' }],
+  });
+  assert.equal(out.length, 1, 'even a descriptive mention owes the rail');
+});
+
+test('read-path: configName and globalHome are parameters -- an adopting room supplies its own', () => {
+  const out = checkConfigReadPath({
+    surfaces: [{ label: 'd.md', text: 'honor `.coalledger.json` `severityFloor`' }],
+    configName: '.coalledger.json',
+    globalHome: '~/.claude/',
+  });
+  assert.equal(out.length, 1, 'nothing here hardcodes CoalMine');
+  assert.match(out[0].msg, /coalledger/);
 });
