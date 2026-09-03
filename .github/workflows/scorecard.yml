@@ -17,6 +17,13 @@ permissions:
 # UPLOADS a SARIF to code scanning and (with publish_results) posts to the OpenSSF API --
 # outward writes, where a cancellation mid-publish is a partially-applied result rather than a
 # discarded one. It is also schedule-driven, so overlap is rare and queueing costs nothing.
+#
+# THIS DISAGREES WITH codeql.yml, WHICH CANCELS, AND THAT IS DELIBERATE (CWK-074). Both upload a
+# SARIF, so the SARIF is not the discriminator. CodeQL publishes ONLY to GitHub code scanning,
+# where a missed upload leaves the prior analysis standing; this workflow ALSO posts to the
+# OpenSSF API, a third-party endpoint we do not control, where a cancelled publish can be
+# partially applied. The two comments cross-reference each other so a reader who notices the
+# difference finds the reason rather than an apparent contradiction.
 concurrency:
   group: scorecard-${{ github.ref }}
   cancel-in-progress: false

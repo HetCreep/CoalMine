@@ -22,6 +22,14 @@ env:
 # cancel-in-progress: TRUE -- a superseded CodeQL run simply never uploads its SARIF, and the
 # previous analysis stands; nothing is left half-written. The newer push analyzes the newer tree,
 # which is the state anyone cares about.
+#
+# THIS DISAGREES WITH scorecard.yml, WHICH QUEUES, AND THE DIFFERENCE IS STATED RATHER THAN LEFT
+# TO LOOK LIKE A CONTRADICTION (CWK-074). Both workflows upload a SARIF, so "uploads SARIF" is
+# NOT the discriminator. The discriminator is what ELSE the run publishes: CodeQL writes only to
+# GitHub code scanning, one upload of a complete document -- it either lands or it does not, and
+# not landing leaves the prior analysis intact. Scorecard additionally posts to the OpenSSF API,
+# a third-party endpoint outside our transaction, where a cancellation can leave a partially
+# applied publish. Same artifact type, different blast radius.
 concurrency:
   group: codeql-${{ github.ref }}
   cancel-in-progress: true
@@ -67,7 +75,17 @@ jobs:
           # FAIL-SAFE POLARITY, and it is the whole safety argument: anything this step
           # cannot determine counts as CODE, never as docs-only. A wrong "docs-only" skips a
           # real analysis silently; a wrong "code" costs one cheap job. Never invert this.
-          emit() { echo "code=$1" >> "$GITHUB_OUTPUT"; echo "files<<EOF" >> "$GITHUB_OUTPUT"; echo "${2:-}" >> "$GITHUB_OUTPUT"; echo "EOF" >> "$GITHUB_OUTPUT"; }
+          # RANDOM HEREDOC DELIMITER (CWK-074). A FIXED delimiter is forgeable BY A FILENAME:
+          # `git diff --name-only` emits paths VERBATIM (measured -- it does not quote `$(`,
+          # a backtick, or a bare `EOF`), so a PR adding files named `EOF` and `code=false`
+          # terminates this heredoc early and the following line is parsed as a fresh output.
+          # Measured end to end: $GITHUB_OUTPUT then reads code=true, files<<EOF, EOF,
+          # code=false -- and the LATER key wins, so `code` resolves to false. That skips the
+          # whole matrix and reports all-green over UNANALYSED attacker code, which is worse
+          # than the command-execution vector in the summary. An attacker cannot name a file
+          # after a delimiter they cannot predict.
+          delim="EOF_$(date +%s%N)_${RANDOM}${RANDOM}"
+          emit() { echo "code=$1" >> "$GITHUB_OUTPUT"; echo "files<<$delim" >> "$GITHUB_OUTPUT"; echo "${2:-}" >> "$GITHUB_OUTPUT"; echo "$delim" >> "$GITHUB_OUTPUT"; }
           if [ "${{ github.event_name }}" != "push" ]; then
             echo "not a push event -- treating as code (fail-safe)"; emit true ""; exit 0
           fi
@@ -113,6 +131,15 @@ jobs:
       # fires on every push, so it must distinguish "analyzed and clean" from "analyzed
       # nothing" without anyone reading a commit message.
       - name: what this check actually did
+        # SHELL-INJECTION FIX (CWK-074). The changed-file list is ATTACKER-CONTROLLED by
+        # construction, and a `${{ }}` inside `run:` is TEXT-SUBSTITUTED before bash parses the
+        # line -- so a filename could close the quote and run commands in this job. MEASURED
+        # before fixing, by execution rather than reasoning: `x$(cmd).md`, `x`+chr(96)+`cmd`+chr(96)+`.md` and a
+        # double-quote breakout all RAN; the single-quote payload did not, because this site is
+        # double-quoted. Passing the value through `env:` makes it DATA -- an environment
+        # variable is never re-parsed as script text -- and all four payloads then went inert.
+        env:
+          CHANGED_FILES: ${{ needs.changes.outputs.files }}
         run: |
           if [ "${{ needs.changes.result }}" != "success" ]; then
             {
@@ -126,9 +153,11 @@ jobs:
           fi
           if [ "${{ needs.changes.outputs.code }}" = "true" ]; then
             {
-              echo "### analyze (javascript): a REAL CodeQL analysis ran"
+              echo "### analyze (javascript): a real CodeQL analysis is REQUIRED for this push"
               echo ""
-              echo "Non-doc paths changed, so init + analyze executed and the SARIF was uploaded."
+              echo "Non-doc paths changed, so init + analyze will run below. **Whether the SARIF"
+              echo "upload actually succeeded is reported by the outcome step at the end of this"
+              echo "job, not here** -- this step runs BEFORE those steps and cannot know."
             } >> "$GITHUB_STEP_SUMMARY"
           else
             {
@@ -144,7 +173,7 @@ jobs:
               echo ""
               echo "Changed paths:"
               echo '```'
-              echo "${{ needs.changes.outputs.files }}"
+              echo "$CHANGED_FILES"
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -156,4 +185,19 @@ jobs:
           languages: javascript-typescript
           queries: security-and-quality
       - uses: github/codeql-action/analyze@db488ddef3bf6cb639b32c2e9a7c0a7ea8271d28 # v4
+        id: analyze
         if: needs.changes.result == 'success' && needs.changes.outputs.code == 'true'
+      # DO NOT ASSERT AN ACTION RAN WITHOUT CONSULTING THE STEP THAT PERFORMS IT (CWK-074).
+      # The honesty step above runs FIRST -- deliberately, so a reader sees it first -- which
+      # means it cannot know whether the upload below succeeded. It used to claim "the SARIF
+      # was uploaded" anyway. That claim now comes from the step's own recorded outcome.
+      - name: what the analysis actually did
+        if: always() && needs.changes.result == 'success' && needs.changes.outputs.code == 'true'
+        env:
+          ANALYZE_OUTCOME: ${{ steps.analyze.outcome }}
+        run: |
+          {
+            echo ""
+            echo "**Analysis outcome:** \`${ANALYZE_OUTCOME:-did-not-run}\` -- a SARIF upload is"
+            echo "claimed only when this reads \`success\`."
+          } >> "$GITHUB_STEP_SUMMARY"
