@@ -13,6 +13,14 @@ on:
 permissions:
   contents: read
 
+# cancel-in-progress: FALSE, deliberately. Unlike the read-only workflows here, Scorecard
+# UPLOADS a SARIF to code scanning and (with publish_results) posts to the OpenSSF API --
+# outward writes, where a cancellation mid-publish is a partially-applied result rather than a
+# discarded one. It is also schedule-driven, so overlap is rare and queueing costs nothing.
+concurrency:
+  group: scorecard-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   analysis:
     name: Scorecard analysis

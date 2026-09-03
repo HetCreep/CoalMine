@@ -3,31 +3,98 @@ name: CI
 on:
   push:
     branches: [main]
-    paths-ignore:
-      # skip verify/test only for NON-shipped docs — a SHIPPED markdown artifact (skills/**/SKILL.md, commands/*.md) MUST run CI (verify checks dist-sync)
-      - 'README.md'
-      - 'CHANGELOG.md'
-      - 'CONTRIBUTING.md'
-      - 'PRIVACY.md'
-      - 'SECURITY.md'
-      - 'LICENSE'
   pull_request:
     branches: [main]
-    paths-ignore:
-      # skip verify/test only for NON-shipped docs — a SHIPPED markdown artifact (skills/**/SKILL.md, commands/*.md) MUST run CI (verify checks dist-sync)
-      - 'README.md'
-      - 'CHANGELOG.md'
-      - 'CONTRIBUTING.md'
-      - 'PRIVACY.md'
-      - 'SECURITY.md'
-      - 'LICENSE'
 
 permissions:
   contents: read
 
+# The ONE room-specific value in the CWK-058 change: paths whose change genuinely needs no
+# verify/test run. Space-separated shell globs; an adopting room edits this line only.
+# NOTE the asymmetry with codeql.yml on purpose -- a SHIPPED markdown artifact
+# (skills/**/SKILL.md, commands/*.md) MUST run CI, because verify.mjs checks dist-sync.
+# Only these NON-shipped root docs are exempt.
+env:
+  DOCS_GLOBS: "README.md CHANGELOG.md CONTRIBUTING.md PRIVACY.md SECURITY.md LICENSE"
+
+# cancel-in-progress: TRUE -- ci.yml only reads, tests and compares; it publishes nothing and
+# touches no external state, so a superseded run has nothing to leave half-done.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # DOC-ONLY DETECTION (CWK-058). Moved here from the workflow-level `paths-ignore` that
+  # used to sit on `on:`. VERIFIED AT SOURCE why it had to move (GitHub's own docs,
+  # content/actions/how-tos/manage-workflow-runs/skip-workflow-runs.md): "If a workflow is
+  # skipped due to path filtering ... then checks associated with that workflow will remain
+  # in a 'Pending' state. A pull request that requires those checks to be successful will be
+  # blocked from merging." A required check that never fires is not a saved minute, it is a
+  # branch that can never merge without an owner bypass -- which is exactly the bypass line
+  # every push to this repo has been echoing.
+  #
+  # DOCS_GLOBS is the only room-specific value here: an adopting room edits this DATA and
+  # nothing else. It must mirror what this workflow's own analysis genuinely does not need.
+  changes:
+    name: changed-paths
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.detect.outputs.code }}
+      files: ${{ steps.detect.outputs.files }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: detect
+        # DOCS_GLOBS comes from the workflow-level `env:` above, which GitHub exports into
+        # every step's shell -- no per-step re-declaration, which would be one more place to
+        # drift.
+        shell: bash
+        run: |
+          set -euo pipefail
+          # `set -f` (noglob) is LOAD-BEARING, not hygiene. Without it, `for g in $DOCS_GLOBS`
+          # PATHNAME-EXPANDS the patterns against the checked-out tree before the loop runs, so
+          # `*.md` silently becomes "the .md files that happen to exist here" and the comparison
+          # is against filenames rather than patterns. Measured while building this: it made
+          # `commands/stats.md` match by accident and `skills/*/SKILL.md` not match at all.
+          # `set -f` stops the EXPANSION while leaving `case` pattern matching intact, which is
+          # exactly the split we need. (The bug could only ever cause OVER-running, never a
+          # silent skip, because of the fail-safe polarity below -- which is the reason that
+          # polarity is chosen rather than merely preferred.)
+          set -f
+          # FAIL-SAFE POLARITY, and it is the whole safety argument: anything this step
+          # cannot determine counts as CODE, never as docs-only. A wrong "docs-only" skips a
+          # real analysis silently; a wrong "code" costs one cheap job. Never invert this.
+          emit() { echo "code=$1" >> "$GITHUB_OUTPUT"; echo "files<<EOF" >> "$GITHUB_OUTPUT"; echo "${2:-}" >> "$GITHUB_OUTPUT"; echo "EOF" >> "$GITHUB_OUTPUT"; }
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "not a push event -- treating as code (fail-safe)"; emit true ""; exit 0
+          fi
+          before="${{ github.event.before }}"
+          if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ] \
+             || ! git rev-parse -q --verify "${before}^{commit}" >/dev/null 2>&1; then
+            echo "no usable base commit -- treating as code (fail-safe)"; emit true ""; exit 0
+          fi
+          changed="$(git diff --name-only "$before" "${{ github.sha }}" || true)"
+          if [ -z "$changed" ]; then
+            echo "empty diff -- treating as code (fail-safe)"; emit true ""; exit 0
+          fi
+          code=false
+          while IFS= read -r f; do
+            [ -n "$f" ] || continue
+            matched=false
+            for g in $DOCS_GLOBS; do
+              # shellcheck disable=SC2254
+              case "$f" in $g) matched=true; break ;; esac
+            done
+            if [ "$matched" = false ]; then code=true; fi
+          done <<< "$changed"
+          echo "changed files:"; echo "$changed"
+          echo "code=$code"
+          emit "$code" "$changed"
   gate:
     name: gate (${{ matrix.os }} · node ${{ matrix.node }})
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -71,13 +138,53 @@ jobs:
   # gate failed. Rulesets require `all-green`, never the per-matrix names.
   all-green:
     name: all-green
-    needs: gate
+    needs: [changes, gate]
     if: always()
     runs-on: ubuntu-latest
     steps:
+      # HONESTY STEP (CWK-058) -- this check now fires on EVERY push, including doc-only ones,
+      # so it must say which of the two it was. A reader landing on `all-green` in the UI must
+      # be able to tell "the suite ran and passed" from "there was nothing to run", WITHOUT
+      # reading a commit message. Written to the job summary, not just the log.
+      - name: what this check actually did
+        run: |
+          if [ "${{ needs.changes.outputs.code }}" = "true" ]; then
+            {
+              echo "### all-green: the suite RAN"
+              echo ""
+              echo "Code paths changed, so the full \`gate\` matrix executed (3 OS x 2 Node)."
+              echo "Result: \`${{ needs.gate.result }}\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "### all-green: NO SUITE RAN -- and this is not a passing analysis"
+              echo ""
+              echo "Every changed path is in this workflow's \`DOCS_GLOBS\` (non-shipped root docs),"
+              echo "so the \`gate\` matrix was deliberately skipped. **Nothing was verified or tested.**"
+              echo ""
+              echo "This check reports success so the branch ruleset that requires \`all-green\` is"
+              echo "satisfiable on a doc-only change. It is NOT a claim that any code was checked."
+              echo ""
+              echo "Changed paths:"
+              echo '```'
+              echo "${{ needs.changes.outputs.files }}"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: gate result
         run: |
+          # `gate: skipped` is only a LEGITIMATE pass if the classifier that skipped it actually
+          # succeeded. Found while re-reading this before commit: with `if: always()`, a FAILED
+          # or cancelled `changes` job also leaves `gate` skipped -- which the old two-branch
+          # case read as "nothing to do" and reported GREEN, with neither a detection nor a
+          # test having run. That is the silent-pass class this whole change exists to remove,
+          # reproduced inside its own fix. `changes` is now checked FIRST and explicitly.
+          echo "changes=${{ needs.changes.result }} gate=${{ needs.gate.result }}"
+          if [ "${{ needs.changes.result }}" != "success" ]; then
+            echo "changed-paths did not succeed -- refusing to vouch for a run it never classified"
+            exit 1
+          fi
           case "${{ needs.gate.result }}" in
-            success|skipped) echo "gate ${{ needs.gate.result }}"; exit 0 ;;
-            *) echo "gate ${{ needs.gate.result }}"; exit 1 ;;
+            success|skipped) exit 0 ;;
+            *) exit 1 ;;
           esac

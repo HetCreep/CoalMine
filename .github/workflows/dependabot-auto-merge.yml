@@ -14,6 +14,15 @@ on: pull_request
 permissions:
   contents: read
 
+# cancel-in-progress: FALSE, grouped PER PULL REQUEST. The job calls `gh pr merge --auto`, an
+# outward state change on the PR; cancelling it mid-call buys nothing (the job is seconds long)
+# and could leave auto-merge un-enabled on a PR whose checks then go green with nobody watching.
+# Per-PR grouping, never per-ref: two different Dependabot PRs must not serialise behind each
+# other.
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   auto-merge:
     if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' }}

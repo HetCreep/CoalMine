@@ -13,6 +13,12 @@ on:
 permissions:
   contents: read
 
+# cancel-in-progress: TRUE -- a lint run reads files and publishes nothing, so a superseded
+# run has no partial state to leave behind.
+concurrency:
+  group: markdownlint-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest

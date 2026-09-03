@@ -20,6 +20,17 @@ on:
 permissions:
   contents: read
 
+# cancel-in-progress: FALSE -- and this is the one workflow where cancelling would be an
+# ACTIVE regression, not merely untidy. This room already shipped a fix for a Release-asset
+# race here at v3.17.1: two runs in quick succession both `gh release upload` to the same tag.
+# Serialising is the fix; CANCELLING is not, because a run killed mid-upload can leave the
+# Release carrying a partial or missing ZIP with nothing to signal it -- a broken install path
+# for a user, which is strictly worse than a slow one. The group is keyed on the TAG (ref_name),
+# not the branch, because the asset collision is per-Release.
+concurrency:
+  group: claude-ai-zips-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   build-zips:
     runs-on: ubuntu-latest
