@@ -118,13 +118,17 @@ export const PENDING_KEYS = {
 // is not an edge case a room might never meet; it is the first thing a port collides with,
 // and colliding is the design working.
 //
-// HONEST RESIDUE, stated because a closure claim must be exact: this closes the SILENT
-// ACQUISITION of a blind spot. It does NOT make a lowercase key detectable in prose. A
-// lowercase key named in a doc while ABSENT from the schema remains undetectable by ANY
-// mechanism here — shape cannot distinguish it from an English word, and a literal pass
-// has nothing to match, because a key absent from the schema contributes no literal. That
-// residue is irreducible with this design, and the FAIL above is what stops it growing
-// quietly.
+// HONEST RESIDUE, stated because a closure claim must be exact — AND NARROWED (INSPECT
+// LOW-1), because the first version of this sentence claimed one notch too much. It said a
+// lowercase key named in a doc while absent from the schema is undetectable by ANY mechanism
+// here. That is TRUE OF FREE PROSE and irreducibly so: shape cannot separate `language` from
+// the English word, and a literal pass has nothing to match because a key absent from the
+// schema contributes no literal. It is NOT true of a STRUCTURED surface — in a key table the
+// first cell is a key BY THE TABLE'S OWN CONTRACT, so position supplies the signal shape
+// cannot, and the structured pass above catches exactly that case on the canonical key list
+// where this defect class actually appears.
+// So the residue is: a lowercase key named in FREE PROSE while absent from the schema. That
+// half is irreducible with this design; the FAIL above is what stops it growing quietly.
 export const BLIND_KEYS = {
   language: 'AGENTS.md 5 Standard Systems #2 mandates it flock-wide; a single lowercase word is indistinguishable from prose, and widening the rule to catch it was measured at +33 false positives',
 };
@@ -172,6 +176,12 @@ const JS_STRING = new RegExp("'((?:" + BS + BS + ".|[^'" + BS + BS + "])*)'", 'g
 // positives from five languages, every one of them the same newline escape.
 const JS_ESCAPE = new RegExp(BS + BS + '[a-zA-Z]', 'g');
 const IDENT = new RegExp(BS + 'b([a-z][a-z0-9]*[A-Z][A-Za-z0-9]*)' + BS + 'b', 'g');
+// A markdown table row whose FIRST cell is a single backticked token.
+// The pipe is written as the character class [|] rather than an escape: a hand-built
+// backslash-pipe is one keystroke from meaning ALTERNATION instead of a literal, which is
+// exactly the bug this line shipped with for one run (the group never participated, so the
+// finding read `documents undefined`). A class cannot be misread that way.
+const ROW_KEY = new RegExp('^' + BS + 's*[|]' + BS + 's*`([^`|]+)`' + BS + 's*[|]');
 
 function candidatesInMarkdown(text) {
   const out = new Set();
@@ -196,6 +206,38 @@ function noticeRegion(text, blockName) {
   return end === -1 ? text.slice(start) : text.slice(start, end);
 }
 
+// STRUCTURED SURFACE (CWK-061 LOW-1) — the one place the shape rule's blindness is NOT
+// irreducible. In free prose a lowercase key is indistinguishable from an English word, and
+// that stays true. But a KEY TABLE is structured: the first cell of a row IS a key by the
+// table's own contract, so POSITION supplies the signal SHAPE cannot, and no heuristic is
+// needed at all — every backticked first cell must resolve, whatever its shape.
+//
+// REGION-BOUNDED by the same technique noticeRegion already uses on hooks, and the bound is
+// what makes it clean rather than a second cry-wolf path. MEASURED on this repo: README has
+// 10 backticked first-cell table rows; unbounded, the rule would fire on 2 of them
+// (`/coalmine:stats`, `/coalmine:update` — the Commands table, L148-149), which are not keys
+// and never will be. Bounded to the Configure section it sees 8 rows, 8/8 schema keys,
+// ZERO false positives — and the 2 fall outside by CONSTRUCTION, not by an exclusion rule
+// that would need maintaining. A room supplies its own {file, heading}; nothing here assumes
+// CoalMine's README.
+function tableRegion(text, heading) {
+  const lines = text.split(NL);
+  const start = lines.findIndex((l) => /^#{1,6}\s/.test(l) && l.includes(heading));
+  if (start === -1) return [];
+  const rest = lines.slice(start + 1);
+  const end = rest.findIndex((l) => /^#{1,6}\s/.test(l));
+  return end === -1 ? rest : rest.slice(0, end);
+}
+
+function keysInTable(text, heading) {
+  const out = new Set();
+  for (const ln of tableRegion(text, heading)) {
+    const m = ROW_KEY.exec(ln);
+    if (m) out.add(m[1]);
+  }
+  return out;
+}
+
 function candidatesInHookStrings(text, blockName) {
   const out = new Set();
   const region = noticeRegion(text, blockName);
@@ -216,6 +258,7 @@ function candidatesInHookStrings(text, blockName) {
 export function checkConfigKeys({
   schemaKeys, mdFiles = [], hookFiles = [], read,
   noticeBlock = 'TRANSLATIONS',
+  keyTables = [], // [{ file, heading }] — a room's own key table(s); see tableRegion above
   pending = PENDING_KEYS,
   notConfig = NOT_CONFIG,
   blind = BLIND_KEYS,
@@ -228,7 +271,23 @@ export function checkConfigKeys({
   // it FAILs: the gate refuses to run while silently checking less than it claims. This is
   // what makes acquiring a blind spot structurally impossible rather than merely visible —
   // a room adding a lowercase key hits a red gate, not a line it can scroll past.
+  //
+  // AND THE DECLARED CASE STILL DISCLOSES (INSPECT MEDIUM-1). The first cut of this took
+  // `continue` on a declared key and printed nothing, which BOUGHT THE STOP BY SPENDING THE
+  // DISCLOSURE the previous fix existed to provide -- so `verify` printed only its ok line
+  // while `language` was read and discarded, making that line false as written. A stop and a
+  // disclosure are not a trade; this unit owes both. Declared keys now emit a SKIP, which
+  // verify.mjs filters out of its failure set, so the disclosure cannot redden the gate.
   const invisible = [...known].filter((k) => !KEY_SHAPE.test(k)).sort();
+  const accepted = invisible.filter((k) => Object.hasOwn(blind, k));
+  if (accepted.length) {
+    findings.push({
+      level: 'SKIP',
+      msg: 'blind to ' + accepted.length + ' DECLARED schema key(s) this gate cannot detect: '
+        + accepted.join(', ') + ' — named on any surface they are read and discarded, so the '
+        + 'pass line above does not cover them (accepted in BLIND_KEYS)',
+    });
+  }
   for (const k of invisible) {
     if (Object.hasOwn(blind, k)) continue;
     findings.push({
@@ -242,6 +301,7 @@ export function checkConfigKeys({
   }
   const seen = new Map(); // candidate -> Set(file)
   const unreadable = [];  // a surface the caller named but we could not read
+  const tableReported = new Set(); // already reported by the structured pass; do not double-report
 
   const note = (tok, file) => {
     if (!seen.has(tok)) seen.set(tok, new Set());
@@ -259,9 +319,34 @@ export function checkConfigKeys({
     for (const tok of candidatesInHookStrings(text, noticeBlock)) note(tok, f);
   }
 
+  // STRUCTURED PASS (LOW-1) — shape-FREE, and that is the whole point: inside a declared key
+  // table the first cell is a key by the table's own contract, so a lowercase key that free
+  // prose can never expose is caught here. Same declarations apply, so an honestly-planned key
+  // documented in the table is still cheap.
+  for (const { file, heading } of keyTables) {
+    let text;
+    try { text = read(file); } catch { unreadable.push(file); continue; }
+    for (const tok of keysInTable(text, heading)) {
+      // A table row IS a mention, so a declaration covering it is not dead weight (rule 2).
+      // But `note` is shape-free here, so the token would also reach THE CHECK below and be
+      // reported a SECOND time -- `tableReported` keeps one defect to one finding.
+      note(tok, file);
+      if (known.has(tok) || Object.hasOwn(notConfig, tok) || Object.hasOwn(pending, tok)) continue;
+      tableReported.add(tok);
+      findings.push({
+        level: 'FAIL',
+        msg: 'key table ' + file + ' (under "' + heading + '") documents ' + tok
+          + ', which does not resolve in the schema — a table row IS a key claim whatever its shape, '
+          + 'so this is caught even where the prose rule is blind. Implement it, or declare it in '
+          + 'PENDING_KEYS / NOT_CONFIG',
+      });
+    }
+  }
+
   // THE CHECK. A named token must resolve, or be declared.
   for (const [tok, files] of [...seen].sort((a, b) => a[0].localeCompare(b[0]))) {
     if (known.has(tok)) continue;
+    if (tableReported.has(tok)) continue; // the structured pass already named it
     if (Object.hasOwn(notConfig, tok)) continue;
     if (Object.hasOwn(pending, tok)) continue;
     findings.push({

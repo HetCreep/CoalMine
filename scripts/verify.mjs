@@ -200,9 +200,20 @@ try {
     mdFiles: skillMd,
     hookFiles: hookJs,
     read: (f) => fs.readFileSync(path.join(repo, f), 'utf8'),
+    // The room's own key table: a first cell there is a key CLAIM regardless of shape, so
+    // this is the one surface where a lowercase key is catchable. Region-bounded (measured:
+    // unbounded it would fire on the Commands table's 2 slash-command rows; bounded, 8/8
+    // rows are keys and the false-positive count is zero).
+    keyTables: [{ file: 'README.md', heading: 'Configure' }],
   });
   const hard = findings.filter((f) => f.level !== 'SKIP');
-  if (hard.length === 0) pass(`every config key named across ${skillMd.length} doc + ${hookJs.length} hook surfaces resolves in the schema`);
+  // The pass line is QUALIFIED when the gate has declared blind spots (INSPECT MEDIUM-1):
+  // an unqualified "every config key ... resolves" is false while a declared key is being
+  // read and discarded, and a gate whose success line overclaims is the same defect it exists
+  // to catch. The SKIP below names which keys; this stops the headline asserting past them.
+  const blindSkips = findings.filter((f) => f.level === 'SKIP' && f.msg.startsWith('blind to'));
+  const scope = blindSkips.length ? 'every DETECTABLE config key' : 'every config key';
+  if (hard.length === 0) pass(`${scope} named across ${skillMd.length} doc + ${hookJs.length} hook surfaces resolves in the schema`);
   for (const f of findings) {
     if (f.level === 'SKIP') console.log('  --   ' + f.msg);
     else fail(f.msg);

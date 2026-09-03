@@ -121,6 +121,80 @@ test('config-keys: SELF-CLEANING 1, PENDING branch -- a planned key that LANDS i
   assert.match(out[0].msg, /delete the entry/, 'and what to do about it');
 });
 
+const TABLE = [
+  '# Doc',
+  '## Configure',
+  '| Key | Default | What it does |',
+  '|---|---|---|',
+  '| `theme` | `dark` | a LOWERCASE key the prose rule can never see |',
+  '| `scanExcludePaths` | `[]` | a real one |',
+  '## Commands',
+  '| `/tool:stats` | shows stats |',
+].join(String.fromCharCode(10));
+
+test('config-keys: STRUCTURED SURFACE -- a LOWERCASE key documented in a key table IS caught, where prose cannot be', () => {
+  // LOW-1. In free prose `theme` is indistinguishable from an English word and stays
+  // undetectable. Inside a key table the FIRST CELL IS A KEY by the table's own contract, so
+  // POSITION supplies the signal SHAPE cannot -- and the check is shape-free on purpose.
+  const out = checkConfigKeys({
+    schemaKeys: ['scanExcludePaths'],
+    keyTables: [{ file: 'r.md', heading: 'Configure' }],
+    read: mem({ 'r.md': TABLE }),
+    ...NONE,
+  });
+  const hard = out.filter((f) => f.level === 'FAIL');
+  assert.equal(hard.length, 1, 'the lowercase key must be caught');
+  assert.match(hard[0].msg, /theme/);
+  assert.match(hard[0].msg, /whatever its shape/, 'and the message must say why it was catchable');
+});
+
+test('config-keys: STRUCTURED SURFACE is REGION-BOUNDED -- rows outside the key table are never claims', () => {
+  // The bound is what keeps this from being a second cry-wolf path. MEASURED on the real
+  // README: unbounded it fires on the Commands table's 2 slash-command rows; bounded, zero.
+  // Asserted POSITIVELY -- the scan must be shown to have HAPPENED, or an empty region would
+  // satisfy a bare "no findings" check vacuously (which an earlier draft of this test did).
+  const out = checkConfigKeys({
+    schemaKeys: ['scanExcludePaths'],          // `theme` deliberately absent...
+    keyTables: [{ file: 'r.md', heading: 'Configure' }],
+    read: mem({ 'r.md': TABLE }),
+    ...NONE,
+  });
+  const fails = out.filter((f) => f.level === 'FAIL');
+  assert.equal(fails.length, 1, 'exactly one row is a live claim');
+  assert.match(fails[0].msg, /theme/, '...so the in-region row IS scanned -- the check is not vacuous');
+  assert.ok(!fails.some((f) => /tool:stats/.test(f.msg)),
+    'and the row under the OTHER heading is not a key claim, so widening the region would redden this');
+});
+
+test('config-keys: STRUCTURED SURFACE honours the declarations -- a documented PENDING key stays cheap', () => {
+  const out = checkConfigKeys({
+    schemaKeys: ['scanExcludePaths'],
+    keyTables: [{ file: 'r.md', heading: 'Configure' }],
+    read: mem({ 'r.md': TABLE }),
+    pending: { theme: 'CWK-999, planned' },
+    notConfig: {}, blind: {},
+  });
+  assert.deepEqual(out, [], 'honestly-planned and documented is still one line, not a red gate');
+});
+
+test('config-keys: a DECLARED blind key still DISCLOSES -- the stop did not cost the disclosure', () => {
+  // INSPECT MEDIUM-1: the first cut took `continue` on a declared key and printed nothing, so
+  // verify's ok line claimed coverage over a key being read and discarded. A stop and a
+  // disclosure are not a trade.
+  const out = checkConfigKeys({
+    schemaKeys: [...BASE, 'language'],
+    mdFiles: ['a.md'],
+    read: mem({ 'a.md': 'Set `language` to en.' }),
+    pending: {}, notConfig: {},
+    blind: { language: 'mandated flock-wide; indistinguishable from prose' },
+  });
+  assert.equal(out.filter((f) => f.level === 'FAIL').length, 0, 'declared, so no stop');
+  assert.equal(out.length, 1);
+  assert.equal(out[0].level, 'SKIP', 'but it must still SAY SO -- and a SKIP cannot redden the gate');
+  assert.match(out[0].msg, /language/);
+  assert.match(out[0].msg, /read and discarded/, 'the disclosure states the consequence, not just the name');
+});
+
 test('config-keys: THE CLASS -- an UNDECLARED lowercase schema key is a hard FAIL, not a printed note', () => {
   // CWK-061's bar: the gate must be structurally INCAPABLE of acquiring a blind spot
   // silently. `theme` is a NEW key, not the known `language` -- the proof has to be that an
@@ -137,16 +211,6 @@ test('config-keys: THE CLASS -- an UNDECLARED lowercase schema key is a hard FAI
   assert.match(hard[0].msg, /BLIND_KEYS/, 'and tells the reader how to accept it deliberately');
 });
 
-test('config-keys: a DECLARED blind key is silent -- the declaration is the accepted record', () => {
-  const out = checkConfigKeys({
-    schemaKeys: [...BASE, 'theme'],
-    mdFiles: ['a.md'],
-    read: mem({ 'a.md': 'Set `theme` to dark.' }),
-    pending: {}, notConfig: {},
-    blind: { theme: 'a single lowercase word, indistinguishable from prose' },
-  });
-  assert.deepEqual(out, [], 'once a human has written down that they accepted it, the gate is quiet');
-});
 
 test('config-keys: BLIND_KEYS expires on the EVENT -- a declared key that LEFT the schema FAILs', () => {
   const out = checkConfigKeys({
