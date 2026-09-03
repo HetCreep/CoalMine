@@ -49,7 +49,27 @@
 // language codes (`en`, `th`, `ja`, `zh`, `es`), enum values (`off`, `safe`, `auto`,
 // `manual`, `true`, `false`) and prose (`file`, `line`, `fs`). Closing a one-key blind
 // spot by requiring a 33-entry hand-kept NOT_CONFIG roster trades a named gap for the
-// exact allowlist rot this design refuses. An honest SKIP beats a flood.
+// exact allowlist rot this design refuses.
+//
+// A SCHEMA-TO-DOCS *LITERAL* PASS WAS ALSO CONSIDERED AND REJECTED (CWK-061), and this is
+// the sharper rejection because it looks like it should work: a schema key is a KNOWN
+// LITERAL, and matching a literal needs no heuristic, so why not search the surfaces for
+// each blind key by exact name?
+//   Because it answers the WRONG QUESTION. This gate asks "is a key NAMED in the docs
+//   REAL?". A literal built FROM the schema can only ever find keys that are already in
+//   the schema — i.e. keys that are real by construction — so on the drift axis it is
+//   structurally incapable of producing a finding. MEASURED on this repo: the pass returns
+//   exactly one hit for `language` (README.md:178) and zero findings, because that hit
+//   resolves. It answers "is this key DOCUMENTED?", a coverage question nobody asked.
+//   And it would import the noise the capital rule exists to remove: MEASURED, if an
+//   adopting room's schema carried the ordinary-word keys rooms plausibly have, a
+//   backticked-literal pass would have to adjudicate `auto` 6 times, `off` twice, and
+//   `safe`/`all`/`file`/`line`/`description` once each on THIS repo's surfaces alone —
+//   every one an English word or an enum value, none of them a key mention.
+//   Zero detection gain on the axis that matters, real false-positive cost. Rejected.
+//
+// SO THE CLASS IS CLOSED FROM THE OTHER END — not by detecting better, but by making the
+// blind spot IMPOSSIBLE TO CREATE SILENTLY. See BLIND_KEYS below.
 const KEY_SHAPE = /^[a-z][a-z0-9]*[A-Z][A-Za-z0-9]*$/;
 
 // A key that is NAMED but not yet IMPLEMENTED. CWK-054's whole point is that naming
@@ -81,6 +101,34 @@ export const PENDING_KEYS = {
 // Inert forever BY DESIGN — "this is an internal identifier" is not a fact that
 // expires — but rule 1 still applies in reverse: if one of these ever BECOMES a real
 // schema key, the entry is now a lie and FAILs.
+// A schema key this gate's detection rule CANNOT SEE, declared with the reason it is
+// accepted. THE POINT OF THIS LIST IS THAT IT IS MANDATORY, NOT OPTIONAL (CWK-061):
+// any key in the schema that fails KEY_SHAPE and is NOT declared here is a hard FAIL.
+//
+// WHY A FAIL AND NOT THE SKIP IT REPLACED. The previous fix PRINTED the blind spot every
+// run. That is disclosure, and disclosure is not closure: a printed line is read by nobody
+// after the third run, and the next room to add a lowercase key inherits the same silent
+// discard with only that line between it and a gate that quietly checks less than it
+// claims. A FAIL cannot be read past. The gate is now structurally incapable of ACQUIRING
+// a blind spot without a human writing down that they accepted one — which is the actual
+// requirement; "warns loudly" was never it.
+//
+// EVERY ADOPTING ROOM HAS AT LEAST ONE ENTRY BY CONSTRUCTION. AGENTS.md's 5 Standard
+// Systems mandates `language` in every room, and `language` fails KEY_SHAPE. So this list
+// is not an edge case a room might never meet; it is the first thing a port collides with,
+// and colliding is the design working.
+//
+// HONEST RESIDUE, stated because a closure claim must be exact: this closes the SILENT
+// ACQUISITION of a blind spot. It does NOT make a lowercase key detectable in prose. A
+// lowercase key named in a doc while ABSENT from the schema remains undetectable by ANY
+// mechanism here — shape cannot distinguish it from an English word, and a literal pass
+// has nothing to match, because a key absent from the schema contributes no literal. That
+// residue is irreducible with this design, and the FAIL above is what stops it growing
+// quietly.
+export const BLIND_KEYS = {
+  language: 'AGENTS.md 5 Standard Systems #2 mandates it flock-wide; a single lowercase word is indistinguishable from prose, and widening the rule to catch it was measured at +33 false positives',
+};
+
 export const NOT_CONFIG = {
   capNotice: 'rot-canary-stop.js translation key for the auto-scan cap notice',
   scanExcludeNotice: 'rot-canary-stop.js translation key for the skip-count notice',
@@ -170,21 +218,26 @@ export function checkConfigKeys({
   noticeBlock = 'TRANSLATIONS',
   pending = PENDING_KEYS,
   notConfig = NOT_CONFIG,
+  blind = BLIND_KEYS,
 }) {
   const findings = [];
   const known = new Set(schemaKeys);
 
-  // PRECONDITION, asserted rather than assumed (INSPECT MEDIUM-1). Any key the schema
-  // declares that KEY_SHAPE cannot see is a key this gate is structurally blind to —
-  // named on every run, from the live schema, so the disclosure can never go stale the
-  // way the comment it replaced did.
+  // PRECONDITION — a HARD GATE, not a printed note (CWK-061). Any key the schema declares
+  // that KEY_SHAPE cannot see must be DECLARED in BLIND_KEYS with its reason. Undeclared,
+  // it FAILs: the gate refuses to run while silently checking less than it claims. This is
+  // what makes acquiring a blind spot structurally impossible rather than merely visible —
+  // a room adding a lowercase key hits a red gate, not a line it can scroll past.
   const invisible = [...known].filter((k) => !KEY_SHAPE.test(k)).sort();
-  if (invisible.length) {
+  for (const k of invisible) {
+    if (Object.hasOwn(blind, k)) continue;
     findings.push({
-      level: 'SKIP',
-      msg: 'blind to ' + invisible.length + ' schema key(s) whose shape this gate cannot detect: '
-        + invisible.join(', ') + ' — named on any surface, they are read and discarded; '
-        + 'widening the rule to catch them was measured at +33 false positives on this repo and rejected',
+      level: 'FAIL',
+      msg: 'schema key ' + k + ' cannot be detected by this gate (it does not match the '
+        + 'camelCase-with-an-internal-capital shape), so any mention of it in docs is read and '
+        + 'discarded. Declare it in BLIND_KEYS with the reason it is accepted, or rename the key. '
+        + 'Widening the shape rule to catch it was measured at +33 false positives on this repo, '
+        + 'and a schema-to-docs literal pass was measured at zero findings, so neither is the fix',
     });
   }
   const seen = new Map(); // candidate -> Set(file)
@@ -224,6 +277,16 @@ export function checkConfigKeys({
   }
   for (const tok of Object.keys(notConfig)) {
     if (known.has(tok)) findings.push({ level: 'FAIL', msg: 'NOT_CONFIG lists ' + tok + ' as never-a-config-key, but it now resolves in the schema — the entry is a lie, delete it' });
+  }
+  // BLIND_KEYS expires on the same EVENT principle as the two lists above: an entry is
+  // true only while the key is BOTH in the schema AND undetectable. Either half changing
+  // makes the declaration a lie, so it FAILs rather than sitting there accepted forever.
+  for (const tok of Object.keys(blind)) {
+    if (!known.has(tok)) {
+      findings.push({ level: 'FAIL', msg: 'BLIND_KEYS declares ' + tok + ', but it is not in the schema at all — the key is gone, delete the entry' });
+    } else if (KEY_SHAPE.test(tok)) {
+      findings.push({ level: 'FAIL', msg: 'BLIND_KEYS declares ' + tok + ' as undetectable, but it now matches the shape rule — the gate can see it, delete the entry' });
+    }
   }
 
   // SELF-CLEANING RULE 2 — a declaration protecting nothing is dead weight, and dead

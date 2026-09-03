@@ -2,7 +2,7 @@ const NEWLINE = String.fromCharCode(10);
 const BSN = String.fromCharCode(92) + 'n';
 import test from 'node:test';
 import assert from 'node:assert';
-import { checkConfigKeys, PENDING_KEYS, NOT_CONFIG } from './config-keys.mjs';
+import { checkConfigKeys, PENDING_KEYS, NOT_CONFIG, BLIND_KEYS } from './config-keys.mjs';
 
 // In-memory surfaces: `read` is injected, so these drive the checker with no disk IO.
 const mem = (files) => (f) => {
@@ -11,7 +11,7 @@ const mem = (files) => (f) => {
 };
 const BASE = ['scanExcludePaths', 'autoScanFileCap'];
 // Empty declarations isolate the rule under test from the self-cleaning rules.
-const NONE = { pending: {}, notConfig: {} };
+const NONE = { pending: {}, notConfig: {}, blind: {} };
 
 test('config-keys: THE DEFECT -- a key named in a doc but absent from the schema FAILs, naming key and file', () => {
   const out = checkConfigKeys({
@@ -95,6 +95,7 @@ test('config-keys: PENDING_KEYS makes the HONEST case cheap -- a declared planne
     read: mem({ 'a.md': 'A `futureKey` override is planned.' }),
     pending: { futureKey: 'CWK-999, planned' },
     notConfig: {},
+    blind: {},
   });
   assert.deepEqual(declared, [], 'declared with its ticket -> silent: the honest case is one line');
 });
@@ -111,6 +112,7 @@ test('config-keys: SELF-CLEANING 1, PENDING branch -- a planned key that LANDS i
     read: mem({ 'a.md': 'A `futureKey` override is planned.' }),
     pending: { futureKey: 'CWK-999, planned' },   // ...but the entry still claims it is pending
     notConfig: {},
+    blind: {},
   });
   assert.equal(out.length, 1, 'the stale declaration is the only finding -- the key itself now resolves');
   assert.equal(out[0].level, 'FAIL');
@@ -119,23 +121,67 @@ test('config-keys: SELF-CLEANING 1, PENDING branch -- a planned key that LANDS i
   assert.match(out[0].msg, /delete the entry/, 'and what to do about it');
 });
 
-test('config-keys: PRECONDITION -- a schema key the rule cannot SEE is disclosed as a SKIP, never assumed absent', () => {
-  // MEDIUM-1. `language` is a real key in this repo's own schema and fails KEY_SHAPE, so the
-  // gate is structurally blind to it. That fact used to live in a comment that claimed the
-  // opposite; it now comes from the live schema on every run and cannot go stale.
+test('config-keys: THE CLASS -- an UNDECLARED lowercase schema key is a hard FAIL, not a printed note', () => {
+  // CWK-061's bar: the gate must be structurally INCAPABLE of acquiring a blind spot
+  // silently. `theme` is a NEW key, not the known `language` -- the proof has to be that an
+  // unforeseen one is caught, otherwise it only proves the instance was patched.
   const out = checkConfigKeys({
-    schemaKeys: [...BASE, 'language'],
+    schemaKeys: [...BASE, 'theme'],
     mdFiles: ['a.md'],
-    read: mem({ 'a.md': 'Set `language` to en.' }),
+    read: mem({ 'a.md': 'Set `theme` to dark.' }),
     ...NONE,
   });
-  assert.equal(out.filter((f) => f.level === 'FAIL').length, 0, 'a blind spot is a disclosure, not a failure');
-  assert.equal(out.length, 1);
-  assert.equal(out[0].level, 'SKIP');
-  assert.match(out[0].msg, /language/, 'the SKIP NAMES the key it cannot see');
+  const hard = out.filter((f) => f.level === 'FAIL');
+  assert.equal(hard.length, 1, 'a gate that only PRINTS its blind spot has not closed it');
+  assert.match(hard[0].msg, /theme/, 'the FAIL names the key');
+  assert.match(hard[0].msg, /BLIND_KEYS/, 'and tells the reader how to accept it deliberately');
+});
 
-  const clean = checkConfigKeys({ schemaKeys: BASE, mdFiles: ['a.md'], read: mem({ 'a.md': 'nothing' }), ...NONE });
-  assert.deepEqual(clean, [], 'and stays silent when every schema key is detectable');
+test('config-keys: a DECLARED blind key is silent -- the declaration is the accepted record', () => {
+  const out = checkConfigKeys({
+    schemaKeys: [...BASE, 'theme'],
+    mdFiles: ['a.md'],
+    read: mem({ 'a.md': 'Set `theme` to dark.' }),
+    pending: {}, notConfig: {},
+    blind: { theme: 'a single lowercase word, indistinguishable from prose' },
+  });
+  assert.deepEqual(out, [], 'once a human has written down that they accepted it, the gate is quiet');
+});
+
+test('config-keys: BLIND_KEYS expires on the EVENT -- a declared key that LEFT the schema FAILs', () => {
+  const out = checkConfigKeys({
+    schemaKeys: BASE,
+    mdFiles: ['a.md'],
+    read: mem({ 'a.md': 'nothing' }),
+    pending: {}, notConfig: {},
+    blind: { theme: 'accepted once' },
+  });
+  assert.equal(out.length, 1);
+  assert.equal(out[0].level, 'FAIL');
+  assert.match(out[0].msg, /not in the schema at all/, 'the key is gone, so the declaration is a lie');
+});
+
+test('config-keys: BLIND_KEYS expires on the EVENT -- a declared key the rule CAN now see FAILs', () => {
+  // e.g. the room renames `theme` to `themeName`: the gate can detect it, so the accepted
+  // blind spot no longer exists and the entry must not sit there granting a pass forever.
+  const out = checkConfigKeys({
+    schemaKeys: [...BASE, 'themeName'],
+    mdFiles: ['a.md'],
+    read: mem({ 'a.md': 'Set `themeName` to dark.' }),
+    pending: {}, notConfig: {},
+    blind: { themeName: 'stale: this now matches the shape rule' },
+  });
+  const hard = out.filter((f) => f.level === 'FAIL');
+  assert.equal(hard.length, 1);
+  assert.match(hard[0].msg, /now matches the shape rule/);
+});
+
+test("config-keys: this repo's own BLIND_KEYS is non-empty and covers `language`", () => {
+  // AGENTS.md's 5 Standard Systems mandates `language` in EVERY room, and it fails the shape
+  // rule -- so every adopting room collides with this list on day one. Pinning it here means
+  // a port that forgets the declaration fails its own suite, not just its verify run.
+  assert.ok(Object.hasOwn(BLIND_KEYS, 'language'), 'the flock-mandated key must be declared');
+  assert.ok(BLIND_KEYS.language.length > 20, 'and carry a real reason, not a bare entry');
 });
 
 test('config-keys: SELF-CLEANING 1 -- a NOT_CONFIG entry that becomes a real key FAILs as a lie', () => {
@@ -162,6 +208,7 @@ test('config-keys: an absent surface is a visible SKIP, never a silent pass and 
     read: mem({}),
     notConfig: { someIdent: 'declared, but the only surface naming it was unreadable' },
     pending: {},
+    blind: {},
   });
   assert.equal(out.length, 1);
   assert.equal(out[0].level, 'SKIP', 'a partial scan degrades visibly');
