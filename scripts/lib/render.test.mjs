@@ -12,6 +12,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { inject, renderSkillMd, installSkillDir, listSkills, SHARED_REFERENCES } from './render.mjs';
 
+const NL = String.fromCharCode(10);
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 const SHARED = {
@@ -202,6 +203,44 @@ test('verify.mjs negative path: an over-cap .claude-plugin/plugin.json descripti
 // (same technique proven clean at the live tree during this task's manual RED-first
 // probe) so only checkDistChangelog's tag-diff fires, isolating the wiring assertion
 // from every OTHER thing verify.mjs checks.
+test('verify.mjs 2.10 config read-path: a bare-read line fails the WHOLE gate -- proves the wiring, not just the module', () => {
+  // INSPECT MEDIUM-3: task #38's H1 for the THIRD time. Unwiring block 2.10's call left the
+  // suite fully green -- a module can be non-vacuous while its wiring is dead. Block 2.9's own
+  // wiring test is the shape copied here.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-readpath-'));
+  try {
+    for (const d of ['scripts', 'scripts/lib', 'skills', 'hooks', '.claude-plugin']) {
+      fs.mkdirSync(path.join(tmp, d), { recursive: true });
+    }
+    for (const d of ['scripts', 'skills', 'hooks', 'plugin', '.claude-plugin', 'commands', 'platform-configs']) {
+      const src = path.join(repo, d);
+      if (fs.existsSync(src)) fs.cpSync(src, path.join(tmp, d), { recursive: true });
+    }
+    fs.copyFileSync(path.join(repo, 'README.md'), path.join(tmp, 'README.md'));
+    // Plant the DEFECT in a NEW command with NO rail of its own. Appending to stats.md would
+    // NOT be a defect and the first draft of this test wrongly expected it to be: that file
+    // carries a UNIVERSAL rail, which by design vouches for every mention in it. The gate was
+    // right and the test was wrong -- caught by reading the gate's own `ok` line rather than
+    // trusting the non-zero exit, which unrelated fixture FAILs were supplying anyway.
+    fs.writeFileSync(path.join(tmp, 'commands', 'planted.md'),
+      '---' + NL + 'description: planted' + NL + '---' + NL + 'honor `.coalmine.json` `noSuchRail` if set.' + NL);
+    // Second plant, in the FOURTH surface class -- these ship into other agents' config homes,
+    // so a bare read here reaches an agent we never see.
+    fs.mkdirSync(path.join(tmp, 'platform-configs'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, 'platform-configs', 'planted.template'),
+      'honor `.coalmine.json` at the project root if present' + NL);
+
+    const r = spawnSync(process.execPath, [path.join(tmp, 'scripts', 'verify.mjs')], { encoding: 'utf8' });
+    assert.equal(r.status, 1, 'a bare-read line must fail the whole gate, not just a module');
+    assert.match(r.stdout, /FAIL commands[\/]planted\.md:\d+/,
+      'the gate must name the file AND THE LINE -- per-mention granularity, not per-file');
+    assert.match(r.stdout, /FAIL platform-configs[\/]planted\.template:\d+/,
+      'and platform-configs/ must be IN the surface set -- the class both sweeps missed (MEDIUM-1)');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 test('verify.mjs 2.9 config-keys: an undeclared key named in a SKILL.md fails the WHOLE gate -- proves the wiring, not just the module', () => {
   // Task #38's H1, applied on the same pass rather than a later one: a module can be fully
   // green while its verify.mjs block is not wired at all, and no unit test can tell.

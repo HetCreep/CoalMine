@@ -239,8 +239,16 @@ try {
   for (const f of (fs.existsSync(cmdDir) ? fs.readdirSync(cmdDir) : []).filter((x) => x.endsWith('.md'))) {
     try { surfaces.push({ label: `commands/${f}`, text: fs.readFileSync(path.join(cmdDir, f), 'utf8') }); } catch {}
   }
+  // platform-configs/*.template (INSPECT MEDIUM-1): a FOURTH surface class both sweeps missed
+  // and the first cut of this gate was structurally blind to -- CoalLedger's own MED-1 shape
+  // happening to us in the unit that cites it. These ship INTO other agents' config homes, so
+  // a bare-read instruction here reaches an agent we never see. Walked, never enumerated.
+  const pcDir = path.join(repo, 'platform-configs');
+  for (const f of (fs.existsSync(pcDir) ? fs.readdirSync(pcDir) : []).filter((x) => x.endsWith('.template'))) {
+    try { surfaces.push({ label: `platform-configs/${f}`, text: fs.readFileSync(path.join(pcDir, f), 'utf8') }); } catch {}
+  }
   const findings = checkConfigReadPath({ surfaces });
-  if (findings.length === 0) pass(`every one of ${surfaces.length} agent surfaces that names the config also names the global tier`);
+  if (findings.length === 0) pass(`across ${surfaces.length} agent surfaces, every config mention is governed by a rail (universal, or the global tier on its own line)`);
   else for (const f of findings) fail(f.msg);
 } catch (e) { fail(`config read-path check crashed: ${e.message}`); }
 

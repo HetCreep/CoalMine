@@ -427,19 +427,46 @@ export function checkConfigKeys({
 // the INSTRUCTION's presence machine-checked. It does NOT make the agent obey it. What is
 // CLOSED is "a surface can silently lack the rail"; what stays PROSE-STRENGTH is the
 // agent's compliance with the rail once it is there.
+// GRANULARITY (INSPECT MEDIUM-2). The first cut matched PER FILE, so ONE compliant line
+// immunised every bare read in the same file -- a per-file check on a per-line defect, and the
+// reviewer measured it live. Fixed WITHOUT going strictly per-line, which was measured too:
+// 23 mention lines across the 11 surfaces, 11 of them lacking the global tier on the line, so
+// strict per-line would demand the ~40-word rail eleven times over. That is not rigour, it is
+// ship-text bloat that gets deleted later.
+//
+// THE UNIT THAT IS ACTUALLY RIGHT: a mention is governed by a rail that CLAIMS to govern it.
+//   - A UNIVERSAL RAIL -- one line naming the global tier AND explicitly scoping itself to
+//     EVERY key (UNIVERSAL_MARKER) -- covers the whole surface, because that is precisely what
+//     it says it does.
+//   - Anything else is LOCAL: a line naming the global tier while discussing one key governs
+//     that line and nothing else.
+// So an incidental compliant line no longer immunises a file. rot-canary's correct fix-mode
+// sentence is exactly such a local statement, and under the old rule it silently vouched for
+// two unrelated mentions further down; it no longer does.
+const UNIVERSAL_MARKER = 'every config key';
+
 export function checkConfigReadPath({ surfaces = [], configName = '.coalmine.json', globalHome = '~/.claude/' }) {
   const findings = [];
   const globalToken = globalHome + configName;
   for (const { label, text } of surfaces) {
     if (typeof text !== 'string' || !text.includes(configName)) continue;
-    if (text.includes(globalToken)) continue;
-    findings.push({
-      level: 'FAIL',
-      msg: label + ' names ' + configName + ' without naming the global tier (' + globalToken
-        + ') -- an agent following it reads the bare project file, which is ABSENT on a machine '
-        + 'configured only globally, and silently falls back to defaults. State the cascade: '
-        + globalToken + ' first, then the project config, project wins per key',
-    });
+    const lines = text.split(NL);
+    // A universal rail vouches for the whole surface; nothing else does.
+    if (lines.some((l) => l.includes(globalToken) && l.includes(UNIVERSAL_MARKER))) continue;
+    for (let i = 0; i < lines.length; i++) {
+      if (!lines[i].includes(configName)) continue;
+      if (lines[i].includes(globalToken)) continue; // a LOCAL rail governs its own line
+      findings.push({
+        level: 'FAIL',
+        label,
+        line: i + 1,
+        msg: label + ':' + (i + 1) + ' names ' + configName + ' with no rail governing it -- an agent '
+          + 'following it reads the bare project file, which is ABSENT on a machine configured only '
+          + 'globally, and silently falls back to defaults. Either name ' + globalToken + ' on this line, '
+          + 'or give the surface a UNIVERSAL rail (one line naming ' + globalToken + ' and the words "'
+          + UNIVERSAL_MARKER + '")',
+      });
+    }
   }
   return findings;
 }

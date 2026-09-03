@@ -328,3 +328,34 @@ test('read-path: configName and globalHome are parameters -- an adopting room su
   assert.equal(out.length, 1, 'nothing here hardcodes CoalMine');
   assert.match(out[0].msg, /coalledger/);
 });
+
+test('read-path: GRANULARITY -- one compliant line no longer immunises the rest of the file', () => {
+  // INSPECT MEDIUM-2, measured live by the reviewer on the per-file version. A LOCAL rail
+  // (one that names the global tier while discussing a single key) governs its own line only.
+  const text = [
+    'read `~/.claude/.coalmine.json` then the project config for fix mode',
+    'honor `.coalmine.json` `schemaPaths` if set',
+  ].join(String.fromCharCode(10));
+  const out = checkConfigReadPath({ surfaces: [{ label: 's.md', text }] });
+  assert.equal(out.length, 1, 'the second, unrelated mention is NOT vouched for by the first');
+  assert.equal(out[0].line, 2, 'and the finding is anchored to the offending LINE');
+  assert.match(out[0].msg, /s\.md:2/);
+});
+
+test('read-path: a UNIVERSAL rail vouches for the whole surface, because that is what it says', () => {
+  const text = [
+    'Config reads -- every config key, always the CASCADE: `~/.claude/.coalmine.json` first, then the project config.',
+    'honor `.coalmine.json` `schemaPaths` if set',
+    'honor `.coalmine.json` `trustedDomains` if set',
+  ].join(String.fromCharCode(10));
+  assert.deepEqual(checkConfigReadPath({ surfaces: [{ label: 's.md', text }] }), []);
+});
+
+test('read-path: the universal escape needs BOTH the global tier and the universality words', () => {
+  const halfA = 'read `~/.claude/.coalmine.json` first' + String.fromCharCode(10) + 'honor `.coalmine.json` `x`';
+  const halfB = 'every config key matters' + String.fromCharCode(10) + 'honor `.coalmine.json` `x`';
+  assert.equal(checkConfigReadPath({ surfaces: [{ label: 'a.md', text: halfA }] }).length, 1,
+    'the global tier alone is a LOCAL rail, not a universal one');
+  assert.equal(checkConfigReadPath({ surfaces: [{ label: 'b.md', text: halfB }] }).length, 1,
+    'and the words alone, with no global tier, vouch for nothing');
+});
