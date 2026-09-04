@@ -347,7 +347,12 @@ try {
         : fs.existsSync(path.join(repo, p)) ? 'untracked' : 'missing'),
     });
     const hard = findings.filter((f) => f.level !== 'SKIP');
-    if (hard.length === 0) pass(`every path this repo points at from ${surfaces.length} surfaces (${findings.checked} in-scope citations) resolves to a TRACKED file — sections and symbols are NOT checked, see pointer-check.mjs`);
+    // NOTE-2: the pass line's own pointer is a PATH, not a bare filename -- a bare
+    // `pointer-check.mjs` is exactly the shape step 5 of this gate's own funnel drops, so
+    // the gate could not check the pointer inside its own stated bound. The path form is
+    // checkable; this comment is what puts it IN scope, because the walk reads COMMENT
+    // lines only and a template literal in code is not one -- see `scripts/lib/pointer-check.mjs`.
+    if (hard.length === 0) pass(`every path this repo points at from ${surfaces.length} surfaces (${findings.checked} in-scope citations) resolves to a TRACKED file — sections and symbols are NOT checked, see scripts/lib/pointer-check.mjs`);
     for (const f of findings) {
       if (f.level === 'SKIP') console.log('  --   ' + f.msg);
       else fail(f.msg);
