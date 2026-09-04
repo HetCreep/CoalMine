@@ -89,14 +89,14 @@
 //      BOTH are grep artefacts rather than citations — "skills/_shared" is a Markdown H1
 //      that happens to be a directory name, and "hooks/scripts" in README is English
 //      prose meaning "hooks and scripts". They are quoted here WITHOUT backticks on
-//      purpose: backticking them makes them real citations, and the gate caught exactly
-//      that when this paragraph was first written the gate FAILED on this very comment,
-//      naming the second token as a citation that does not resolve. The documentation
-//      of a blind spot must not manufacture one, twice over: the first reword quoted
-//      the FAIL message verbatim and re-introduced the backticks it was reporting.
-//      So the uncovered population is 2 tokens and 0
-//      real citations today. That is the cost, and it is small because the house style
-//      already backticks paths — not because the gate reaches them.
+//      purpose: backticking them makes them real citations, and when this paragraph was
+//      first written the gate FAILED on this very comment, naming the second token as a
+//      citation that does not resolve. The documentation of a blind spot must not
+//      manufacture one — twice over, since the first reword quoted the FAIL message
+//      verbatim and re-introduced the backticks it was reporting. So the uncovered
+//      population is 2 tokens and 0 real citations today. That is the cost, and it is
+//      small because the house style already backticks paths — not because the gate
+//      reaches them.
 //
 //   2. A SECTION AND A SYMBOL ARE NOT RESOLVED AT ALL. Not "the gate is path-only" — the
 //      uncovered things are: a `file.md` §Heading whose heading has moved, and a

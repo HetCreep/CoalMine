@@ -283,9 +283,11 @@ test('a `.` or `..` SEGMENT navigates and is not a pointer; a dot-DIR still is',
 test('a BACKSLASH is not a separator this gate reads -- the traversal DOTSEG could not see', () => {
   // CWK-075 r2 LOW-1. DOTSEG is segment-whole for `/`-delimited tokens, which left a
   // BACKSLASH-delimited segment invisible: the first case below survived every shape test,
-  // took the ourRoots branch on its first segment, and path.resolve landed OUTSIDE the
-  // repo. Rejecting the character makes the invariant unconditional instead of patching
-  // one miss into a scan that misses `\` by construction.
+  // took the ourRoots branch on its first segment, and under the WIN32 resolve algorithm
+  // landed outside the repo. Naming the algorithm matters -- the imprecise version of
+  // this sentence is what produced a test asserting a Windows fact as a universal, red
+  // on all four Unix CI legs. Rejecting the character makes the invariant unconditional
+  // instead of patching one miss into a scan that misses `\` by construction.
   const B = String.fromCharCode(92);
   const escape = 'scripts/..' + B + '..' + B + 'escape.md';
   assert.deepEqual(pointerCandidates('`' + escape + '`'), [],
@@ -299,8 +301,21 @@ test('a BACKSLASH is not a separator this gate reads -- the traversal DOTSEG cou
     ['a/..b/c.md', '.github/workflows/ci.yml', 'scripts/lib/a.mjs'],
   );
 
-  // The containment consequence, asserted rather than argued.
-  const repo = path.resolve('/repo');
-  assert.equal(path.resolve(repo, escape).startsWith(repo + path.sep), false,
-    'this is what the rejected token would have resolved to');
+  // WHY THE REJECTION MUST BE UNCONDITIONAL, asserted rather than argued -- and asserted
+  // through BOTH named algorithms rather than the ambient one. Node ships path.win32 and
+  // path.posix on every OS, so these two lines mean the same thing on ubuntu, macos and
+  // windows alike; reading `path.resolve` instead makes the assertion say whatever the
+  // RUNNER happens to be, which is exactly the platform-conditional shape LOW-1 exists to
+  // remove. An absolute win32 root is used so neither line depends on the cwd.
+  const W = path.win32, P = path.posix;
+  assert.equal(W.resolve('C:' + B + 'repo', escape), 'C:' + B + 'escape.md',
+    'where the backslash IS a separator, the token ESCAPES -- to the drive root, no less');
+  assert.equal(P.resolve('/repo', escape), '/repo/scripts/..' + B + '..' + B + 'escape.md',
+    'where it is a legal FILENAME character, the same token stays inside and is merely odd');
+  // The two disagree, and that disagreement is the whole argument: a gate whose verdict
+  // followed the host would be right on one and wrong on the other. The invariant the
+  // shipped rule actually holds is the assertion at the top of this test -- REJECTED, on
+  // every OS -- and it is reached by a regex over a string, touching no fs and no
+  // process.platform. On POSIX that rejection is DEFENSIVE rather than necessary; refusing
+  // to encode which one you are on is the point.
 });
