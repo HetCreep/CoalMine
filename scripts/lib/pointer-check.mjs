@@ -31,6 +31,13 @@
 //   Final: 52 distinct (token, citer) candidates, 52 resolve, 0 non-resolving.
 //   Re-derive with the walk in verify.mjs 2.11; never quote these numbers forward.
 //
+//   THE GATE'S OWN PASS LINE REPORTS A SMALLER NUMBER, and the delta is the rule, not
+//   drift: this funnel also resolved a token relative to its CITER's directory and its
+//   parent, the shipped gate is repo-root-anchored only (step 8 IS the in-scope test).
+//   A token like `references/checks.md`, which resolves beside its citer, is therefore
+//   measured here and NOT checked there -- narrower, and stated rather than silently
+//   narrowed.
+//
 // THE INSIGHT THAT MAKES THE RULE WORK, and a naive rule unusable: a shipped skill's
 // prose names files in the SCANNED USER's repo — `package-lock.json`, `STANDARDS.md`,
 // a bare `SKILL.md` — which by construction do not exist in ours. Those are not
@@ -171,6 +178,9 @@ export function checkPointers({
       // why this branch also binds a history-only surface, where the ordinary
       // resolution check does not: a renamed file was a correct citation once, a
       // scratchpad path never was.
+      // NOTE this branch runs BEFORE `pending` is consulted, deliberately: a declaration
+      // can excuse a path that does not exist YET, never one that exists and is
+      // unreachable from a clone. A gitignored citation cannot be declared durable.
       if (ignoredRoots.has(first)) {
         cited.add(normalise(tok));
         checked++;
