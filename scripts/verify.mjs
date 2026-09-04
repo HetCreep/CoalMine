@@ -9,6 +9,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { loadShared, renderSkillMd, listSkills, SHARED_REFERENCES } from './lib/render.mjs';
 import { TARGETS } from './lib/targets.mjs';
@@ -18,6 +19,7 @@ import { REGION_TARGETS, extractRegion } from './lib/shared-regions.mjs';
 import { checkTracked } from './lib/consistency.mjs';
 import { checkDistChangelog } from './lib/dist-changelog.mjs';
 import { checkConfigKeys, checkConfigReadPath } from './lib/config-keys.mjs';
+import { checkPointers } from './lib/pointer-check.mjs';
 import { verifyAgainstManifest } from './lib/manifest.mjs';
 import { descriptionCapCheck, DESC_CAP } from './lib/desc-cap.mjs';
 
@@ -251,6 +253,107 @@ try {
   if (findings.length === 0) pass(`across ${surfaces.length} agent surfaces, every config mention is governed by a rail (universal, or the global tier on its own line)`);
   else for (const f of findings) fail(f.msg);
 } catch (e) { fail(`config read-path check crashed: ${e.message}`); }
+
+// 2.11 POINTER gate (CWK-075): ship-text names something that cannot be reached. The
+// sibling of 2.9 — that one resolves a KEY against the schema, this one resolves a
+// PATH against the tree, and the sharp case is a citation under a gitignored root,
+// which from any other machine is indistinguishable from a file that never existed.
+//
+// SCOPE DERIVATION, stated so a clean run is never read as coverage of every surface:
+//   WALKED (no roster to rot): skills/**/*.md · commands/*.md · agents/*.md ·
+//     comments in scripts/**/*.mjs and hooks/**/*.js.
+//   ROSTER, chosen by DECISION: the four SHIPPED root docs. AGENTS/CLAUDE/MEMORY are
+//     gitignored and never ship; CHANGELOG is walked but HISTORY-ONLY (below).
+//   HISTORY-ONLY: CHANGELOG.md. Published history is never fixed forward, so a path
+//     that was correct when the entry was written is not a defect now — measured: 5 of
+//     its 8 non-resolving citations are files since renamed or deleted (hooks/pre-commit.sh
+//     -> .githooks/pre-commit at d1c917f). It IS checked for the gitignored-root case,
+//     which was never correct on any day.
+//   NOT WALKED, named rather than left implicit: .github/workflows/*.yml comments,
+//     alt/powershell/**, evals/**, platform-configs/**, and the plugin/ mirror (generated
+//     from skills/, so a finding there is a duplicate of its source).
+console.log('pointers:');
+try {
+  const lsAll = spawnSync('git', ['ls-files'], { cwd: repo, encoding: 'utf8' });
+  if (lsAll.error || lsAll.status !== 0) {
+    // A VISIBLE skip, never a silent carve-out: no git means no durability answer.
+    console.log('  --   pointer check: git unavailable — cannot tell a tracked path from an untracked one; skipped');
+  } else {
+    const tracked = new Set(lsAll.stdout.split('\n').filter(Boolean));
+    const trackedDirs = new Set();
+    for (const f of tracked) {
+      const parts = f.split('/');
+      for (let i = 1; i < parts.length; i++) trackedDirs.add(parts.slice(0, i).join('/'));
+    }
+    // OUR ROOTS, derived from the tree, never enumerated: every tracked top-level entry,
+    // plus every existing NON-HIDDEN top-level directory. The second half is what puts
+    // gitignored-but-ours scratchpad/ in scope; a hidden dir counts only if it is TRACKED,
+    // because .claude/ and .agents/ are the agent-home paths shipped prose names in the
+    // USER's tree, not ours.
+    const ourRoots = new Set();
+    for (const f of tracked) ourRoots.add(f.split('/')[0]);
+    for (const e of fs.readdirSync(repo, { withFileTypes: true })) {
+      if (e.isDirectory() && !e.name.startsWith('.')) ourRoots.add(e.name);
+    }
+    // IGNORED ROOTS: asked of git rather than parsed out of .gitignore, so the answer is
+    // the one git itself would give. A re-implementation of gitignore matching would be a
+    // second source of truth, which is the defect class this gate exists to catch.
+    const ignoredRoots = new Set();
+    for (const name of ourRoots) {
+      if (tracked.has(name) || trackedDirs.has(name)) continue;
+      const ci = spawnSync('git', ['check-ignore', '-q', '--', name], { cwd: repo, encoding: 'utf8' });
+      if (!ci.error && ci.status === 0) ignoredRoots.add(name);
+    }
+    const walkMd = (dir, out = []) => {
+      if (!fs.existsSync(dir)) return out;
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) walkMd(p, out);
+        else if (e.name.endsWith('.md')) out.push(p);
+      }
+      return out;
+    };
+    const walkSrc = (dir, out = []) => {
+      if (!fs.existsSync(dir)) return out;
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) walkSrc(p, out);
+        else if (/\.(mjs|js)$/.test(e.name)) out.push(p);
+      }
+      return out;
+    };
+    const rel = (p) => path.relative(repo, p).split(path.sep).join('/');
+    const surfaces = [];
+    const read = (p) => { try { return fs.readFileSync(p, 'utf8'); } catch { return null; } };
+    for (const f of [...walkMd(path.join(repo, 'skills')), ...walkMd(path.join(repo, 'commands')), ...walkMd(path.join(repo, 'agents'))]) {
+      surfaces.push({ label: rel(f), text: read(f) });
+    }
+    for (const d of ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'PRIVACY.md']) {
+      surfaces.push({ label: d, text: read(path.join(repo, d)) });
+    }
+    // Comment lines only: a path inside CODE is exercised by the tests, a path inside a
+    // COMMENT is exercised by nothing at all.
+    for (const f of [...walkSrc(path.join(repo, 'scripts')), ...walkSrc(path.join(repo, 'hooks'))]) {
+      const src = read(f);
+      surfaces.push({ label: rel(f), text: src === null ? null : src.split('\n').filter((l) => /^\s*(\/\/|\*)/.test(l)).join('\n') });
+    }
+    surfaces.push({ label: 'CHANGELOG.md', text: read(path.join(repo, 'CHANGELOG.md')), historyOnly: true });
+
+    const findings = checkPointers({
+      surfaces,
+      ourRoots,
+      ignoredRoots,
+      resolve: (p) => (tracked.has(p) || trackedDirs.has(p) ? 'tracked'
+        : fs.existsSync(path.join(repo, p)) ? 'untracked' : 'missing'),
+    });
+    const hard = findings.filter((f) => f.level !== 'SKIP');
+    if (hard.length === 0) pass(`every path this repo points at from ${surfaces.length} surfaces (${findings.checked} in-scope citations) resolves to a TRACKED file — sections and symbols are NOT checked, see pointer-check.mjs`);
+    for (const f of findings) {
+      if (f.level === 'SKIP') console.log('  --   ' + f.msg);
+      else fail(f.msg);
+    }
+  }
+} catch (e) { fail(`pointer check crashed: ${e.message}`); }
 
 // 3. hooks present
 console.log('hooks:');

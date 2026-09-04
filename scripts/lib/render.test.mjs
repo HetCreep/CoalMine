@@ -333,3 +333,78 @@ test('verify.mjs 2.8 dist-changelog: a dist change with no CHANGELOG entry fails
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+// verify.mjs 2.11 POINTER gate (CWK-075). Task #38's H1 for the FOURTH time, applied on
+// the same pass rather than a later one: pointer-check.test.mjs is fully non-vacuous on
+// its own and proves nothing about whether block 2.11 is WIRED. Reverting the block's
+// call to `const findings = [];` leaves the whole suite green with nothing to catch it.
+//
+// Needs a REAL git repo, unlike the 2.9/2.10 fixtures above: the pointer gate asks git
+// which paths are TRACKED and which roots are IGNORED, so a plain fs.cpSync copy with no
+// .git would only ever hit its own "git unavailable" SKIP and the assertion would pass
+// for the wrong reason. Verified by building it both ways during RED-first.
+//
+// TWO plants, because the gate has two independently-reachable FAIL branches and one
+// plant would leave the other unguarded:
+//   (a) a citation that does not resolve at all;
+//   (b) a citation under a GITIGNORED root -- the sharp case, decided WITHOUT resolving,
+//       and the one the chair's ruling is actually about.
+test('verify.mjs 2.11 pointers: a dead pointer and a gitignored citation each fail the WHOLE gate -- proves the wiring, not just the module', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-pointer-'));
+  try {
+    for (const d of ['scripts', 'skills', 'hooks', 'plugin', '.claude-plugin', 'commands', 'agents', 'platform-configs', 'alt']) {
+      const src = path.join(repo, d);
+      if (fs.existsSync(src)) fs.cpSync(src, path.join(tmp, d), { recursive: true });
+    }
+    for (const d of ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'PRIVACY.md', 'CHANGELOG.md']) {
+      fs.copyFileSync(path.join(repo, d), path.join(tmp, d));
+    }
+    // The fixture must gitignore scratchpad/ for plant (b) to be reachable at all -- the
+    // gate derives ignored roots from git, never from a hardcoded name.
+    fs.writeFileSync(path.join(tmp, '.gitignore'), 'scratchpad/' + NL);
+    fs.mkdirSync(path.join(tmp, 'scratchpad'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, 'scratchpad', 'probe.md'), 'a throwaway probe' + NL);
+
+    const git = (args) => {
+      const r = spawnSync('git', args, { cwd: tmp, encoding: 'utf8' });
+      if (r.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${r.stderr || r.error?.message}`);
+      return r.stdout;
+    };
+    git(['init', '-q', '-b', 'main']);
+    git(['config', 'user.email', 'test@test.invalid']);
+    git(['config', 'user.name', 'Test']);
+    git(['config', 'commit.gpgsign', 'false']);
+    git(['add', '-A']);
+    git(['commit', '-q', '-m', 'baseline']);
+
+    const run = () => spawnSync(process.execPath, [path.join(tmp, 'scripts', 'verify.mjs')], { encoding: 'utf8' });
+
+    // The clean copy must reach the gate and be GREEN -- otherwise the FAILs below could
+    // be this fixture's own noise rather than the plants.
+    const clean = run();
+    assert.match(clean.stdout, /pointers:\s*\n\s*ok/,
+      `the 2.11 block must be present and green on a clean copy, got:${NL}${clean.stdout}${clean.stderr}`);
+
+    // (a) a pointer into OUR OWN tree that resolves to nothing.
+    fs.appendFileSync(path.join(tmp, 'commands', 'stats.md'),
+      NL + 'See `scripts/lib/no-such-module.mjs` for the details.' + NL);
+    // (b) a citation under the gitignored root -- the file EXISTS on this disk, which is
+    // exactly why the resolution check alone would miss it.
+    fs.appendFileSync(path.join(tmp, 'agents', 'coalmine-scanner.md'),
+      NL + 'Full record: `scratchpad/probe.md`.' + NL);
+
+    const r = run();
+    // NOT `assert.equal(r.status, 1)`: measured during RED-first, an unwired 2.11 still
+    // exits 1 because the plants make plugin/ stale, so a status assertion passes for a
+    // reason that has nothing to do with this gate -- the exact trap the 2.10 test above
+    // records. Assert the POINTERS BLOCK went red, which only this gate can produce.
+    assert.doesNotMatch(r.stdout, /pointers:\s*\n\s*ok/,
+      'the pointers block itself must go red, not merely the run');
+    assert.match(r.stdout, /FAIL commands[\/]stats\.md cites `scripts\/lib\/no-such-module\.mjs`/,
+      'the gate must name the citing surface AND the pointer it could not resolve');
+    assert.match(r.stdout, /FAIL agents[\/]coalmine-scanner\.md cites `scratchpad\/probe\.md`.*gitignored/,
+      'and an EXISTING file under a gitignored root must fail as undurable, not pass as present');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
