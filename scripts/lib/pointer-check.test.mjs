@@ -26,10 +26,21 @@ test('candidate extraction drops every class the measured funnel drops', () => {
     'a bare filename: `package-lock.json`',                 // the USER's repo, no dir
     'absolute: `/etc/hosts` and home: `~/.claude/x.json`',  // outside this repo
     'a url: `https://example.invalid/a/b.md`',              // outside this repo
-    'an agent home: `.cursor/skills/`',                     // dot-dir
+    'an agent home: `.cursor/skills/`',                     // survives HERE, dropped downstream
     'a real one: `scripts/lib/render.mjs`',
   ].join(NL);
-  assert.deepEqual(pointerCandidates(text), ['scripts/lib/render.mjs']);
+  // `.cursor/skills/` SURVIVES the extractor as of CWK-075 r2: whether a dot-dir is ours
+  // or the scanned project's is TREE knowledge, so the checker decides it, not the shape
+  // rules. The next assertion is where it actually goes out of scope.
+  assert.deepEqual(pointerCandidates(text), ['.cursor/skills/', 'scripts/lib/render.mjs']);
+  const f = checkPointers({
+    ...base,
+    surfaces: [{ label: 'README.md', text: 'an agent home: `.cursor/skills/`' }],
+    resolve: resolverFor([]),
+  });
+  assert.deepEqual(f.filter((x) => x.level !== 'SKIP'), [],
+    '.cursor is not in ourRoots, so it is out of scope -- no finding, and none needed');
+  assert.equal(f.checked, 0);
 });
 
 test('a fenced code block is an EXAMPLE, not a claim about this tree', () => {
@@ -177,7 +188,93 @@ test('a PENDING_POINTERS entry with no reason is a bypass with no author', () =>
 });
 
 test('the shipped PENDING_POINTERS list is EMPTY, and that is a measurement', () => {
-  // 52 of 52 in-scope pointers resolved when this gate was built, so nothing needed a
-  // declaration. If this ever grows, the entries themselves carry the reason.
+  // Every in-scope pointer resolves (67 of 67 at the CWK-075 r2 re-measurement), so
+  // nothing has needed a declaration yet. If this grows, each entry carries its reason.
   assert.deepEqual(PENDING_POINTERS, []);
+});
+
+// ---------------------------------------------------------------------------
+// CWK-075 round 2 — the two gaps the adopters' sweep surfaced, and the
+// disambiguation that keeps closing them from raising noise.
+
+test('a dot-dir that is OURS is checked; the dot-dir drop was a silent scope hole', () => {
+  // `.claude-plugin/plugin.json` and `.github/workflows/ci.yml` are real TRACKED files of
+  // ours, and the extractor used to drop every dot-first token before the checker ever saw
+  // one. The decision is TREE knowledge, not text shape, so it lives here now.
+  assert.deepEqual(
+    pointerCandidates('see `.claude-plugin/plugin.json` and `.github/workflows/ci.yml`'),
+    ['.claude-plugin/plugin.json', '.github/workflows/ci.yml'],
+  );
+  const f = checkPointers({
+    ...base,
+    ourRoots: new Set(['.claude-plugin']),
+    surfaces: [{ label: 'README.md', text: 'see `.claude-plugin/no-such.json`' }],
+    resolve: resolverFor([]),
+  });
+  assert.equal(f.length, 1);
+  assert.match(f[0].msg, /\.claude-plugin\/no-such\.json/);
+});
+
+test('an AGENT INSTALL HOME is the scanned project tree, even when its root is ours', () => {
+  // The live collision: `.github/skills` is Copilot's install home, `.github/workflows` is
+  // ours. Same root, opposite owner, and nothing in the token says which — so the set is
+  // supplied as DATA derived from the tool's own TARGETS map.
+  const f = checkPointers({
+    ...base,
+    ourRoots: new Set(['.github']),
+    agentHomes: new Set(['.github/skills']),
+    surfaces: [{ label: 'README.md', text: 'copilot reads `.github/skills/`, we ship `.github/workflows/ci.yml`' }],
+    resolve: resolverFor(['.github/workflows/ci.yml']),
+  });
+  assert.deepEqual(f.filter((x) => x.level !== 'SKIP'), [], 'the install home must not be flagged');
+  assert.equal(f.checked, 1, 'and only the path that is actually ours is counted');
+});
+
+test('a token resolving BESIDE its citing file is in scope -- the silent-skip gap', () => {
+  // `references/checks.md` cited from skills/drift-canary/SKILL.md was never checked at
+  // all: `references` is not a repo top-level dir, so the repo-root-only test dropped it
+  // without a word. A skipped citation is quieter than a wrongly-flagged one, and quieter
+  // is what this whole class is about.
+  const near = (dir, name) => dir === 'skills/drift-canary' && name === 'references';
+  const good = checkPointers({
+    ...base,
+    hasEntry: near,
+    surfaces: [{ label: 'skills/drift-canary/SKILL.md', text: 'see `references/checks.md`' }],
+    resolve: resolverFor(['skills/drift-canary/references/checks.md']),
+  });
+  assert.deepEqual(good.filter((x) => x.level !== 'SKIP'), []);
+  assert.equal(good.checked, 1, 'it must be CHECKED, not skipped');
+
+  const bad = checkPointers({
+    ...base,
+    hasEntry: near,
+    surfaces: [{ label: 'skills/drift-canary/SKILL.md', text: 'see `references/ghost.md`' }],
+    resolve: resolverFor([]),
+  });
+  assert.equal(bad.length, 1);
+  assert.match(bad[0].msg, /references\/ghost\.md/);
+});
+
+test('the citer-relative test is STRUCTURAL, so a foreign name stays out of scope', () => {
+  // `log/slog` is a Go stdlib package named in canary prose. Nothing called `log` sits
+  // beside the citer, so it is not in scope — the in-scope test never asks "does the whole
+  // path resolve", which would make the gate unable to fire at all.
+  const f = checkPointers({
+    ...base,
+    hasEntry: () => false,
+    surfaces: [{ label: 'skills/telemetry-canary/references/checks.md', text: 'prefer `log/slog`' }],
+    resolve: resolverFor([]),
+  });
+  assert.deepEqual(f.filter((x) => x.level !== 'SKIP'), []);
+  assert.equal(f.checked, 0);
+});
+
+test('a `.` or `..` SEGMENT navigates and is not a pointer; a dot-DIR still is', () => {
+  // Found by running the fix: `../` reached hasEntry(citerDir, '..'), which is always true,
+  // and would have resolved OUT of the repo. Rejecting the segment closes the containment
+  // hole and the false positive in one test.
+  assert.deepEqual(
+    pointerCandidates('`../` `../lib/x.mjs` `a/../b` `./x/y.md` `.github/workflows/ci.yml`'),
+    ['.github/workflows/ci.yml'],
+  );
 });

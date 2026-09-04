@@ -339,10 +339,28 @@ try {
     }
     surfaces.push({ label: 'CHANGELOG.md', text: read(path.join(repo, 'CHANGELOG.md')), historyOnly: true });
 
+    // AGENT INSTALL HOMES, derived from the tool's OWN TARGETS map rather than enumerated:
+    // a path this tool WRITES INTO A USER's tree is that user's, never ours, even where the
+    // root collides with one of ours. `.github/skills` (Copilot) vs `.github/workflows`
+    // (ours) is the live collision -- same root, opposite owner, and nothing in the token
+    // says which. Only the project-relative targets qualify; a home-anchored one
+    // (Claude's ~/.claude/skills) is already excluded by the OUTSIDE test upstream.
+    const agentHomes = new Set();
+    for (const t of Object.values(TARGETS)) {
+      const r = path.relative(repo, t).split(path.sep).join('/');
+      if (r && !r.startsWith('..') && !path.isAbsolute(r)) agentHomes.add(r);
+    }
     const findings = checkPointers({
       surfaces,
       ourRoots,
       ignoredRoots,
+      agentHomes,
+      // Structural, never circular: does the token's FIRST SEGMENT exist beside the citing
+      // file? That is what puts `references/checks.md` in scope from its own skill dir
+      // while leaving `log/slog` (a Go package named in canary prose) out.
+      hasEntry: (relDir, name) => {
+        try { return fs.existsSync(path.join(repo, relDir, name)); } catch { return false; }
+      },
       resolve: (p) => (tracked.has(p) || trackedDirs.has(p) ? 'tracked'
         : fs.existsSync(path.join(repo, p)) ? 'untracked' : 'missing'),
     });

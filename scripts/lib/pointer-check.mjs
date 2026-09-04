@@ -17,26 +17,41 @@
 // before it was chosen, because cry-wolf is the failure mode this room has already
 // paid for once (the tripwireMaxLines gate firing on compliant code).
 //
-//   step                                              occurrences  distinct
-//   0  every backticked token in prose                    807         517
-//   1  path-shaped (has `/`, or a file extension)         260         149
-//   2  no whitespace                                      218         112
-//   3  no `<placeholder>` angle brackets                  207         105
-//   4  no glob metacharacters                             202         102
-//   5  has a DIRECTORY component                          140          72
-//   6  not absolute / `~` / a URL                         107          57
-//   7  first segment is not a dot-dir                      72          40
-//   8  first segment is one of OURS                        67          35
+//   The rule is TWO layers, and which layer a test belongs to is not cosmetic:
+//   SHAPE tests live in pointerCandidates (text only, no tree knowledge); SCOPE tests
+//   live in checkPointers (ourRoots, agentHomes, hasEntry). A shape rule that needs the
+//   tree is a rule in the wrong place, and CWK-075 r2 moved one back after it silently
+//   excluded four of our own tracked files.
 //
-//   Final: 52 distinct (token, citer) candidates, 52 resolve, 0 non-resolving.
-//   Re-derive with the walk in verify.mjs 2.11; never quote these numbers forward.
+//   SHAPE (pointerCandidates)                          drops
+//     - whitespace                a command or a Markdown table row, not a pointer
+//     - <placeholder>             the author already said "not a literal path"
+//     - glob metacharacter        a glob names a SET, not a file
+//     - no `/`                    a bare filename is the SCANNED user's repo's
+//     - absolute / `~` / URL      not this repo's to resolve
+//     - a `.` or `..` SEGMENT     navigates, does not NAME; and would escape the repo
 //
-//   THE GATE'S OWN PASS LINE REPORTS A SMALLER NUMBER, and the delta is the rule, not
-//   drift: this funnel also resolved a token relative to its CITER's directory and its
-//   parent, the shipped gate is repo-root-anchored only (step 8 IS the in-scope test).
-//   A token like `references/checks.md`, which resolves beside its citer, is therefore
-//   measured here and NOT checked there -- narrower, and stated rather than silently
-//   narrowed.
+//   SCOPE (checkPointers)                              decides
+//     - an agent install home     the SCANNED project's tree, even where the root is ours
+//     - first segment in ourRoots resolve from the repo root
+//     - first segment beside the  resolve from the citing file's own directory (or its
+//       citer (or its parent)     parent) -- structural, so it is never circular
+//
+//   MEASURED on this repo, 76 surfaces: 1,483 backticked tokens with fenced code
+//   stripped -> 121 survive the shape funnel -> 67 IN SCOPE -> 67 resolve, 0
+//   non-resolving, 0.0% noise. Re-derive with the walk in verify.mjs 2.11; never quote
+//   these numbers forward.
+//
+//   THE TWO SCOPE TESTS ARE CWK-075 ROUND 2, AND BOTH CLOSED A SILENT HOLE, which is the
+//   quieter failure and the one this whole class is about. Before them the gate was
+//   repo-root-anchored and dropped every dot-first token, so 40 citations were checked
+//   where 67 were checkable:
+//     +15  citer-relative -- `references/checks.md` cited from its own skill dir was
+//          never checked at all. A sibling room's gate called such a path NON-RESOLVING
+//          (a loud false positive); ours dropped it from coverage without a word.
+//     +12  dot-dir -- `.claude-plugin/plugin.json`, `.githooks/`, `.github/workflows/ci.yml`
+//          are real TRACKED files of ours that the extractor discarded on sight.
+//   Noise stayed 0.0% across both, which is the number that had to hold.
 //
 // THE INSIGHT THAT MAKES THE RULE WORK, and a naive rule unusable: a shipped skill's
 // prose names files in the SCANNED USER's repo — `package-lock.json`, `STANDARDS.md`,
@@ -57,12 +72,31 @@
 //      This is step 8's insight one level up, and without it the residue is 15.9% noise
 //      of which every single flag is wrong.
 //
-// NAMED BLIND SPOT, so a clean run is never read as coverage: step 7 excludes EVERY
-// dot-dir, including `.github/` — which IS tracked here. A shipped doc citing
-// `.github/workflows/ci.yml` in our own tree goes unchecked. Measured cost today: zero
-// (the only `.github` citation in scope is `.github/skills/`, a USER-tree path). The
-// day a shipped surface cites our own `.github`, this rule must be revisited, and that
-// is prose, not a machine.
+// NAMED BLIND SPOTS — stated as what is UNCOVERED, with its measured cost, never as a
+// denial. A reader who is only told what the gate is NOT learns nothing about what is
+// exposed; this room's own flock rail, applied to this gate first.
+//
+//   1. AN UNBACKTICKED PATH IS INVISIBLE. Extraction keys on backticks, so a path named
+//      in plain prose is never a candidate — it cannot fail, and it cannot be counted in
+//      the pass line either. MEASURED, fenced code stripped FIRST (a sibling room's own
+//      count moved 6 -> 7 -> 2 the moment fences were stripped, so the order is part of
+//      the measurement): 2 unbackticked path-shaped tokens rooted in our own tree, and
+//      BOTH are grep artefacts rather than citations — "skills/_shared" is a Markdown H1
+//      that happens to be a directory name, and "hooks/scripts" in README is English
+//      prose meaning "hooks and scripts". They are quoted here WITHOUT backticks on
+//      purpose: backticking them makes them real citations, and the gate caught exactly
+//      that when this paragraph was first written the gate FAILED on this very comment,
+//      naming the second token as a citation that does not resolve. The documentation
+//      of a blind spot must not manufacture one, twice over: the first reword quoted
+//      the FAIL message verbatim and re-introduced the backticks it was reporting.
+//      So the uncovered population is 2 tokens and 0
+//      real citations today. That is the cost, and it is small because the house style
+//      already backticks paths — not because the gate reaches them.
+//
+//   2. A SECTION AND A SYMBOL ARE NOT RESOLVED AT ALL. Not "the gate is path-only" — the
+//      uncovered things are: a `file.md` §Heading whose heading has moved, and a
+//      backticked identifier in a comment whose symbol has been renamed. Both were
+//      measured and both flood (below); nothing checks them, and the pass line says so.
 //
 // ============================================================================
 // WHAT IS NOT SHIPPED, AND THE MEASUREMENT THAT DECIDED IT. The dispatch asked for
@@ -99,11 +133,14 @@
 // ADOPTER CONTRACT — DATA, never LOGIC. Six rooms reached six different verdicts on
 // CWK-060's filter and this rule will fare no better, so nothing below hardcodes
 // CoalMine's layout. A room supplies: its own surfaces (walked), its own ourRoots and
-// ignoredRoots (derived from ITS tree), its own resolve(), and its own pending list.
+// ignoredRoots (derived from ITS tree), its own agentHomes (derived from whatever map
+// that tool uses to write into a USER's tree — ours is scripts/lib/targets.mjs), its own
+// hasEntry() and resolve(), and its own pending list. Every one of those is DATA read
+// out of the adopting tree; none of them is a decision this module makes for a room.
 
 // A path this room deliberately points at BEFORE it exists. Ships EMPTY, and the empty
-// list is a MEASUREMENT, not an omission: at the time this gate was built, 52 of 52
-// in-scope pointers resolved, so nothing here needed a declaration.
+// list is a MEASUREMENT, not an omission: every in-scope pointer resolves (67 of 67 at
+// the CWK-075 r2 re-measurement), so nothing here has needed a declaration yet.
 //
 // The mechanism exists anyway, and that is a decision with a reason rather than padding:
 // without an escape hatch the first legitimate forward pointer hard-FAILs, and the
@@ -116,6 +153,8 @@ export const PENDING_POINTERS = [
 
 const GLOB = /[*?[\]{}|]/;
 const OUTSIDE = /^([~/]|[A-Za-z]:|[a-z][a-z0-9+.-]*:\/\/)/;
+// A `.` or `..` SEGMENT -- never a dot-DIR like `.github`, which is a real name.
+const DOTSEG = /(^|\/)\.\.?(\/|$)/;
 
 // Candidate extraction. Exported so an adopter can measure its OWN funnel with the
 // same instrument rather than re-implementing it and getting different numbers.
@@ -130,7 +169,12 @@ export function pointerCandidates(text) {
     if (GLOB.test(tok)) continue;          // a glob names a SET, not a file
     if (!tok.includes('/')) continue;      // a bare filename is the USER's repo's
     if (OUTSIDE.test(tok)) continue;       // absolute, home-relative, or a URL
-    if (tok.startsWith('.')) continue;     // a dot-dir is an agent/tool home
+    if (DOTSEG.test(tok)) continue;        // `../` navigates, it does not NAME a path,
+                                           // and it would also escape the repo on resolve
+    // A DOT-DIR IS NO LONGER DROPPED HERE. It was, and that silently excluded four real
+    // tracked files of ours (.claude-plugin/plugin.json, .githooks/, .github/workflows/ci.yml).
+    // Whether a dot-dir is OURS or the scanned project's is TREE knowledge, not text shape,
+    // so the decision moved to checkPointers where ourRoots and agentHomes exist.
     out.push(tok);
   }
   return out;
@@ -146,6 +190,8 @@ export function checkPointers({
   surfaces = [],          // [{ label, text, historyOnly? }]
   ourRoots = new Set(),   // top-level names that belong to THIS repo
   ignoredRoots = new Set(), // top-level dirs this repo gitignores
+  agentHomes = new Set(), // repo-relative install homes this tool writes INTO A USER's tree
+  hasEntry = () => false, // (relDir, name) => boolean -- does `name` exist directly in relDir
   resolve,                // (relPath) => 'tracked' | 'untracked' | 'missing'
   pending = PENDING_POINTERS,
 } = {}) {
@@ -191,8 +237,28 @@ export function checkPointers({
         continue;
       }
 
-      if (!ourRoots.has(first)) continue;  // a path into someone else's tree
-      cited.add(normalise(tok));
+      // AN AGENT INSTALL HOME NAMES THE SCANNED PROJECT'S TREE, NEVER OURS -- and the two
+      // genuinely collide: `.github/skills/` is Copilot's home while `.github/workflows/`
+      // is ours, same root, opposite owner, indistinguishable from the token alone. The
+      // set is DERIVED from the tool's own TARGETS map, never enumerated here, so it
+      // cannot rot the day a vendor path changes.
+      const norm = normalise(tok);
+      if (agentHomes.has(norm) || [...agentHomes].some((h) => norm.startsWith(h + '/'))) continue;
+
+      // SCOPE, two independent tests, either sufficient -- and BOTH are structural, so
+      // neither is circular. The old rule was repo-root only, which SILENTLY SKIPPED any
+      // token whose first segment is not a top-level dir: `references/checks.md` cited
+      // from its own skill dir was never checked at all. A skipped citation is the
+      // quieter failure than a wrongly-flagged one, and it is the failure this whole
+      // class is about.
+      const citerDir = s.label.includes('/') ? s.label.slice(0, s.label.lastIndexOf('/')) : '';
+      const parentDir = citerDir.includes('/') ? citerDir.slice(0, citerDir.lastIndexOf('/')) : '';
+      let base = null;
+      if (ourRoots.has(first)) base = '';
+      else if (citerDir && hasEntry(citerDir, first)) base = citerDir;
+      else if (parentDir && hasEntry(parentDir, first)) base = parentDir;
+      if (base === null) continue;  // a path into someone else's tree
+      cited.add(norm);
 
       // Published history is never fixed forward: a path that was correct when the
       // entry was written is not a defect now. Such a surface is checked for the
@@ -200,7 +266,7 @@ export function checkPointers({
       if (s.historyOnly) continue;
 
       checked++;
-      const rel = normalise(tok);
+      const rel = base ? base + '/' + norm : norm;
       const state = resolve(rel);
       if (state === 'tracked') continue;
       if (pending.some((p) => p && p.path === rel)) continue;
