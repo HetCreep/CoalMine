@@ -4,6 +4,7 @@
 // times, so a unit suite alone is never the proof.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { checkPointers, pointerCandidates, PENDING_POINTERS } from './pointer-check.mjs';
 
 const NL = String.fromCharCode(10);
@@ -277,4 +278,29 @@ test('a `.` or `..` SEGMENT navigates and is not a pointer; a dot-DIR still is',
     pointerCandidates('`../` `../lib/x.mjs` `a/../b` `./x/y.md` `.github/workflows/ci.yml`'),
     ['.github/workflows/ci.yml'],
   );
+});
+
+test('a BACKSLASH is not a separator this gate reads -- the traversal DOTSEG could not see', () => {
+  // CWK-075 r2 LOW-1. DOTSEG is segment-whole for `/`-delimited tokens, which left a
+  // BACKSLASH-delimited segment invisible: the first case below survived every shape test,
+  // took the ourRoots branch on its first segment, and path.resolve landed OUTSIDE the
+  // repo. Rejecting the character makes the invariant unconditional instead of patching
+  // one miss into a scan that misses `\` by construction.
+  const B = String.fromCharCode(92);
+  const escape = 'scripts/..' + B + '..' + B + 'escape.md';
+  assert.deepEqual(pointerCandidates('`' + escape + '`'), [],
+    'a backslash-delimited traversal must not survive extraction');
+  assert.deepEqual(pointerCandidates('`scripts' + B + 'lib' + B + 'x.mjs`'), []);
+  assert.deepEqual(pointerCandidates('`a' + B + '..' + B + 'b`'), []);
+
+  // And DOTSEG's own segment-whole property is UNTOUCHED: `..b` is a NAME, not a segment.
+  assert.deepEqual(
+    pointerCandidates('`a/..b/c.md` `.github/workflows/ci.yml` `scripts/lib/a.mjs`'),
+    ['a/..b/c.md', '.github/workflows/ci.yml', 'scripts/lib/a.mjs'],
+  );
+
+  // The containment consequence, asserted rather than argued.
+  const repo = path.resolve('/repo');
+  assert.equal(path.resolve(repo, escape).startsWith(repo + path.sep), false,
+    'this is what the rejected token would have resolved to');
 });

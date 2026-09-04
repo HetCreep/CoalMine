@@ -49,8 +49,13 @@
 //     +15  citer-relative -- `references/checks.md` cited from its own skill dir was
 //          never checked at all. A sibling room's gate called such a path NON-RESOLVING
 //          (a loud false positive); ours dropped it from coverage without a word.
-//     +12  dot-dir -- `.claude-plugin/plugin.json`, `.githooks/`, `.github/workflows/ci.yml`
-//          are real TRACKED files of ours that the extractor discarded on sight.
+//     +16  dot-dir -- `.claude-plugin/plugin.json`, `.githooks/`, `.github/workflows/ci.yml`
+//          are real TRACKED files of ours that the extractor discarded on sight. TWELVE
+//          were in the surfaces as they stood; the other four are dot-dir citations this
+//          very header adds while explaining the fix, and they are dot-dir citations like
+//          any other -- an earlier wording counted them as a separate "+4 new header"
+//          term, which double-counts the same tokens under two labels. 15 + 16 = 31, and
+//          40 + 31 = 71, the number the pass line reports.
 //   Noise stayed 0.0% across both, which is the number that had to hold.
 //
 // THE INSIGHT THAT MAKES THE RULE WORK, and a naive rule unusable: a shipped skill's
@@ -155,6 +160,32 @@ const GLOB = /[*?[\]{}|]/;
 const OUTSIDE = /^([~/]|[A-Za-z]:|[a-z][a-z0-9+.-]*:\/\/)/;
 // A `.` or `..` SEGMENT -- never a dot-DIR like `.github`, which is a real name.
 const DOTSEG = /(^|\/)\.\.?(\/|$)/;
+// A BACKSLASH is not a separator this gate reads (CWK-075 r2 LOW-1). DOTSEG is
+// segment-whole for `/`-delimited tokens and that property is untouched -- but it does
+// not see a BACKSLASH-delimited segment, so `scripts/..\..\escape.md` survived every
+// shape test, took the ourRoots branch on `scripts`, and path.resolve landed OUTSIDE
+// the repo (measured). That is this room's own recorded lesson -- resolve-and-contain,
+// not segment-scan, because a scan misses `\` on Windows -- reappearing inside the fix
+// written to close a traversal hole.
+//
+// REJECTION rather than a wider separator class, and the reason is the lesson itself:
+// widening DOTSEG keeps the segment-scan SHAPE and patches one miss, leaving the
+// invariant platform-conditional. Rejecting the character makes it unconditional --
+// A CITATION IN OUR SURFACES IS `/`-DELIMITED, on every platform, full stop -- and it
+// closes more than the traversal case: `scripts\lib/x.mjs` (mixed) yields a first
+// segment nothing matches, so it was SILENTLY skipped rather than dangerous. Half the
+// class was quiet and half was live; now the whole class is out of scope uniformly.
+//
+// MEASURED before choosing: 9 backticked tokens across the 76 surfaces contain a
+// backslash and ZERO of them are path-shaped -- every one is already dropped by an
+// existing shape rule (whitespace, a glob metacharacter, or no `/` at all). So the
+// rejection removes nothing that reaches the scope tests today.
+//
+// NAMED BLIND SPOT, not a denial: a legitimate WINDOWS-STYLE citation is now dropped,
+// unchecked and unannounced. Measured population today: zero. If that ever stops being
+// zero the right answer is to normalise separators at the boundary, never to re-admit
+// the character into a segment scan.
+const BACKSLASH = /\\/;
 
 // Candidate extraction. Exported so an adopter can measure its OWN funnel with the
 // same instrument rather than re-implementing it and getting different numbers.
@@ -171,6 +202,7 @@ export function pointerCandidates(text) {
     if (OUTSIDE.test(tok)) continue;       // absolute, home-relative, or a URL
     if (DOTSEG.test(tok)) continue;        // `../` navigates, it does not NAME a path,
                                            // and it would also escape the repo on resolve
+    if (BACKSLASH.test(tok)) continue;     // not a separator this gate reads -- see above
     // A DOT-DIR IS NO LONGER DROPPED HERE. It was, and that silently excluded four real
     // tracked files of ours (.claude-plugin/plugin.json, .githooks/, .github/workflows/ci.yml).
     // Whether a dot-dir is OURS or the scanned project's is TREE knowledge, not text shape,
