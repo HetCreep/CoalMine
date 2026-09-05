@@ -37,7 +37,7 @@
 //     - first segment beside the  resolve from the citing file's own directory (or its
 //       citer (or its parent)     parent) -- structural, so it is never circular
 //
-//   MEASURED on this repo, 76 surfaces: 1,510 backticked tokens with fenced code
+//   MEASURED on this repo, 84 surfaces: 1,510 backticked tokens with fenced code
 //   stripped -> 131 survive the shape funnel -> 71 IN SCOPE -> 71 resolve, 0
 //   non-resolving, 0.0% noise. A DATED SNAPSHOT, and it drifts as this very header
 //   gains citations -- it read 67 while the breakdown below already said 71, the two
@@ -178,10 +178,16 @@ const DOTSEG = /(^|\/)\.\.?(\/|$)/;
 // segment nothing matches, so it was SILENTLY skipped rather than dangerous. Half the
 // class was quiet and half was live; now the whole class is out of scope uniformly.
 //
-// MEASURED before choosing: 9 backticked tokens across the 76 surfaces contain a
-// backslash and ZERO of them are path-shaped -- every one is already dropped by an
-// existing shape rule (whitespace, a glob metacharacter, or no `/` at all). So the
-// rejection removes nothing that reaches the scope tests today.
+// MEASURED before choosing: 9 backticked tokens contained a backslash and ZERO were
+// path-shaped -- every one already dropped by another shape rule (whitespace, a glob
+// metacharacter, or no `/` at all). So the rejection removed nothing that reaches the
+// scope tests.
+//   RE-MEASURED after this very paragraph was written: 13 tokens, of which TWO ARE
+//   path-shaped -- and both are the worked examples two lines above, in this file. The
+//   rule now has documentation, and its documentation is written in the syntax the rule
+//   rejects. They are dropped by the BACKSLASH guard itself, so the conclusion is
+//   unchanged and the population is self-referential; the numbers are re-derived rather
+//   than left reading as a claim about ship-text they no longer describe.
 //
 // NAMED BLIND SPOT, not a denial: a legitimate WINDOWS-STYLE citation is now dropped,
 // unchecked and unannounced. Measured population today: zero. If that ever stops being
