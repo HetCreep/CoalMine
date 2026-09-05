@@ -397,13 +397,11 @@ try {
     // the gate could not check the pointer inside its own stated bound. The path form is
     // checkable; this comment is what puts it IN scope, because the walk reads COMMENT
     // lines only and a template literal in code is not one -- see `scripts/lib/pointer-check.mjs`.
-    // BOTH counts DERIVED, never typed: the ignore probe's own reach is printed every run
-    // so a short enumeration is VISIBLE rather than discoverable only by a reviewer who
-    // thinks to ask. CWK-078's whole finding was a list that had quietly stopped covering
-    // what its own pass line implied.
-    // EVERY RUN, green or red -- a count that appears only when the gate passes is exactly
-    // the "discoverable only by a reviewer who thinks to ask" shape this line exists to
-    // remove, and on a RED run the probe's reach is MORE useful, not less.
+    // BOTH counts DERIVED, never typed, and printed on EVERY run -- green or red. CWK-078's
+    // whole finding was a list that had quietly stopped covering what its own pass line
+    // implied, so the probe's reach is stated rather than left discoverable only by a
+    // reviewer who thinks to ask. A count that appeared only when the gate passes would be
+    // that same shape again, and on a RED run the reach is MORE useful, not less.
     pass(`top-level entries fed to git check-ignore: ${ignoreProbed} of ${topLevel.size} (files + hidden included; ${agentHomeRoots.size} agent-home roots held out) — ${ignoredRoots.size} gitignored`);
     if (hard.length === 0) pass(`every path this repo points at from ${surfaces.length} surfaces (${findings.checked} in-scope citations) resolves to a TRACKED file — sections and symbols are NOT checked, see scripts/lib/pointer-check.mjs`);
     for (const f of findings) {

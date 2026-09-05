@@ -37,10 +37,12 @@
 //     - first segment beside the  resolve from the citing file's own directory (or its
 //       citer (or its parent)     parent) -- structural, so it is never circular
 //
-//   MEASURED on this repo, 76 surfaces: 1,483 backticked tokens with fenced code
-//   stripped -> 121 survive the shape funnel -> 67 IN SCOPE -> 67 resolve, 0
-//   non-resolving, 0.0% noise. Re-derive with the walk in verify.mjs 2.11; never quote
-//   these numbers forward.
+//   MEASURED on this repo, 76 surfaces: 1,510 backticked tokens with fenced code
+//   stripped -> 131 survive the shape funnel -> 71 IN SCOPE -> 71 resolve, 0
+//   non-resolving, 0.0% noise. A DATED SNAPSHOT, and it drifts as this very header
+//   gains citations -- it read 67 while the breakdown below already said 71, the two
+//   halves of one comment disagreeing. Re-derive with the walk in verify.mjs 2.11 and
+//   read the gate's own pass line; never quote these numbers forward.
 //
 //   THE TWO SCOPE TESTS ARE CWK-075 ROUND 2, AND BOTH CLOSED A SILENT HOLE, which is the
 //   quieter failure and the one this whole class is about. Before them the gate was
