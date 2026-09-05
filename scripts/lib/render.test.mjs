@@ -403,6 +403,11 @@ test('verify.mjs 2.11 pointers: a dead pointer and a gitignored citation each fa
     // an adopting room's tree may differ.
     fs.appendFileSync(path.join(tmp, 'commands', 'update.md'),
       NL + 'Full reasoning: `LOCAL-NOTES.md/decision`.' + NL);
+    // (d) CWK-078 LOW-1: a TRACKED file in NEITHER the walked nor the declared-out list.
+    // The CoalWash defect -- the pass line reads as coverage while a surface goes unread.
+    // It must FAIL by name, independent of whether it carries a bad pointer at all.
+    fs.writeFileSync(path.join(tmp, 'UNCLASSIFIED.txt'), 'no gate owns me' + NL);
+    git(['add', '-A']);
 
     const r = run();
     // NOT `assert.equal(r.status, 1)`: measured during RED-first, an unwired 2.11 still
@@ -422,6 +427,8 @@ test('verify.mjs 2.11 pointers: a dead pointer and a gitignored citation each fa
       'a gitignored top-level FILE must be probed too -- dirs-only-non-hidden was the CWK-078 hole');
     assert.match(r.stdout, /top-level entries fed to git check-ignore: \d+ of \d+/,
       'and the probe reach must be PRINTED, so a short enumeration is visible not discoverable');
+    assert.match(r.stdout, /FAIL surface accounting: 1 tracked file\(s\) in NEITHER.*UNCLASSIFIED\.txt/,
+      'a tracked file owned by no list must FAIL by name -- exhaustive by construction, not by luck');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

@@ -269,9 +269,11 @@ try {
 //     its 8 non-resolving citations are files since renamed or deleted (hooks/pre-commit.sh
 //     -> .githooks/pre-commit at d1c917f). It IS checked for the gitignored-root case,
 //     which was never correct on any day.
-//   NOT WALKED, named rather than left implicit: .github/workflows/*.yml comments,
-//     alt/powershell/**, evals/**, platform-configs/**, and the plugin/ mirror (generated
-//     from skills/, so a finding there is a duplicate of its source).
+//   NOT WALKED: the DECLARED_OUT table below, each entry carrying its own reason. It is
+//     DATA, not this comment -- a prose list restating it would be a second source of
+//     truth that drifts, which is the defect this gate exists to catch. The union of the
+//     walk and that table is CHECKED against every tracked file, so a surface belonging
+//     to neither reddens the gate instead of going unread.
 console.log('pointers:');
 try {
   const lsAll = spawnSync('git', ['ls-files'], { cwd: repo, encoding: 'utf8' });
@@ -319,11 +321,16 @@ try {
     for (const f of tracked) topLevel.add(f.split('/')[0]);
     for (const e of fs.readdirSync(repo, { withFileTypes: true })) topLevel.add(e.name);
     let ignoreProbed = 0;
+    // NOTE-1: `agentHomeRoots.size` is the DERIVED-SET size (every root TARGETS names),
+    // not the number that actually held anything out of THIS run's enumeration. Printing
+    // the first while the sentence's other counts describe this run is the CoalHearth
+    // 52-vs-51 shape, so both are printed and each means exactly one thing.
+    let homesPresent = 0;
     const ignoredRoots = new Set();
     for (const name of topLevel) {
       // Held out for the reason above; a tracked entry cannot be ignored, so probing it
       // would only inflate the count the pass line prints.
-      if (agentHomeRoots.has(name)) continue;
+      if (agentHomeRoots.has(name)) { homesPresent++; continue; }
       if (tracked.has(name) || trackedDirs.has(name)) continue;
       ignoreProbed++;
       const ci = spawnSync('git', ['check-ignore', '-q', '--', name], { cwd: repo, encoding: 'utf8' });
@@ -338,16 +345,41 @@ try {
       }
       return out;
     };
-    const walkSrc = (dir, out = []) => {
+    const walkSrc = (dir, keep = (n) => /\.(mjs|js)$/.test(n), out = []) => {
       if (!fs.existsSync(dir)) return out;
       for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
         const p = path.join(dir, e.name);
-        if (e.isDirectory()) walkSrc(p, out);
-        else if (/\.(mjs|js)$/.test(e.name)) out.push(p);
+        if (e.isDirectory()) walkSrc(p, keep, out);
+        else if (keep(e.name)) out.push(p);
       }
       return out;
     };
     const rel = (p) => path.relative(repo, p).split(path.sep).join('/');
+    // DECLARED OUT, as DATA rather than a comment nobody can check (CWK-078 LOW-1). The
+    // CoalWash defect is a tracked file in NEITHER the walked nor the not-walked list:
+    // the pass line then reads as coverage while a surface goes unread. Measured here
+    // before the fix: 199 tracked = 76 walked + 95 declared out + 28 in NEITHER.
+    // Each entry carries WHY, because an allowlist of bare prefixes is a bypass with no
+    // author -- the same standard PENDING_POINTERS is held to.
+    const DECLARED_OUT = [
+      ['.github/workflows/', 'CI machinery; its comments cite upstream trees, not ours'],
+      ['alt/', 'the PowerShell fallback mirrors hooks/ and is checked at its source'],
+      ['evals/', 'eval fixtures are deliberately broken code, not ship-text'],
+      ['platform-configs/', 'templates that ship INTO a user tree; their paths are the USER\'s'],
+      ['plugin/', 'generated from skills/ -- a finding here duplicates its source'],
+      ['.gitattributes', 'a pattern file; no prose'],
+      ['.gitignore', 'a pattern file; no prose'],
+      ['.markdownlint.json', 'JSON carries no comments'],
+      ['.claude-plugin/', 'JSON manifests; no comments, and their paths are gate-checked elsewhere'],
+      ['.github/FUNDING.yml', 'GitHub config, no prose'],
+      ['.github/dependabot.yml', 'GitHub config, no prose'],
+      ['LICENSE', 'legal text, not ours to edit'],
+      ['NOTICE', 'legal text, not ours to edit'],
+      ['hooks/hooks.json', 'JSON carries no comments'],
+      ['hooks/settings.snippet.json', 'JSON carries no comments'],
+      ['skill-meta.json', 'three intent strings per skill; JSON, no comments'],
+    ];
+    const declaredOut = (f) => DECLARED_OUT.some(([pre]) => f.startsWith(pre) || f.endsWith('/' + pre));
     const surfaces = [];
     const read = (p) => { try { return fs.readFileSync(p, 'utf8'); } catch { return null; } };
     for (const f of [...walkMd(path.join(repo, 'skills')), ...walkMd(path.join(repo, 'commands')), ...walkMd(path.join(repo, 'agents'))]) {
@@ -361,6 +393,31 @@ try {
     for (const f of [...walkSrc(path.join(repo, 'scripts')), ...walkSrc(path.join(repo, 'hooks'))]) {
       const src = read(f);
       surfaces.push({ label: rel(f), text: src === null ? null : src.split('\n').filter((l) => /^\s*(\/\/|\*)/.test(l)).join('\n') });
+    }
+    // WIDENED (CWK-078 LOW-1): three classes that were in NEITHER list, each a recorded
+    // glob-scope miss of this room's own.
+    //   .githooks/*  -- AGENTS.md's own lesson verbatim: ".githooks/ and hooks/ are
+    //     physically separate directories, so a glob scoped to hooks/** never reaches the
+    //     git gate hooks". Same miss, one gate over.
+    //   *.ps1 under hooks/ and scripts/ -- `alt/powershell/**` is declared out, and that
+    //     does NOT cover PowerShell living anywhere else; three files did.
+    //   .github/ISSUE_TEMPLATE/*.yml -- user-facing PROSE, unlike workflows/, which is CI
+    //     machinery and stays declared out.
+    // Measured yield today: ZERO candidates across all eight, so this adds no noise. The
+    // point is not the yield -- a file in NEITHER list is the defect, because the pass line
+    // reads as coverage while a tracked surface goes unread.
+    const hashComments = (src) => src.split('\n').filter((l) => /^\s*#/.test(l)).join('\n');
+    for (const f of walkSrc(path.join(repo, '.githooks'), () => true)) {
+      const src = read(f);
+      surfaces.push({ label: rel(f), text: src === null ? null : hashComments(src) });
+    }
+    for (const f of [...walkSrc(path.join(repo, 'scripts'), (n) => /[.]ps1$/.test(n)),
+                     ...walkSrc(path.join(repo, 'hooks'), (n) => /[.]ps1$/.test(n))]) {
+      const src = read(f);
+      surfaces.push({ label: rel(f), text: src === null ? null : hashComments(src) });
+    }
+    for (const f of walkSrc(path.join(repo, '.github/ISSUE_TEMPLATE'), (n) => /[.]yml$/.test(n))) {
+      surfaces.push({ label: rel(f), text: read(f) });
     }
     surfaces.push({ label: 'CHANGELOG.md', text: read(path.join(repo, 'CHANGELOG.md')), historyOnly: true });
 
@@ -377,6 +434,17 @@ try {
     }
     // agentHomeRoots (above) is the ROOT of each of these; both are derived from the same
     // map so a vendor path change moves both at once.
+    // EXHAUSTIVE BY CONSTRUCTION, not by luck: every tracked file is walked or declared
+    // out, and the residue is FAILED rather than trusted to stay empty. A new tracked
+    // file that fits neither list reddens this gate instead of quietly going unread.
+    const walkedSet = new Set(surfaces.map((x) => x.label));
+    const residue = [...tracked].filter((f) => !walkedSet.has(f) && !declaredOut(f));
+    if (residue.length) {
+      fail(`surface accounting: ${residue.length} tracked file(s) in NEITHER the walked nor the declared-out list — ${residue.slice(0, 5).join(', ')}${residue.length > 5 ? `, +${residue.length - 5} more` : ''}`);
+    } else {
+      const walkedTracked = [...walkedSet].filter((f) => tracked.has(f)).length;
+      pass(`surface accounting: ${walkedTracked} walked + ${tracked.size - walkedTracked} declared out = ${tracked.size} tracked, residue 0`);
+    }
     const findings = checkPointers({
       surfaces,
       ourRoots,
@@ -402,7 +470,7 @@ try {
     // implied, so the probe's reach is stated rather than left discoverable only by a
     // reviewer who thinks to ask. A count that appeared only when the gate passes would be
     // that same shape again, and on a RED run the reach is MORE useful, not less.
-    pass(`top-level entries fed to git check-ignore: ${ignoreProbed} of ${topLevel.size} (files + hidden included; ${agentHomeRoots.size} agent-home roots held out) — ${ignoredRoots.size} gitignored`);
+    pass(`top-level entries fed to git check-ignore: ${ignoreProbed} of ${topLevel.size} (files + hidden included; ${homesPresent} of ${agentHomeRoots.size} agent-home roots present and held out) — ${ignoredRoots.size} gitignored`);
     if (hard.length === 0) pass(`every path this repo points at from ${surfaces.length} surfaces (${findings.checked} in-scope citations) resolves to a TRACKED file — sections and symbols are NOT checked, see scripts/lib/pointer-check.mjs`);
     for (const f of findings) {
       if (f.level === 'SKIP') console.log('  --   ' + f.msg);

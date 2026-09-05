@@ -276,6 +276,15 @@ export function checkPointers({
       // is ours, same root, opposite owner, indistinguishable from the token alone. The
       // set is DERIVED from the tool's own TARGETS map, never enumerated here, so it
       // cannot rot the day a vendor path changes.
+      //
+      // NAMED BOUND -- ROOT-LEVEL MASKING (CWK-078). This check matches on the FULL
+      // path, but the caller's ignore probe holds out the agent-home ROOT, so a root
+      // that is BOTH agent-home-named AND genuinely gitignored-and-ours would never be
+      // probed, and a dead citation under it would go silently unchecked rather than
+      // FAIL. Cost here is ZERO and the reason is structural, not luck: `.github` is
+      // exactly that shape and it is TRACKED, so it never enters ignoredRoots by any
+      // path. A room whose tree gitignores an agent-home root inherits the mask; that
+      // is the bound, stated so the next reader does not have to rediscover it.
       const norm = normalise(tok);
       if (agentHomes.has(norm) || [...agentHomes].some((h) => norm.startsWith(h + '/'))) continue;
 
