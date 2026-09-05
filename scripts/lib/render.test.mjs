@@ -361,9 +361,13 @@ test('verify.mjs 2.11 pointers: a dead pointer and a gitignored citation each fa
     }
     // The fixture must gitignore scratchpad/ for plant (b) to be reachable at all -- the
     // gate derives ignored roots from git, never from a hardcoded name.
-    fs.writeFileSync(path.join(tmp, '.gitignore'), 'scratchpad/' + NL);
+    // A gitignored DIR and a gitignored FILE. The file is CWK-078: the enumeration fed to
+    // git check-ignore used to be dirs-only-non-hidden, so a top-level gitignored FILE was
+    // never probed and a citation into one fell out of scope silently.
+    fs.writeFileSync(path.join(tmp, '.gitignore'), 'scratchpad/' + NL + 'LOCAL-NOTES.md' + NL);
     fs.mkdirSync(path.join(tmp, 'scratchpad'), { recursive: true });
     fs.writeFileSync(path.join(tmp, 'scratchpad', 'probe.md'), 'a throwaway probe' + NL);
+    fs.writeFileSync(path.join(tmp, 'LOCAL-NOTES.md'), 'machine-local' + NL);
 
     const git = (args) => {
       const r = spawnSync('git', args, { cwd: tmp, encoding: 'utf8' });
@@ -392,18 +396,32 @@ test('verify.mjs 2.11 pointers: a dead pointer and a gitignored citation each fa
     // exactly why the resolution check alone would miss it.
     fs.appendFileSync(path.join(tmp, 'agents', 'coalmine-scanner.md'),
       NL + 'Full record: `scratchpad/probe.md`.' + NL);
+    // (c) a citation into a gitignored FILE -- the CWK-078 plant. Only construction that
+    // exists: a token needs a directory component to survive the shape layer, so reaching
+    // a top-level FILE means descending into it. Unrealistic as prose, and exactly why
+    // the live exposure measured zero -- but the enumeration hole is real either way, and
+    // an adopting room's tree may differ.
+    fs.appendFileSync(path.join(tmp, 'commands', 'update.md'),
+      NL + 'Full reasoning: `LOCAL-NOTES.md/decision`.' + NL);
 
     const r = run();
     // NOT `assert.equal(r.status, 1)`: measured during RED-first, an unwired 2.11 still
     // exits 1 because the plants make plugin/ stale, so a status assertion passes for a
     // reason that has nothing to do with this gate -- the exact trap the 2.10 test above
-    // records. Assert the POINTERS BLOCK went red, which only this gate can produce.
-    assert.doesNotMatch(r.stdout, /pointers:\s*\n\s*ok/,
+    // records. Assert a FAIL line INSIDE the pointers block, which only this gate can
+    // produce. This was a doesNotMatch on "pointers: then ok" until CWK-078 made the
+    // probe-reach line print on EVERY run, green or red -- so the block now opens with an
+    // ok line even when it fails, and the old form asserted a shape that had moved.
+    assert.match(r.stdout, /pointers:\n(?:  (?:ok|--) .*\n)*  FAIL /,
       'the pointers block itself must go red, not merely the run');
     assert.match(r.stdout, /FAIL commands[\/]stats\.md cites `scripts\/lib\/no-such-module\.mjs`/,
       'the gate must name the citing surface AND the pointer it could not resolve');
     assert.match(r.stdout, /FAIL agents[\/]coalmine-scanner\.md cites `scratchpad\/probe\.md`.*gitignored/,
       'and an EXISTING file under a gitignored root must fail as undurable, not pass as present');
+    assert.match(r.stdout, /FAIL commands[\/]update\.md cites `LOCAL-NOTES\.md\/decision`.*gitignored/,
+      'a gitignored top-level FILE must be probed too -- dirs-only-non-hidden was the CWK-078 hole');
+    assert.match(r.stdout, /top-level entries fed to git check-ignore: \d+ of \d+/,
+      'and the probe reach must be PRINTED, so a short enumeration is visible not discoverable');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

@@ -298,9 +298,34 @@ try {
     // IGNORED ROOTS: asked of git rather than parsed out of .gitignore, so the answer is
     // the one git itself would give. A re-implementation of gitignore matching would be a
     // second source of truth, which is the defect class this gate exists to catch.
+    // AGENT-HOME ROOTS, derived from the tool's own TARGETS map. Needed HERE, before the
+    // ignore probe, because a root can be BOTH gitignored in our tree and a legitimate
+    // USER-tree path in ship-text -- `.claude/` and `.agents/` are exactly that, and the
+    // whole `agentHomes` collision fix from CWK-075 r2 depends on them staying out of
+    // scope. Feeding them to check-ignore would FAIL ten correct ship-text citations
+    // (measured: gold-standard/SKILL.md, both commands, README, CONTRIBUTING).
+    const agentHomeRoots = new Set();
+    for (const t of Object.values(TARGETS)) {
+      const r = path.relative(repo, t).split(path.sep).join('/');
+      if (r && !r.startsWith('..') && !path.isAbsolute(r)) agentHomeRoots.add(r.split('/')[0]);
+    }
+    // THE ENUMERATION FED TO check-ignore IS EVERY TOP-LEVEL ENTRY -- FILES AND HIDDEN DIRS
+    // INCLUDED (CWK-078). It used to iterate `ourRoots`, which is dirs-only-non-hidden, so
+    // the CALL was right and the LIST was short: a citation into a gitignored FILE fell out
+    // of scope SILENTLY instead of FAILing. Measured on this repo: 23 entries fed and 1
+    // gitignored root found, against 31 fed and 6 found once files and hidden dirs are
+    // included and the agent homes are held out.
+    const topLevel = new Set();
+    for (const f of tracked) topLevel.add(f.split('/')[0]);
+    for (const e of fs.readdirSync(repo, { withFileTypes: true })) topLevel.add(e.name);
+    let ignoreProbed = 0;
     const ignoredRoots = new Set();
-    for (const name of ourRoots) {
+    for (const name of topLevel) {
+      // Held out for the reason above; a tracked entry cannot be ignored, so probing it
+      // would only inflate the count the pass line prints.
+      if (agentHomeRoots.has(name)) continue;
       if (tracked.has(name) || trackedDirs.has(name)) continue;
+      ignoreProbed++;
       const ci = spawnSync('git', ['check-ignore', '-q', '--', name], { cwd: repo, encoding: 'utf8' });
       if (!ci.error && ci.status === 0) ignoredRoots.add(name);
     }
@@ -350,6 +375,8 @@ try {
       const r = path.relative(repo, t).split(path.sep).join('/');
       if (r && !r.startsWith('..') && !path.isAbsolute(r)) agentHomes.add(r);
     }
+    // agentHomeRoots (above) is the ROOT of each of these; both are derived from the same
+    // map so a vendor path change moves both at once.
     const findings = checkPointers({
       surfaces,
       ourRoots,
@@ -370,6 +397,14 @@ try {
     // the gate could not check the pointer inside its own stated bound. The path form is
     // checkable; this comment is what puts it IN scope, because the walk reads COMMENT
     // lines only and a template literal in code is not one -- see `scripts/lib/pointer-check.mjs`.
+    // BOTH counts DERIVED, never typed: the ignore probe's own reach is printed every run
+    // so a short enumeration is VISIBLE rather than discoverable only by a reviewer who
+    // thinks to ask. CWK-078's whole finding was a list that had quietly stopped covering
+    // what its own pass line implied.
+    // EVERY RUN, green or red -- a count that appears only when the gate passes is exactly
+    // the "discoverable only by a reviewer who thinks to ask" shape this line exists to
+    // remove, and on a RED run the probe's reach is MORE useful, not less.
+    pass(`top-level entries fed to git check-ignore: ${ignoreProbed} of ${topLevel.size} (files + hidden included; ${agentHomeRoots.size} agent-home roots held out) — ${ignoredRoots.size} gitignored`);
     if (hard.length === 0) pass(`every path this repo points at from ${surfaces.length} surfaces (${findings.checked} in-scope citations) resolves to a TRACKED file — sections and symbols are NOT checked, see scripts/lib/pointer-check.mjs`);
     for (const f of findings) {
       if (f.level === 'SKIP') console.log('  --   ' + f.msg);

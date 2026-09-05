@@ -319,3 +319,44 @@ test('a BACKSLASH is not a separator this gate reads -- the traversal DOTSEG cou
   // process.platform. On POSIX that rejection is DEFENSIVE rather than necessary; refusing
   // to encode which one you are on is the point.
 });
+
+test('a gitignored top-level FILE is an ignored ROOT like any other (CWK-078)', () => {
+  // The enumeration feeding ignoredRoots used to be dirs-only-non-hidden, so a gitignored
+  // FILE never reached this branch and a citation into one fell out of scope SILENTLY.
+  // The module was always able to answer; it was never asked. This pins the module half so
+  // a future caller that narrows the enumeration again fails a test rather than going quiet.
+  const f = checkPointers({
+    ...base,
+    ignoredRoots: new Set(['scratchpad', 'MEMORY.md']),
+    surfaces: [{ label: 'README.md', text: 'see `MEMORY.md/some-section`' }],
+    resolve: resolverFor([]),
+  });
+  assert.equal(f.length, 1);
+  assert.match(f[0].msg, /gitignored/);
+  assert.equal(f.checked, 1);
+});
+
+test('an agent-home ROOT must stay out of ignoredRoots, or correct ship-text FAILs', () => {
+  // Measured on the live tree: feeding `.claude` and `.agents` to git check-ignore turns
+  // TEN correct ship-text citations into FAILs -- gold-standard/SKILL.md, both commands,
+  // README and CONTRIBUTING all name the USER's agent homes, which are gitignored HERE and
+  // say nothing about the user's tree. The caller holds them out; this is the assertion
+  // that says why, so the exclusion cannot be "cleaned up" as an oversight.
+  const asIfFed = checkPointers({
+    ...base,
+    ignoredRoots: new Set(['.claude']),
+    surfaces: [{ label: 'commands/stats.md', text: 'stamps live in `.claude/rules/`' }],
+    resolve: resolverFor([]),
+  });
+  assert.equal(asIfFed.length, 1, 'feeding an agent-home root produces a FALSE positive');
+  assert.match(asIfFed[0].msg, /gitignored/);
+
+  const heldOut = checkPointers({
+    ...base,
+    ignoredRoots: new Set([]),
+    surfaces: [{ label: 'commands/stats.md', text: 'stamps live in `.claude/rules/`' }],
+    resolve: resolverFor([]),
+  });
+  assert.deepEqual(heldOut.filter((x) => x.level !== 'SKIP'), [],
+    'held out, the same correct citation is simply out of scope');
+});
