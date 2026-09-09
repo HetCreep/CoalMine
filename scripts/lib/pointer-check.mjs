@@ -229,7 +229,7 @@ function normalise(tok) {
 export function checkPointers({
   surfaces = [],          // [{ label, text, historyOnly? }]
   ourRoots = new Set(),   // top-level names that belong to THIS repo
-  ignoredRoots = new Set(), // top-level dirs this repo gitignores
+  ignoredRoots = new Set(), // first segments of CITED paths that .gitignore matches (CWK-079: existence-independent -- not a listing of dirs the caller has on disk)
   agentHomes = new Set(), // repo-relative install homes this tool writes INTO A USER's tree
   hasEntry = () => false, // (relDir, name) => boolean -- does `name` exist directly in relDir
   resolve,                // (relPath) => 'tracked' | 'untracked' | 'missing'
