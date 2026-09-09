@@ -445,6 +445,25 @@ try {
     // candidate — the per-name spawn loop this replaces cost 462.2ms across 7 calls on
     // this tree (39% of the gate's own 1178ms wall time); one `--stdin` call measured
     // 71.3ms.
+    //
+    // NAMED BOUND -- FOREIGN-NAME COLLISION (CWK-079). candidateRoots is fed from every
+    // CITED first segment, unlike the disk-derived shape it replaced, which could only
+    // ever contain a name that physically existed as a top-level entry in OUR OWN repo
+    // listing. That bound is gone: a citation describing the SCANNED USER's own tree
+    // (e.g. a doc line naming the user's `dist/build.js`) now probes `dist` against OUR
+    // .gitignore, and if a future pattern of ours (or a sibling room's, once this ships
+    // there per the PORT) happens to share that name, the citation FAILs as "not
+    // reachable from a clone" although it was never ours to be wrong about. Reproduced on
+    // a scratch fixture: a `.gitignore` containing `dist/` plus a doc line reading "the
+    // scanned project ships its build to `dist/build.js`" FAILs that way, though `dist/`
+    // does not exist in that fixture's tree and is cited nowhere as ours. Measured
+    // population on THIS tree today: ZERO (51 distinct first segments, 2 ignored --
+    // `.agents`/`.claude`, both held out by agentHomeRoots below). The miss is LOUD BY
+    // DESIGN, not by luck: a wrong FAIL names the file and the token, so it gets
+    // investigated within the hour, unlike a dead citation silently falling out of scope
+    // -- the same trade CWK-078 already made in this direction. No narrowing is added
+    // here; inventing one now would reach for existence or our own directory listing,
+    // which is the exact existence-dependence this ticket exists to remove.
     const candidateRoots = new Set();
     for (const s of surfaces) {
       if (typeof s.text !== 'string') continue;
