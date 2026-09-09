@@ -5,7 +5,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { checkPointers, pointerCandidates, looksPathShaped, PENDING_POINTERS } from './pointer-check.mjs';
+import fs from 'node:fs';
+import os from 'node:os';
+import { spawnSync } from 'node:child_process';
+import { checkPointers, pointerCandidates, looksPathShaped, PENDING_POINTERS, classifyCheckIgnoreResult, DEFAULT_SURFACE_PLAN, collectSurfaces } from './pointer-check.mjs';
 
 const NL = String.fromCharCode(10);
 // A resolver standing in for git + the filesystem. Each fixture names its own tree, so no
@@ -396,4 +399,163 @@ test('looksPathShaped residue: a trailing-slash token is accepted with no check 
 test('looksPathShaped residue: an extensionless real path with no trailing slash no longer contributes its OWN root to discovery', () => {
   assert.equal(looksPathShaped('scripts/lib'), false,
     'excluded from DISCOVERY only -- see the two-plant pair below for why this is not the same as excluded from the CHECK');
+});
+
+// classifyCheckIgnoreResult (CWK-090 fix 1) -- the batched `git check-ignore --stdin`
+// spawn's classification, pulled out pure so it is testable without fighting the OS to
+// force a specific exit code through verify.mjs's own hardcoded args (a PATH-shim
+// reproduction attempt did not even reach the shim on this box -- Node's spawnSync
+// resolved straight past it to the real git.exe, despite `where.exe` confirming the
+// identical PATH string finds the shim first; four malformed-input fixture shapes
+// tried directly against a real repo -- `.gitignore` as a directory, `core.excludesFile`
+// pointing at a directory or an EPERM'd symlink loop, a malformed glob, `.git/info/
+// exclude` as a directory -- all degrade to exit 1, not a failure, on this git version).
+// Every non-synthetic case below feeds the function a `ci` object taken from a REAL
+// `git check-ignore --stdin` child process, not a hand-typed fake -- only the
+// spawn-error case (git missing entirely) has no real subprocess to source from, since
+// a missing git never reaches this call in production (verify.mjs's own `ls-files`
+// pre-gate already SKIPs before this spawn fires).
+function mkGitRepoForIgnoreProbe() {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-ci-classify-'));
+  const g = (args) => spawnSync('git', args, { cwd: tmp, encoding: 'utf8' });
+  g(['init', '-q', '-b', 'main']);
+  g(['config', 'user.email', 'test@test.invalid']);
+  g(['config', 'user.name', 'Test']);
+  g(['config', 'commit.gpgsign', 'false']);
+  fs.writeFileSync(path.join(tmp, 'x.txt'), 'x');
+  fs.writeFileSync(path.join(tmp, '.gitignore'), 'ignored-dir/' + NL);
+  g(['add', '-A']);
+  g(['commit', '-q', '-m', 'baseline']);
+  return tmp;
+}
+
+// THE PRE-FIX LOGIC, byte-copied from `git show HEAD:scripts/verify.mjs` at the moment
+// this fix started (only `!ci.error` gated the "read stdout" branch). Replayed against a
+// REAL non-0/1 result below to show what it actually did on that run: nothing -- any
+// status other than a spawn error fell through and silently produced zero ignored roots.
+function preFixLogic(ci) {
+  const ignored = new Set();
+  if (!ci.error && typeof ci.stdout === 'string') {
+    for (const line of ci.stdout.split('\n')) {
+      const t = line.trim();
+      if (t) ignored.add(t.replace(/\/$/, ''));
+    }
+  }
+  return ignored;
+}
+
+test('classifyCheckIgnoreResult: a REAL git check-ignore --stdin exit other than 0/1 (an unknown-option 129) is a FAIL, naming the status', () => {
+  const tmp = mkGitRepoForIgnoreProbe();
+  try {
+    const ci = spawnSync('git', ['check-ignore', '--stdin', '--bogus-flag-xyz'],
+      { cwd: tmp, encoding: 'utf8', input: 'ignored-dir/probe\n' });
+    assert.notEqual(ci.status, 0, 'this probe only proves anything if git actually took a non-0/1 exit');
+    assert.notEqual(ci.status, 1, 'this probe only proves anything if git actually took a non-0/1 exit');
+
+    // RED, against the pre-fix logic, replayed on this real failing run: it answers
+    // "nothing is ignored" -- exactly the fail-open bug this fix closes, reproduced with
+    // a genuine git process rather than asserted from a synthetic object.
+    assert.deepEqual([...preFixLogic(ci)], [],
+      'the pre-fix logic (only checking ci.error) silently produces an empty ignoredRoots on a real non-0/1 exit -- this IS the bug');
+
+    // GREEN, against the fix: the same real result is classified as a failure by name.
+    const verdict = classifyCheckIgnoreResult(ci);
+    assert.equal(verdict.ok, false);
+    assert.match(verdict.message, new RegExp(`exited ${ci.status}`));
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('classifyCheckIgnoreResult: a REAL exit 0 (a fed path IS ignored) succeeds, stdout carries the match', () => {
+  const tmp = mkGitRepoForIgnoreProbe();
+  try {
+    const ci = spawnSync('git', ['check-ignore', '--stdin'],
+      { cwd: tmp, encoding: 'utf8', input: 'ignored-dir/probe\n' });
+    assert.equal(ci.status, 0);
+    const verdict = classifyCheckIgnoreResult(ci);
+    assert.equal(verdict.ok, true);
+    assert.match(verdict.stdout, /ignored-dir/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('classifyCheckIgnoreResult: a REAL exit 1 (nothing fed is ignored) succeeds -- 1 is not an error', () => {
+  const tmp = mkGitRepoForIgnoreProbe();
+  try {
+    const ci = spawnSync('git', ['check-ignore', '--stdin'],
+      { cwd: tmp, encoding: 'utf8', input: 'not-ignored-at-all/probe\n' });
+    assert.equal(ci.status, 1);
+    const verdict = classifyCheckIgnoreResult(ci);
+    assert.equal(verdict.ok, true);
+    assert.equal(verdict.stdout.trim(), '');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('classifyCheckIgnoreResult: a genuine spawn error (git missing) is a FAIL naming the error message', () => {
+  const verdict = classifyCheckIgnoreResult({ error: new Error('spawn git ENOENT'), status: null, stdout: null, stderr: null });
+  assert.equal(verdict.ok, false);
+  assert.match(verdict.message, /failed to spawn: spawn git ENOENT/);
+});
+
+// DEFAULT_SURFACE_PLAN + collectSurfaces (CWK-090 fix 3) -- the walked-surface
+// assembly, DECLARED as data instead of five hardcoded verify.mjs for-loops
+// (CoalHearth's finding: "scripts/ comments are a walked surface" is THIS room's own
+// variable, not the flock's). Tested purely, with a fake in-memory `io` -- no real
+// filesystem, so this exercises the plan/collector contract directly rather than
+// re-proving verify.mjs's own wiring (render.test.mjs already does that for the
+// byte-identical-behaviour half).
+test('DEFAULT_SURFACE_PLAN: the shipped default declares the scripts comments row with a non-empty why', () => {
+  const row = DEFAULT_SURFACE_PLAN.find((r) => r.kind === 'comments' && r.root === 'scripts');
+  assert.ok(row, 'the scripts comments row must exist in the shipped default plan');
+  assert.equal(typeof row.why, 'string');
+  assert.ok(row.why.length > 0, 'a declared row without a why is the same defect as no declaration at all');
+});
+
+function fakeIo(files) {
+  const commentLines = (src) => src.split('\n').filter((l) => /^\s*(\/\/|\*)/.test(l)).join('\n');
+  const hashComments = (src) => src.split('\n').filter((l) => /^\s*#/.test(l)).join('\n');
+  return {
+    join: (a, b) => `${a}/${b}`,
+    read: (p) => (files.has(p) ? files.get(p) : null),
+    rel: (p) => p.replace(/^REPO\//, ''),
+    commentLines,
+    hashComments,
+    walkMd: (dir) => [...files.keys()].filter((p) => p.startsWith(dir + '/') && p.endsWith('.md')),
+    walkSrc: (dir, keep) => [...files.keys()].filter((p) => p.startsWith(dir + '/') && keep(p.slice(p.lastIndexOf('/') + 1))),
+  };
+}
+
+test('collectSurfaces + checkPointers: a citation reachable ONLY through the scripts comments row FAILs under the default plan and is unseen -- not just un-failing -- once that row is narrowed away', () => {
+  const files = new Map([
+    // The ghost citation lives ONLY inside a `//` comment, in a file the `scripts`
+    // comments row is the sole reader of (the sibling `hash-comments` row over the
+    // same `scripts` root filters on `.ps1`, so it never sees a `.mjs` file).
+    ['REPO/scripts/foo.mjs', '// see `scripts/ghost-target.md` for the real shape\nconst x = 1;\n'],
+  ]);
+  const io = fakeIo(files);
+  const resolveAlwaysMissing = () => 'missing';
+  const opts = { ourRoots: new Set(['scripts']), agentHomes: new Set(), ignoredRoots: new Set(), hasEntry: () => false, resolve: resolveAlwaysMissing };
+
+  // RED against the DEFAULT plan first: the citation is read and genuinely FAILs.
+  const defaultSurfaces = collectSurfaces('REPO', DEFAULT_SURFACE_PLAN, io);
+  const scriptsSurface = defaultSurfaces.find((s) => s.label === 'scripts/foo.mjs');
+  assert.ok(scriptsSurface, 'the scripts comments row must have surfaced scripts/foo.mjs under the default plan');
+  assert.match(scriptsSurface.text, /ghost-target\.md/, 'the comment line carrying the citation must be included, not stripped');
+  const defaultFindings = checkPointers({ surfaces: defaultSurfaces, ...opts });
+  assert.ok(defaultFindings.some((f) => f.level === 'FAIL' && f.msg.includes('ghost-target.md')),
+    'the default plan must catch the dead citation -- this is the RED case, proven before narrowing');
+
+  // Now narrow: delete the scripts comments row, per the module's own narrowing form
+  // ("a room that walks fewer surfaces deletes the row ... never by editing the walk").
+  const narrowed = DEFAULT_SURFACE_PLAN.filter((r) => !(r.kind === 'comments' && r.root === 'scripts'));
+  const narrowedSurfaces = collectSurfaces('REPO', narrowed, io);
+  assert.ok(!narrowedSurfaces.some((s) => s.label === 'scripts/foo.mjs'),
+    'scripts/foo.mjs must not be surfaced at all once its only reading row is deleted -- narrowing stops the READ, not merely the verdict');
+  const narrowedFindings = checkPointers({ surfaces: narrowedSurfaces, ...opts });
+  assert.ok(!narrowedFindings.some((f) => f.msg.includes('ghost-target.md')),
+    'the same citation that FAILed under the default plan must produce no finding at all under the narrowed one');
 });

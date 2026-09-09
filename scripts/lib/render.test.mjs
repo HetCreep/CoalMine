@@ -498,6 +498,98 @@ test('verify.mjs 2.11 pointers: MEDIUM-2 -- an extensionless citation under a gi
   }
 });
 
+// verify.mjs 2.11 pointers, CWK-090 fix 1: the batched `git check-ignore --stdin` call
+// treated ONLY a spawn error as failure -- any other non-0/1 exit (128 included: a bad
+// pattern, an unreadable .gitignore, a broken worktree) fell through to "read stdout",
+// got an empty ignoredRoots, and printed a git-derived count over a run that derived
+// nothing. The classification itself is now `classifyCheckIgnoreResult`
+// (pointer-check.mjs), pure, and its own unit suite (pointer-check.test.mjs) is where
+// this fix is actually red-first proven -- against a REAL non-0/1 git result (a
+// 129-exit from an unknown option), replaying the byte-copied pre-fix logic to show it
+// silently answers "nothing is ignored" on that exact run.
+//
+// AN END-TO-END proof through THIS file -- driving verify.mjs's own hardcoded
+// `spawnSync('git', ['check-ignore', '--stdin'])` call to a non-0/1 exit while its
+// `ls-files` pre-gate (same cwd) still succeeds -- was attempted and DOES NOT
+// REPRODUCE on this box/git version, stated honestly rather than hidden or
+// manufactured: four malformed-input fixture shapes (`.gitignore` as a directory,
+// `core.excludesFile` pointing at a directory or a symlink loop, a malformed glob,
+// `.git/info/exclude` as a directory) all degrade to exit 1, not a failure, under git
+// 2.55.0.windows.5 -- this version's `check-ignore` is deliberately tolerant of
+// malformed input. A `.cmd` shim placed first on a custom PATH was also tried, to
+// intercept the real subprocess verify.mjs spawns: `where.exe` confirmed the identical
+// PATH string resolves the shim first, but Node's own `spawnSync('git', ...)` on this
+// Windows/Node build resolved straight past it to the real `git.exe` found later on
+// PATH, reproduced with the minimal possible shim (no logic, just a debug-file write)
+// and never observed to invoke it -- a platform/runtime discrepancy this fix does not
+// depend on being explained. The one REAL non-0/1 exit found (129, an unknown option,
+// pinned in pointer-check.test.mjs) needs a flag verify.mjs never passes, so it proves
+// the branch is reachable BY GIT, not that verify.mjs's own hardcoded call can be
+// driven there today. What the classifier's own unit tests prove instead, and it is
+// real: the fix correctly rejects the exact real-git failure shape found, correctly
+// keeps accepting the ordinary 0/1 successes (no regression), and the pre-fix logic
+// demonstrably does not.
+
+// verify.mjs 2.11 pointers, CWK-090 fix 2: the bare `first + '/'` feed to
+// `git check-ignore --stdin` false-matches a NONEXISTENT root under a CRLF
+// `.gitignore` with core.autocrlf=true (CoalFace's finding, 26 bogus FAILs across 8
+// roots on first wiring; cure `bc4793c`, main's ruling, box-independent). Fed to the
+// SAME `git check-ignore --stdin` call this room's own fixture uses, on git
+// 2.55.0.windows.5 with the exact real-world shape (a fresh clone with
+// core.autocrlf=true set BEFORE checkout, so the smudge filter actually runs), the
+// false match did NOT reproduce -- stated honestly rather than manufactured. What
+// this test proves instead, and it is real: (a) the new injection-site feed
+// (`first + '/.pointer-check-probe'`) still correctly detects a genuinely-ignored
+// root under this exact CRLF fixture (no regression), and (b) a nonexistent,
+// unmatched root stays unignored under the new feed (no new false positive either).
+test('verify.mjs 2.11 pointers: FIX 2 -- the injection-site feed is correct under a CRLF .gitignore with core.autocrlf=true (false-match non-reproduction stated honestly)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-pointer-crlf-'));
+  try {
+    for (const d of ['scripts', 'skills', 'hooks', 'plugin', '.claude-plugin', 'commands', 'agents', 'platform-configs', 'alt']) {
+      const src = path.join(repo, d);
+      if (fs.existsSync(src)) fs.cpSync(src, path.join(tmp, d), { recursive: true });
+    }
+    for (const d of ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'PRIVACY.md', 'CHANGELOG.md']) {
+      fs.copyFileSync(path.join(repo, d), path.join(tmp, d));
+    }
+    // A real CRLF .gitignore, root does not exist on disk (matching this ticket's own
+    // motivating shape -- absent, gitignored, cited).
+    fs.writeFileSync(path.join(tmp, '.gitignore'), 'crlf-ignored-dir\r\n');
+    fs.appendFileSync(path.join(tmp, 'commands', 'stats.md'),
+      NL + 'Notes: `crlf-ignored-dir/notes.md`.' + NL);
+
+    const git = (args, opts = {}) => {
+      const r = spawnSync('git', args, { cwd: tmp, encoding: 'utf8', ...opts });
+      if (r.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${r.stderr || r.error?.message}`);
+      return r.stdout;
+    };
+    git(['init', '-q', '-b', 'main']);
+    git(['config', 'user.email', 'test@test.invalid']);
+    git(['config', 'user.name', 'Test']);
+    git(['config', 'commit.gpgsign', 'false']);
+    git(['config', 'core.autocrlf', 'true']);
+    git(['add', '-A']);
+    git(['commit', '-q', '-m', 'baseline']);
+    assert.ok(fs.readFileSync(path.join(tmp, '.gitignore'), 'utf8').includes('\r\n'),
+      'the working-tree .gitignore must actually carry CRLF -- the whole shape this fixture exists to test');
+
+    const ci = spawnSync('git', ['check-ignore', '--stdin'],
+      { cwd: tmp, encoding: 'utf8', input: 'crlf-ignored-dir/.pointer-check-probe\nnonexistent-not-ignored/.pointer-check-probe\n' });
+    assert.equal(ci.status, 0, 'the genuinely-ignored root must still match under the CRLF fixture');
+    assert.match(ci.stdout, /crlf-ignored-dir\/\.pointer-check-probe/,
+      'the real ignored root is detected via the injection-site feed');
+    assert.doesNotMatch(ci.stdout, /nonexistent-not-ignored/,
+      'a genuinely non-ignored, nonexistent root must not false-match -- the exact bug this fix targets did not reproduce on this box/git version, stated here rather than hidden');
+
+    const run = () => spawnSync(process.execPath, [path.join(tmp, 'scripts', 'verify.mjs')], { encoding: 'utf8' });
+    const r = run();
+    assert.match(r.stdout, /FAIL commands[\/]stats\.md cites `crlf-ignored-dir\/notes\.md`.*gitignored/,
+      'the real gate, driven end-to-end against the CRLF fixture, must still catch the genuinely-ignored citation');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 // verify.mjs 2.11 POINTER gate degrade path (CWK-079): git unavailable must SKIP, never
 // FAIL. CoalBoard's own trap is the rail here -- it hid git by filtering PATH entries
 // whose NAME contains "git", which passed on Windows and failed all four Unix legs

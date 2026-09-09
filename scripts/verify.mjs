@@ -19,7 +19,7 @@ import { REGION_TARGETS, extractRegion } from './lib/shared-regions.mjs';
 import { checkTracked } from './lib/consistency.mjs';
 import { checkDistChangelog } from './lib/dist-changelog.mjs';
 import { checkConfigKeys, checkConfigReadPath } from './lib/config-keys.mjs';
-import { checkPointers, pointerCandidates, looksPathShaped } from './lib/pointer-check.mjs';
+import { checkPointers, pointerCandidates, looksPathShaped, DEFAULT_SURFACE_PLAN, collectSurfaces, classifyCheckIgnoreResult } from './lib/pointer-check.mjs';
 import { verifyAgainstManifest } from './lib/manifest.mjs';
 import { descriptionCapCheck, DESC_CAP } from './lib/desc-cap.mjs';
 
@@ -352,46 +352,21 @@ try {
       ['skill-meta.json', 'three intent strings per skill; JSON, no comments'],
     ];
     const declaredOut = (f) => DECLARED_OUT.some(([pre]) => f.startsWith(pre) || f.endsWith('/' + pre));
-    const surfaces = [];
     const read = (p) => { try { return fs.readFileSync(p, 'utf8'); } catch { return null; } };
-    for (const f of [...walkMd(path.join(repo, 'skills')), ...walkMd(path.join(repo, 'commands')), ...walkMd(path.join(repo, 'agents'))]) {
-      surfaces.push({ label: rel(f), text: read(f) });
-    }
-    for (const d of ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'PRIVACY.md']) {
-      surfaces.push({ label: d, text: read(path.join(repo, d)) });
-    }
-    // Comment lines only: a path inside CODE is exercised by the tests, a path inside a
-    // COMMENT is exercised by nothing at all.
-    for (const f of [...walkSrc(path.join(repo, 'scripts')), ...walkSrc(path.join(repo, 'hooks'))]) {
-      const src = read(f);
-      surfaces.push({ label: rel(f), text: src === null ? null : src.split('\n').filter((l) => /^\s*(\/\/|\*)/.test(l)).join('\n') });
-    }
-    // WIDENED (CWK-078 LOW-1): three classes that were in NEITHER list, each a recorded
-    // glob-scope miss of this room's own.
-    //   .githooks/*  -- AGENTS.md's own lesson verbatim: ".githooks/ and hooks/ are
-    //     physically separate directories, so a glob scoped to hooks/** never reaches the
-    //     git gate hooks". Same miss, one gate over.
-    //   *.ps1 under hooks/ and scripts/ -- `alt/powershell/**` is declared out, and that
-    //     does NOT cover PowerShell living anywhere else; three files did.
-    //   .github/ISSUE_TEMPLATE/*.yml -- user-facing PROSE, unlike workflows/, which is CI
-    //     machinery and stays declared out.
-    // Measured yield today: ZERO candidates across all eight, so this adds no noise. The
-    // point is not the yield -- a file in NEITHER list is the defect, because the pass line
-    // reads as coverage while a tracked surface goes unread.
+    // SURFACE PLAN, DECLARED (CWK-090 fix 3) -- what this block used to hard-code as five
+    // separate for-loops is now DATA (`DEFAULT_SURFACE_PLAN`, pointer-check.mjs), driven
+    // here with THIS room's own fs IO. CoalHearth's finding: "scripts/ comments are a
+    // walked surface" is THIS room's variable, not the flock's (its own ship-text returns
+    // eight surfaces, none under scripts/) -- a room that narrows the plan deletes a row
+    // and states the reason in that row's own `why`, never by editing this driver.
+    // Behaviour is BYTE-IDENTICAL to the five loops it replaces: same surfaces, same
+    // order, same labels, same comment-line filters -- proven by the wiring test in
+    // render.test.mjs, not merely asserted here.
+    const commentLines = (src) => src.split('\n').filter((l) => /^\s*(\/\/|\*)/.test(l)).join('\n');
     const hashComments = (src) => src.split('\n').filter((l) => /^\s*#/.test(l)).join('\n');
-    for (const f of walkSrc(path.join(repo, '.githooks'), () => true)) {
-      const src = read(f);
-      surfaces.push({ label: rel(f), text: src === null ? null : hashComments(src) });
-    }
-    for (const f of [...walkSrc(path.join(repo, 'scripts'), (n) => /[.]ps1$/.test(n)),
-                     ...walkSrc(path.join(repo, 'hooks'), (n) => /[.]ps1$/.test(n))]) {
-      const src = read(f);
-      surfaces.push({ label: rel(f), text: src === null ? null : hashComments(src) });
-    }
-    for (const f of walkSrc(path.join(repo, '.github/ISSUE_TEMPLATE'), (n) => /[.]yml$/.test(n))) {
-      surfaces.push({ label: rel(f), text: read(f) });
-    }
-    surfaces.push({ label: 'CHANGELOG.md', text: read(path.join(repo, 'CHANGELOG.md')), historyOnly: true });
+    const surfaces = collectSurfaces(repo, DEFAULT_SURFACE_PLAN, {
+      join: path.join, walkMd, walkSrc, read, rel, commentLines, hashComments,
+    });
 
     // AGENT INSTALL HOMES, derived from the tool's OWN TARGETS map rather than enumerated:
     // a path this tool WRITES INTO A USER's tree is that user's, never ours, even where the
@@ -437,14 +412,23 @@ try {
     // TRAILING SLASH, half structural, half a shape choice -- CORRECTED (CWK-079
     // findings-back MEDIUM-1). The no-`/` drop in `pointerCandidates` (pointer-check.mjs
     // :209) proves a candidate token CONTAINS a slash; it proves NOTHING about what the
-    // slash separates. Appending `/` and feeding it to check-ignore is only sound for a
-    // candidate that IS a path in the first place -- `looksPathShaped()` (pointer-check.mjs)
-    // decides that, below, before a first segment ever reaches `candidateRoots`. The half
-    // that stays true and measured: for a token that IS a path, `dir/`-anchored .gitignore
-    // patterns do not match the bare name given without the slash (measured on the
-    // claude.ai staging-dir name: absent the slash it reads not-ignored; with it, IGNORED
-    // -- git cannot infer that an absent path is a directory), so `first + '/'` is still
-    // the correct feed for whatever survives the shape test.
+    // slash separates. Appending something and feeding it to check-ignore is only sound
+    // for a candidate that IS a path in the first place -- `looksPathShaped()`
+    // (pointer-check.mjs) decides that, below, before a first segment ever reaches
+    // `candidateRoots`. The half that stays true and measured: git cannot infer that an
+    // ABSENT path is a directory (measured on the claude.ai staging-dir name: queried
+    // bare it reads not-ignored; queried as a directory reference, IGNORED), so a bare
+    // root name is never the right feed for a query that means "is this directory
+    // ignored" -- something must be appended.
+    //
+    // WHAT is appended CHANGED (CWK-090 fix 2, CoalFace's finding, its cure `bc4793c`
+    // main's ruling, box-independent): a bare `first + '/'` false-matches a NONEXISTENT
+    // root under a CRLF `.gitignore` with core.autocrlf=true (measured by CoalFace, 26
+    // bogus FAILs across 8 roots on first wiring -- not reproduced on THIS box/git
+    // version, and the non-reproduction is stated rather than hidden, see the test).
+    // Feeding `first + '/.pointer-check-probe'` -- a path UNDER the root -- carries the
+    // identical "is this a directory" information without ever matching the bare-root
+    // CRLF shape. Each returned line has that fixed suffix stripped to recover the root.
     //
     // BATCHED, one process for every distinct first segment actually cited, not one per
     // candidate — the per-name spawn loop this replaces cost 462.2ms across 7 calls on
@@ -537,16 +521,28 @@ try {
       toProbe.push(name);
     }
     const ignoredRoots = new Set();
+    // PROBE SUFFIX (CWK-090 fix 2): a path UNDER the root, not the bare root -- see the
+    // TRAILING SLASH comment above for why the bare-root feed is retired.
+    const PROBE_SUFFIX = '/.pointer-check-probe';
     if (toProbe.length) {
       const ci = spawnSync('git', ['check-ignore', '--stdin'],
-        { cwd: repo, encoding: 'utf8', input: toProbe.map((n) => n + '/').join('\n') + '\n' });
-      // Exit 1 means none of the fed patterns are ignored -- not an error. Git itself was
-      // already proven reachable by the `ls-files` probe this whole block is gated on, so
-      // only a genuine spawn error here would mean otherwise, and none has been observed.
-      if (!ci.error && typeof ci.stdout === 'string') {
-        for (const line of ci.stdout.split('\n')) {
+        { cwd: repo, encoding: 'utf8', input: toProbe.map((n) => n + PROBE_SUFFIX).join('\n') + '\n' });
+      // FAIL-OPEN, CLOSED (CWK-090 fix 1, ported in substance from CoalTipple `3669fb5`
+      // and CoalLedger `94e994f`). The classification itself is pure and lives in
+      // `classifyCheckIgnoreResult` (pointer-check.mjs) so it is unit-testable without a
+      // real git child -- exit 0 and exit 1 both SUCCEED (1 = "none of the fed paths
+      // are ignored", not an error); any OTHER status (128 included -- a bad pattern, an
+      // unreadable `.gitignore`, a broken worktree) or a genuine spawn error means the
+      // run answered NOTHING, and silently continuing with an empty `ignoredRoots` would
+      // print a git-derived count over a run that derived no facts at all.
+      const verdict = classifyCheckIgnoreResult(ci);
+      if (!verdict.ok) {
+        fail(verdict.message);
+      } else {
+        for (const line of verdict.stdout.split('\n')) {
           const t = line.trim();
-          if (t) ignoredRoots.add(t.replace(/\/$/, ''));
+          if (!t) continue;
+          ignoredRoots.add(t.endsWith(PROBE_SUFFIX) ? t.slice(0, -PROBE_SUFFIX.length) : t.replace(/\/$/, ''));
         }
       }
     }
