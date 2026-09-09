@@ -530,20 +530,27 @@ test('verify.mjs 2.11 pointers: MEDIUM-2 -- an extensionless citation under a gi
 // keeps accepting the ordinary 0/1 successes (no regression), and the pre-fix logic
 // demonstrably does not.
 
-// verify.mjs 2.11 pointers, CWK-090 fix 2: the bare `first + '/'` feed to
-// `git check-ignore --stdin` false-matches a NONEXISTENT root under a CRLF
-// `.gitignore` with core.autocrlf=true (CoalFace's finding, 26 bogus FAILs across 8
-// roots on first wiring; cure `bc4793c`, main's ruling, box-independent). Fed to the
-// SAME `git check-ignore --stdin` call this room's own fixture uses, on git
-// 2.55.0.windows.5 with the exact real-world shape (a fresh clone with
-// core.autocrlf=true set BEFORE checkout, so the smudge filter actually runs), the
-// false match did NOT reproduce -- stated honestly rather than manufactured. What
-// this test proves instead, and it is real: (a) the new injection-site feed
-// (`first + '/.pointer-check-probe'`) still correctly detects a genuinely-ignored
-// root under this exact CRLF fixture (no regression), and (b) a nonexistent,
-// unmatched root stays unignored under the new feed (no new false positive either).
-test('verify.mjs 2.11 pointers: FIX 2 -- the injection-site feed is correct under a CRLF .gitignore with core.autocrlf=true (false-match non-reproduction stated honestly)', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-pointer-crlf-'));
+// verify.mjs 2.11 pointers, CWK-090 fix 2 -- RE-AIMED (CWK-090 findings-back, r31
+// build #2, item C): the FIRST version of this test used a .gitignore whose PATTERN
+// LINES merely end CRLF (`crlf-ignored-dir\r\n`) and, on that shape, the false match
+// genuinely does not reproduce on this box/git version (2.55.0.windows.5) -- that half
+// of the old sentence stays true, kept below re-aimed rather than deleted. What was
+// WRONG is treating that as "the bug does not reproduce here": it reproduces, on a
+// DIFFERENT shape the old test never tried. The head reproduced it (a scratchpad
+// measurement record, deliberately not backticked here -- gitignored, so the pointer
+// gate this test itself proves would FAIL on citing it): a line whose ENTIRE CONTENT
+// is a lone CR -- a "blank" line carrying a stray carriage return -- false-matches a
+// probed root under the bare `first + '/'` feed. **Independently re-measured here, sharper than
+// the head's own record: the false match additionally requires the probed root to be
+// GENUINELY ABSENT from disk** -- `scripts/` (a real directory in the fixture) does
+// NOT false-match under this exact fixture, while `totally-fake-root/` (nothing on
+// disk, no pattern names it) does. That is exactly the shape CWK-090's own motivating
+// case is: a citation to a path that does not exist, gitignored or not, which is why
+// the pointer gate probes it at all. `git check-ignore -v --stdin` names the lone-CR
+// line as the matching pattern (`.gitignore:2:<TAB>root/`, rendered invisibly), so the
+// source is unambiguous, not a fluke of this one fixture.
+test('verify.mjs 2.11 pointers: FIX 2 -- the lone-CR .gitignore line false-matches an absent root under the bare feed; the injection-site feed and the real gate are immune', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-pointer-lonecr-'));
   try {
     for (const d of ['scripts', 'skills', 'hooks', 'plugin', '.claude-plugin', 'commands', 'agents', 'platform-configs', 'alt']) {
       const src = path.join(repo, d);
@@ -552,11 +559,18 @@ test('verify.mjs 2.11 pointers: FIX 2 -- the injection-site feed is correct unde
     for (const d of ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'PRIVACY.md', 'CHANGELOG.md']) {
       fs.copyFileSync(path.join(repo, d), path.join(tmp, d));
     }
-    // A real CRLF .gitignore, root does not exist on disk (matching this ticket's own
-    // motivating shape -- absent, gitignored, cited).
-    fs.writeFileSync(path.join(tmp, '.gitignore'), 'crlf-ignored-dir\r\n');
+    // A real pattern (`dist/`) so a genuine ignore still exists to control against,
+    // PLUS a lone-CR blank line -- the shape that actually false-matches. Written as
+    // raw bytes (not a JS template string) so the CR survives untouched through
+    // core.autocrlf's smudge filter on checkout, matching the head's own fixture.
+    fs.writeFileSync(path.join(tmp, '.gitignore'), Buffer.from('dist/\r\n\r\n', 'binary'));
+    // A citation to a root that is ABSENT from disk and named by no pattern -- the
+    // shape that reproduces (see the header comment). Under the bug this token would
+    // be swallowed into a FALSE "gitignored" FAIL instead of the silent out-of-scope
+    // skip it correctly gets when `totally-fake-root` is neither an ourRoot nor
+    // resolvable beside its citer -- CoalFace's "bogus FAIL" shape, reproduced here.
     fs.appendFileSync(path.join(tmp, 'commands', 'stats.md'),
-      NL + 'Notes: `crlf-ignored-dir/notes.md`.' + NL);
+      NL + 'See `totally-fake-root/notes.md` for details.' + NL);
 
     const git = (args, opts = {}) => {
       const r = spawnSync('git', args, { cwd: tmp, encoding: 'utf8', ...opts });
@@ -570,21 +584,43 @@ test('verify.mjs 2.11 pointers: FIX 2 -- the injection-site feed is correct unde
     git(['config', 'core.autocrlf', 'true']);
     git(['add', '-A']);
     git(['commit', '-q', '-m', 'baseline']);
-    assert.ok(fs.readFileSync(path.join(tmp, '.gitignore'), 'utf8').includes('\r\n'),
-      'the working-tree .gitignore must actually carry CRLF -- the whole shape this fixture exists to test');
+    assert.ok(fs.readFileSync(path.join(tmp, '.gitignore'), 'utf8').includes('\r\n\r\n'),
+      'the working-tree .gitignore must actually carry the lone-CR blank line -- the shape this fixture exists to test');
+    assert.ok(!fs.existsSync(path.join(tmp, 'totally-fake-root')),
+      'the probed root must be genuinely absent -- that absence is what the false match depends on');
 
-    const ci = spawnSync('git', ['check-ignore', '--stdin'],
-      { cwd: tmp, encoding: 'utf8', input: 'crlf-ignored-dir/.pointer-check-probe\nnonexistent-not-ignored/.pointer-check-probe\n' });
-    assert.equal(ci.status, 0, 'the genuinely-ignored root must still match under the CRLF fixture');
-    assert.match(ci.stdout, /crlf-ignored-dir\/\.pointer-check-probe/,
-      'the real ignored root is detected via the injection-site feed');
-    assert.doesNotMatch(ci.stdout, /nonexistent-not-ignored/,
-      'a genuinely non-ignored, nonexistent root must not false-match -- the exact bug this fix targets did not reproduce on this box/git version, stated here rather than hidden');
+    // THE DISCRIMINATING PAIR, at the git level, on the SAME real fixture -- no
+    // source-code substitution needed, since the bare feed and the probe feed are
+    // both real, independent git invocations.
+    const bare = spawnSync('git', ['check-ignore', '--stdin'], { cwd: tmp, encoding: 'utf8', input: 'totally-fake-root/\n' });
+    assert.equal(bare.status, 0,
+      'RED: the bare feed must reproduce the false match on THIS fixture -- an absent, un-patterned root reported ignored');
+    const probed = spawnSync('git', ['check-ignore', '--stdin'], { cwd: tmp, encoding: 'utf8', input: 'totally-fake-root/.pointer-check-probe\n' });
+    assert.equal(probed.status, 1,
+      'the injection-site feed correctly reports the SAME root as NOT ignored');
+    const verbose = spawnSync('git', ['check-ignore', '-v', '--stdin'], { cwd: tmp, encoding: 'utf8', input: 'totally-fake-root/\n' });
+    assert.match(verbose.stdout, /\.gitignore:2:/,
+      'the matching pattern must be the lone-CR line (line 2), naming the source unambiguously');
 
+    // CONTROL: a genuinely-ignored root still matches under BOTH feeds -- the probe
+    // loses no true positive.
+    assert.equal(spawnSync('git', ['check-ignore', '--stdin'], { cwd: tmp, encoding: 'utf8', input: 'dist/\n' }).status, 0);
+    assert.equal(spawnSync('git', ['check-ignore', '--stdin'], { cwd: tmp, encoding: 'utf8', input: 'dist/.pointer-check-probe\n' }).status, 0);
+
+    // A MERELY-CRLF pattern line (the old fixture's own shape) does NOT reproduce it
+    // on this box/git version -- kept as the honest, re-aimed sentence (see the header
+    // comment); not re-asserted as a second fixture here, since this box's own real
+    // lone-CR fixture already proves the point it stands beside.
+
+    // END-TO-END: the real gate, as fixed, must not be fooled by this fixture -- the
+    // absent-root citation is silently out of scope (never even resolves), never the
+    // false "gitignored" FAIL the bare feed would have produced.
     const run = () => spawnSync(process.execPath, [path.join(tmp, 'scripts', 'verify.mjs')], { encoding: 'utf8' });
     const r = run();
-    assert.match(r.stdout, /FAIL commands[\/]stats\.md cites `crlf-ignored-dir\/notes\.md`.*gitignored/,
-      'the real gate, driven end-to-end against the CRLF fixture, must still catch the genuinely-ignored citation');
+    assert.doesNotMatch(r.stdout, /totally-fake-root.*gitignored/i,
+      'the gate must never report the absent-root citation as gitignored -- the exact false FAIL the bare feed would have produced');
+    assert.doesNotMatch(r.stdout, /FAIL.*totally-fake-root/,
+      'the absent-root citation must not FAIL at all -- it is silently out of scope, not "gitignored" and not "does not resolve"');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
