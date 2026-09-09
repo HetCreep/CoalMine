@@ -393,7 +393,7 @@ test('looksPathShaped residue: a trailing-slash token is accepted with no check 
     'a function call ending in / still passes -- harmless in practice, named as residue');
 });
 
-test('looksPathShaped residue: an extensionless real path with no trailing slash is now excluded', () => {
+test('looksPathShaped residue: an extensionless real path with no trailing slash no longer contributes its OWN root to discovery', () => {
   assert.equal(looksPathShaped('scripts/lib'), false,
-    'reverts to the OLD silent miss for this one shape -- the accepted trade');
+    'excluded from DISCOVERY only -- see the two-plant pair below for why this is not the same as excluded from the CHECK');
 });

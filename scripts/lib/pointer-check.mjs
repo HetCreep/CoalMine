@@ -249,16 +249,49 @@ export function pointerCandidates(text) {
 // filename). Both are the deliberate, common path conventions this house's own prose
 // already uses; arithmetic, rule-force pairs, and language constructs carry neither.
 //
+// THIS GATES DISCOVERY ONLY, NOT JUDGEMENT (CWK-079 findings-back round 2, MEDIUM-2) --
+// stated because the residue below was FIRST written as "excluded" and that word is
+// false. This test decides which ROOTS `verify.mjs` adds to `candidateRoots`; it is
+// never consulted by `checkPointers`' own `ignoredRoots.has(first)` branch, which
+// judges EVERY token reaching it regardless of shape. So a rejected token is NOT
+// excluded from the check -- it is excluded only from CONTRIBUTING ITS OWN ROOT to the
+// set the check runs against. The true property is NON-LOCAL: a citation this test
+// rejects (an extensionless path, `scripts/lib` say) is checked IF AND ONLY IF some
+// OTHER, unrelated, path-shaped citation anywhere in the surface set shares its first
+// segment. PROVEN LIVE in `pointer-check.test.mjs` with a two-plant pair -- an
+// extensionless file under the same gitignored directory this file already uses as
+// its worked example, planted alone (silent) and then again beside a second,
+// path-shaped citation under that same directory (both FAIL). Deliberately not
+// spelling either plant out as a literal here: this comment is itself a WALKED
+// surface, and citing the real gitignored directory by name a second time in this
+// file would manufacture the exact FAIL it is describing -- measured live while
+// drafting this very paragraph. Reword this test's own behaviour before "fixing" the
+// sentence -- making the check local would mean applying this shape test inside
+// `checkPointers` too, which would silently stop FAILing a real gitignored citation
+// that happens to be extensionless. Keep the wider catch; state the residue honestly
+// instead.
+//
 // THE RESIDUE, both directions, named rather than hidden:
 //   - STILL LETS THROUGH: a token ending `/` is accepted with no check on what
 //     precedes it -- `os.tmpdir()/coalmine/` (a function call, not a directory) still
 //     reaches the probe. Harmless in practice (no real `.gitignore` pattern is named
-//     that), named here rather than papered over with a further heuristic.
-//   - NOW EXCLUDED: an extensionless real path with no trailing slash (`scripts/lib`,
-//     or a citation into the SCANNED USER's own extensionless directory) is no longer
-//     fed to the probe -- that population reverts to the OLD silent-miss behaviour this
-//     ticket otherwise removes. Narrower than the incoherent FAIL this test exists to
-//     stop, and accepted as the trade.
+//     that), named here rather than papered over with a further heuristic. A latent
+//     accept-side case nobody has hit: the LAST-segment test accepts an ALL-DIGIT
+//     "extension" (`.[A-Za-z0-9]{1,10}` matches digits too), so a slash-separated
+//     version-shaped token would pass as filename-shaped. Measured population on this
+//     tree today: ZERO.
+//   - DISCOVERY-EXCLUDED, but NOT check-exempt per the non-locality above: an
+//     extensionless real path with no trailing slash is no longer a source of its own
+//     root. Five such paths are real, cited, tracked citations on this tree today --
+//     `.agents/skills`, `.git/hooks`, `.githooks/pre-commit`, `.githooks/pre-push`,
+//     `.github/ISSUE_TEMPLATE`. Live cost on THIS tree is zero regardless of the
+//     non-locality above -- not because they are covered by some other citation, but
+//     because none of their roots (`.agents`, `.git`, `.githooks`, `.github`) can ever
+//     BE gitignored here: `.agents`/`.github` are agent-homes and held out before the
+//     probe runs at all; `.git`/`.githooks` are themselves tracked. `scripts/lib` is
+//     the sixth, cited only by this comment and the pin below, not by any pre-existing
+//     doc -- and it IS exposed to the non-locality above the moment a sibling,
+//     path-shaped citation under the same root is ever gitignored.
 export function looksPathShaped(tok) {
   const t = tok.replace(/:\d+(-\d+)?$/, '');
   if (t.endsWith('/')) return true;

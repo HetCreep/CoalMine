@@ -437,6 +437,67 @@ test('verify.mjs 2.11 pointers: a dead pointer and a gitignored citation each fa
   }
 });
 
+// verify.mjs 2.11 pointers, MEDIUM-2 (CWK-079 findings-back round 2): `looksPathShaped`
+// gates DISCOVERY only, never JUDGEMENT -- an extensionless citation under a gitignored
+// root is not exempt from the check, it is exempt only from contributing its OWN root
+// to the set the check runs against. Proven with a two-plant pair: the SAME
+// extensionless citation, same tree, same .gitignore, alone (silent) vs. beside an
+// unrelated path-shaped citation under the same root (both FAIL). Uses a fixture-only
+// directory name never mentioned as a literal anywhere else in this repo's own prose --
+// deliberately not the NAMED BOUND's own worked example, so this test's own comments
+// stay inert against every other gitignored root this tree actually carries.
+test('verify.mjs 2.11 pointers: MEDIUM-2 -- an extensionless citation under a gitignored root is checked non-locally, not exempt', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-pointer-nonlocal-'));
+  try {
+    for (const d of ['scripts', 'skills', 'hooks', 'plugin', '.claude-plugin', 'commands', 'agents', 'platform-configs', 'alt']) {
+      const src = path.join(repo, d);
+      if (fs.existsSync(src)) fs.cpSync(src, path.join(tmp, d), { recursive: true });
+    }
+    for (const d of ['README.md', 'CONTRIBUTING.md', 'SECURITY.md', 'PRIVACY.md', 'CHANGELOG.md']) {
+      fs.copyFileSync(path.join(repo, d), path.join(tmp, d));
+    }
+    fs.writeFileSync(path.join(tmp, '.gitignore'), 'throwaway-build/' + NL);
+
+    const git = (args) => {
+      const r = spawnSync('git', args, { cwd: tmp, encoding: 'utf8' });
+      if (r.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${r.stderr || r.error?.message}`);
+      return r.stdout;
+    };
+    git(['init', '-q', '-b', 'main']);
+    git(['config', 'user.email', 'test@test.invalid']);
+    git(['config', 'user.name', 'Test']);
+    git(['config', 'commit.gpgsign', 'false']);
+    git(['add', '-A']);
+    git(['commit', '-q', '-m', 'baseline']);
+
+    const run = () => spawnSync(process.execPath, [path.join(tmp, 'scripts', 'verify.mjs')], { encoding: 'utf8' });
+
+    // PLANT A alone: an extensionless citation under the gitignored root. Shape-rejected
+    // at discovery, so the fixture's own live gate must not FAIL it while nothing else
+    // shares the root.
+    fs.appendFileSync(path.join(tmp, 'commands', 'stats.md'),
+      NL + 'Notes: `throwaway-build/notes`.' + NL);
+    git(['add', '-A']);
+    const alone = run();
+    assert.doesNotMatch(alone.stdout, /throwaway-build/,
+      `plant A alone must stay silent -- extensionless, discovery-rejected, got:${NL}${alone.stdout}`);
+
+    // PLANT B, same tree, unrelated file: a path-shaped citation under the SAME root.
+    // This one alone is enough to put the root in `ignoredRoots` -- and once it is
+    // there, `checkPointers` judges EVERY token sharing that root, including plant A's.
+    fs.appendFileSync(path.join(tmp, 'commands', 'update.md'),
+      NL + 'Reference: `throwaway-build/readme.md`.' + NL);
+    git(['add', '-A']);
+    const both = run();
+    assert.match(both.stdout, /FAIL commands[\/]stats\.md cites `throwaway-build\/notes`.*gitignored/,
+      'plant A must now FAIL -- the extensionless citation was never exempt from the check, only from discovering its own root');
+    assert.match(both.stdout, /FAIL commands[\/]update\.md cites `throwaway-build\/readme\.md`.*gitignored/,
+      'plant B, the path-shaped citation that armed the root, must FAIL too');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
 // verify.mjs 2.11 POINTER gate degrade path (CWK-079): git unavailable must SKIP, never
 // FAIL. CoalBoard's own trap is the rail here -- it hid git by filtering PATH entries
 // whose NAME contains "git", which passed on Windows and failed all four Unix legs

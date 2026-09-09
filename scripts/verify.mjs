@@ -474,8 +474,10 @@ try {
     // was built to close (it would specifically re-exclude the claude.ai staging dir
     // above, absent, untracked, and not in ourRoots -- the case that motivated CWK-079).
     //
-    // (2) NOT-A-PATH-AT-ALL, was FALSE-STATED, now NARROWED by `looksPathShaped()`. The
-    // prior wording here claimed "every candidate's first segment IS a directory by
+    // (2) NOT-A-PATH-AT-ALL, was FALSE-STATED, now NARROWED at DISCOVERY by
+    // `looksPathShaped()` -- discovery, not judgement; see that function's own comment
+    // (pointer-check.mjs) for the non-local property this bound must not be read past.
+    // The prior wording here claimed "every candidate's first segment IS a directory by
     // construction" -- that was wrong, and the reviewer proved it: 36 of a 51-segment
     // measured population were not a directory OR a file in any namespace -- a
     // backticked ratio like N-over-4 (arithmetic), `prefer/should` (two rule-force
@@ -483,15 +485,39 @@ try {
     // CodeQL query id), `log/slog` (a Go package pair). REPRODUCED LIVE: appending the
     // ratio's own first segment plus a slash to `.gitignore` FAILed the shipped gate on
     // the CHANGELOG's citation of that ratio, with the remedy "commit the file" --
-    // incoherent for arithmetic, and the population's members (`lib`, `bin`, `log`,
-    // `common`, `node`) are ordinary `.gitignore` names, not exotic ones. UNLIKE
-    // population (1), this one IS narrowed, by TOKEN SHAPE never existence --
-    // `looksPathShaped()`'s own comment carries its residue in both directions (a
-    // function-call token like `os.tmpdir()/` still gets through; an extensionless real
-    // path like `scripts/lib` no longer does, reverting to the OLD silent miss for that
-    // shape alone). That narrowing does not touch population (1): the claude.ai staging
-    // dir's own filename exhibit and the `dist/build.js` exhibit above both carry a
-    // `.ext`-shaped last segment and still reach the probe.
+    // incoherent for arithmetic. UNLIKE population (1), this one IS narrowed at
+    // discovery, by TOKEN SHAPE never existence -- `looksPathShaped()`'s own comment
+    // carries its residue in both directions (a function-call token like
+    // `os.tmpdir()/` still gets through; an extensionless real path like `scripts/lib`
+    // is no longer a source of its OWN root, but is still checked the moment some
+    // OTHER, unrelated, path-shaped citation shares that root -- non-local, proven
+    // live with a two-plant pair, `pointer-check.test.mjs`). That narrowing does not
+    // touch population (1): the claude.ai staging dir's own filename exhibit and the
+    // `dist/build.js` exhibit above both carry a `.ext`-shaped last segment and still
+    // reach the probe.
+    //
+    // EXPOSURE, not population -- "measured ZERO" above is zero BY CONSTRUCTION on a
+    // green tree (nothing ordinary is in .gitignore today, so nothing collides); it says
+    // nothing about how close this tree sits to the class firing. Measured instead by
+    // appending one ordinary directory-name line to `.gitignore` (deliberately not
+    // spelled out here as a literal -- appending it as a candidate to THIS comment
+    // would itself widen what this comment discovers): THREE FAILs, TWO of them on
+    // published `[x.y.z]` CHANGELOG history, and the exhibits are this room's OWN files
+    // under abbreviated citations (a shorthand path missing its own scripts/ prefix),
+    // not a foreign tree. `.gitignore` reverted immediately after the measurement,
+    // byte-identical. Several other ordinary directory names commonly seen in a
+    // `.gitignore` are cited first segments on this tree today the same way.
+    //
+    // SELF-REFERENCE, LOAD-BEARING: this comment block and `looksPathShaped()`'s own
+    // (pointer-check.mjs) both cite real tracked paths (e.g. `.githooks/pre-commit`)
+    // that resolve through the ORDINARY scope test above, not through this ignore
+    // probe -- moving the resolve-check's own in-scope count upward each time either
+    // comment gains a new real citation (71 before this population existed, still
+    // climbing across the two findings-back rounds that documented it; re-derive from
+    // the gate's own pass line below, never quote a number forward from here).
+    // Harmless today (every one resolves tracked), but it means a later reword of
+    // EITHER comment can redden the resolve gate on itself. Named so that FAIL is
+    // recognised, not chased as a regression in unrelated code.
     const candidateRoots = new Set();
     for (const s of surfaces) {
       if (typeof s.text !== 'string') continue;
