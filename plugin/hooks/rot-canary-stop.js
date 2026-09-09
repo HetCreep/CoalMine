@@ -989,6 +989,23 @@ function main() {
   // `additionalContext` shape on SessionStart/UserPromptSubmit — coalmine-conductor.js —
   // is a DIFFERENT event and is NOT touched by this fix). A drift-only stop (no extant
   // files) emits the note ALONE, with no decision:block.
+  //
+  // CWK-087/CWK-088, MEASURED 2026-09-09/10 on CC 2.1.266 — the board-#82 note above is
+  // correct and covers the QUIET channel ONLY; the LOUD one has the same effect BY DESIGN.
+  // Discriminating pair, one turn each: a Stop hook emitting `decision:"block"` + `reason`
+  // under `-p --output-format json` makes the platform run a second model turn whose text
+  // REPLACES the session's `result` (measured `num_turns` 2, result = the hook's text);
+  // `systemMessage` alone leaves `result` intact (`num_turns` 1). The block is not a defect
+  // to silence — it is what makes the agent actually run the scan — and the hook has NO
+  // honest way to know it is inside a `-p` session: the Stop payload carries no mode field,
+  // hook stdio is never a TTY (the platform pipes the payload in and reads stdout back), and
+  // `CLAUDE_CODE_ENTRYPOINT` is inherited, so a `-p` child of an interactive session reads
+  // that parent's value. So the consequence belongs to the CALLER, never to a mode gate here:
+  // a `-p` caller must not read the child's report out of `result` (disk-first), and
+  // `--output-format stream-json --verbose` (verbose is REQUIRED, per the CLI's own refusal
+  // "When using --print, --output-format=stream-json requires --verbose") keeps the
+  // pre-hook answer as its own `assistant` event, delivers this `reason` as a `user` event,
+  // and marks the blocked turn `system`/`post_turn_summary` `status_category:"blocked"`.
   if (process.argv[2]) { process.stdout.write('{}\n'); return; }
   const out = {};
   if (reason) { out.decision = 'block'; out.reason = reason; }
