@@ -425,11 +425,40 @@ test('verify.mjs 2.11 pointers: a dead pointer and a gitignored citation each fa
       'and an EXISTING file under a gitignored root must fail as undurable, not pass as present');
     assert.match(r.stdout, /FAIL commands[\/]update\.md cites `LOCAL-NOTES\.md\/decision`.*gitignored/,
       'a gitignored top-level FILE must be probed too -- dirs-only-non-hidden was the CWK-078 hole');
-    assert.match(r.stdout, /top-level entries fed to git check-ignore: \d+ of \d+/,
+    assert.match(r.stdout, /gitignored-root citations: \d+ distinct first segment/,
       'and the probe reach must be PRINTED, so a short enumeration is visible not discoverable');
     assert.match(r.stdout, /FAIL surface accounting: 1 tracked file\(s\) in NEITHER.*UNCLASSIFIED\.txt/,
       'a tracked file owned by no list must FAIL by name -- exhaustive by construction, not by luck');
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// verify.mjs 2.11 POINTER gate degrade path (CWK-079): git unavailable must SKIP, never
+// FAIL. CoalBoard's own trap is the rail here -- it hid git by filtering PATH entries
+// whose NAME contains "git", which passed on Windows and failed all four Unix legs
+// (a name filter proves nothing about whether git is actually reachable). The real
+// capability probe is an EMPTY temp dir as the entire PATH.
+//
+// An emptied PATH also removes `sh`, so the probe cannot be applied through a shell --
+// `PATH=$EMPTY sh -c '...'` dies with "sh: command not found" before it ever reaches
+// verify.mjs. Spawn via `process.execPath` (an ABSOLUTE path, so no PATH lookup is
+// needed to launch node itself) with the CHILD's own `env.PATH` overridden to the empty
+// dir -- verified separately that a bare `spawnSync('node', ...)` under the same
+// override fails with ENOENT on this platform too, which is why the outer command must
+// be the absolute path and not the bare name.
+test('verify.mjs 2.11 pointers: git unavailable degrades to a NAMED SKIP, never a FAIL -- proven with a capability probe, not a name filter', () => {
+  const emptyPath = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-emptypath-'));
+  try {
+    const r = spawnSync(process.execPath, [path.join(repo, 'scripts', 'verify.mjs')],
+      { env: { ...process.env, PATH: emptyPath }, encoding: 'utf8' });
+    assert.equal(r.status, 0, `git-unavailable must still exit 0 (nothing else in this repo depends on git), got:${NL}${r.stdout}${r.stderr}`);
+    assert.match(r.stdout, /pointers:\n\s+--\s+pointer check: git unavailable.*skipped/,
+      'the pointers block must print a visible, named SKIP -- never a silent carve-out and never a FAIL');
+    const pointersBlock = r.stdout.slice(r.stdout.indexOf('pointers:'), r.stdout.indexOf('hooks:'));
+    assert.doesNotMatch(pointersBlock, /FAIL/,
+      'a question only git can answer must never redden the gate for a non-git user');
+  } finally {
+    fs.rmSync(emptyPath, { recursive: true, force: true });
   }
 });

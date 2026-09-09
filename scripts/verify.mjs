@@ -19,7 +19,7 @@ import { REGION_TARGETS, extractRegion } from './lib/shared-regions.mjs';
 import { checkTracked } from './lib/consistency.mjs';
 import { checkDistChangelog } from './lib/dist-changelog.mjs';
 import { checkConfigKeys, checkConfigReadPath } from './lib/config-keys.mjs';
-import { checkPointers } from './lib/pointer-check.mjs';
+import { checkPointers, pointerCandidates } from './lib/pointer-check.mjs';
 import { verifyAgainstManifest } from './lib/manifest.mjs';
 import { descriptionCapCheck, DESC_CAP } from './lib/desc-cap.mjs';
 
@@ -297,11 +297,8 @@ try {
     for (const e of fs.readdirSync(repo, { withFileTypes: true })) {
       if (e.isDirectory() && !e.name.startsWith('.')) ourRoots.add(e.name);
     }
-    // IGNORED ROOTS: asked of git rather than parsed out of .gitignore, so the answer is
-    // the one git itself would give. A re-implementation of gitignore matching would be a
-    // second source of truth, which is the defect class this gate exists to catch.
-    // AGENT-HOME ROOTS, derived from the tool's own TARGETS map. Needed HERE, before the
-    // ignore probe, because a root can be BOTH gitignored in our tree and a legitimate
+    // AGENT-HOME ROOTS, derived from the tool's own TARGETS map. Needed for the ignore
+    // probe below, because a root can be BOTH gitignored in our tree and a legitimate
     // USER-tree path in ship-text -- `.claude/` and `.agents/` are exactly that, and the
     // whole `agentHomes` collision fix from CWK-075 r2 depends on them staying out of
     // scope. Feeding them to check-ignore would FAIL ten correct ship-text citations
@@ -310,31 +307,6 @@ try {
     for (const t of Object.values(TARGETS)) {
       const r = path.relative(repo, t).split(path.sep).join('/');
       if (r && !r.startsWith('..') && !path.isAbsolute(r)) agentHomeRoots.add(r.split('/')[0]);
-    }
-    // THE ENUMERATION FED TO check-ignore IS EVERY TOP-LEVEL ENTRY -- FILES AND HIDDEN DIRS
-    // INCLUDED (CWK-078). It used to iterate `ourRoots`, which is dirs-only-non-hidden, so
-    // the CALL was right and the LIST was short: a citation into a gitignored FILE fell out
-    // of scope SILENTLY instead of FAILing. Measured on this repo: 23 entries fed and 1
-    // gitignored root found, against 31 fed and 6 found once files and hidden dirs are
-    // included and the agent homes are held out.
-    const topLevel = new Set();
-    for (const f of tracked) topLevel.add(f.split('/')[0]);
-    for (const e of fs.readdirSync(repo, { withFileTypes: true })) topLevel.add(e.name);
-    let ignoreProbed = 0;
-    // NOTE-1: `agentHomeRoots.size` is the DERIVED-SET size (every root TARGETS names),
-    // not the number that actually held anything out of THIS run's enumeration. Printing
-    // the first while the sentence's other counts describe this run is the CoalHearth
-    // 52-vs-51 shape, so both are printed and each means exactly one thing.
-    let homesPresent = 0;
-    const ignoredRoots = new Set();
-    for (const name of topLevel) {
-      // Held out for the reason above; a tracked entry cannot be ignored, so probing it
-      // would only inflate the count the pass line prints.
-      if (agentHomeRoots.has(name)) { homesPresent++; continue; }
-      if (tracked.has(name) || trackedDirs.has(name)) continue;
-      ignoreProbed++;
-      const ci = spawnSync('git', ['check-ignore', '-q', '--', name], { cwd: repo, encoding: 'utf8' });
-      if (!ci.error && ci.status === 0) ignoredRoots.add(name);
     }
     const walkMd = (dir, out = []) => {
       if (!fs.existsSync(dir)) return out;
@@ -445,6 +417,64 @@ try {
       const walkedTracked = [...walkedSet].filter((f) => tracked.has(f)).length;
       pass(`surface accounting: ${walkedTracked} walked + ${tracked.size - walkedTracked} declared out = ${tracked.size} tracked, residue 0`);
     }
+
+    // IGNORED ROOTS, PATTERN-BASED (CWK-079) — asked of the CANDIDATES actually cited,
+    // never of what exists on disk. A clean clone carries no gitignored files by
+    // definition, so a disk-derived probe (`readdirSync(repo)`) ran at ZERO on every
+    // clean clone and every CI leg (measured elsewhere: CoalBoard 28 fed/7 ignored on a
+    // maintainer box against 21/0 in CI). `.gitignore` is TRACKED, so `git check-ignore`
+    // answers for an ABSENT path exactly as it would for a present one — the pattern is
+    // what matters, not the directory listing. Live exhibit on this tree: `.gitignore`
+    // lists a claude.ai ZIP-packaging staging dir that does not exist here (see
+    // scripts/build-claude-ai-zips.mjs), so the old readdirSync-based probe could never
+    // see it; check-ignore answers for it regardless. Deliberately not backticked here —
+    // this comment is itself a WALKED surface, and citing the literal name would
+    // manufacture the exact finding it is describing.
+    //
+    // MUST run AFTER `surfaces` exists and `pointerCandidates` has run over them — the
+    // candidates this probe needs are not assembled until here.
+    //
+    // TRAILING SLASH, structural, not a special case: `pointerCandidates` (pointer-check.mjs
+    // :209) already drops every token with no `/`, so every candidate reaching this probe
+    // has a first segment that IS a directory by construction — feed `first + '/'`. A
+    // `dir/`-anchored .gitignore pattern does not match the bare name given without the
+    // slash (measured on the same staging-dir name above: absent the slash it reads
+    // not-ignored; with it, IGNORED — git cannot infer that an absent path is a directory).
+    //
+    // BATCHED, one process for every distinct first segment actually cited, not one per
+    // candidate — the per-name spawn loop this replaces cost 462.2ms across 7 calls on
+    // this tree (39% of the gate's own 1178ms wall time); one `--stdin` call measured
+    // 71.3ms.
+    const candidateRoots = new Set();
+    for (const s of surfaces) {
+      if (typeof s.text !== 'string') continue;
+      for (const tok of pointerCandidates(s.text)) candidateRoots.add(tok.split('/')[0]);
+    }
+    // NOTE-1: `agentHomeRoots.size` is the DERIVED-SET size (every root TARGETS names),
+    // not the number that actually held anything out of THIS run's candidates. Printing
+    // the first while the sentence's other counts describe this run is the CoalHearth
+    // 52-vs-51 shape, so both are printed and each means exactly one thing.
+    let homesPresent = 0;
+    const toProbe = [];
+    for (const name of candidateRoots) {
+      if (agentHomeRoots.has(name)) { homesPresent++; continue; }
+      toProbe.push(name);
+    }
+    const ignoredRoots = new Set();
+    if (toProbe.length) {
+      const ci = spawnSync('git', ['check-ignore', '--stdin'],
+        { cwd: repo, encoding: 'utf8', input: toProbe.map((n) => n + '/').join('\n') + '\n' });
+      // Exit 1 means none of the fed patterns are ignored -- not an error. Git itself was
+      // already proven reachable by the `ls-files` probe this whole block is gated on, so
+      // only a genuine spawn error here would mean otherwise, and none has been observed.
+      if (!ci.error && typeof ci.stdout === 'string') {
+        for (const line of ci.stdout.split('\n')) {
+          const t = line.trim();
+          if (t) ignoredRoots.add(t.replace(/\/$/, ''));
+        }
+      }
+    }
+
     const findings = checkPointers({
       surfaces,
       ourRoots,
@@ -470,7 +500,7 @@ try {
     // implied, so the probe's reach is stated rather than left discoverable only by a
     // reviewer who thinks to ask. A count that appeared only when the gate passes would be
     // that same shape again, and on a RED run the reach is MORE useful, not less.
-    pass(`top-level entries fed to git check-ignore: ${ignoreProbed} of ${topLevel.size} (files + hidden included; ${homesPresent} of ${agentHomeRoots.size} agent-home roots present and held out) — ${ignoredRoots.size} gitignored`);
+    pass(`gitignored-root citations: ${toProbe.length} distinct first segment(s) actually cited, batched through one git check-ignore call (${homesPresent} of ${agentHomeRoots.size} agent-home roots present among the candidates and held out) — ${ignoredRoots.size} gitignored`);
     if (hard.length === 0) pass(`every path this repo points at from ${surfaces.length} surfaces (${findings.checked} in-scope citations) resolves to a TRACKED file — sections and symbols are NOT checked, see scripts/lib/pointer-check.mjs`);
     for (const f of findings) {
       if (f.level === 'SKIP') console.log('  --   ' + f.msg);
