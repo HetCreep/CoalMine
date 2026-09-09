@@ -5,7 +5,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { checkPointers, pointerCandidates, PENDING_POINTERS } from './pointer-check.mjs';
+import { checkPointers, pointerCandidates, looksPathShaped, PENDING_POINTERS } from './pointer-check.mjs';
 
 const NL = String.fromCharCode(10);
 // A resolver standing in for git + the filesystem. Each fixture names its own tree, so no
@@ -359,4 +359,41 @@ test('an agent-home ROOT must stay out of ignoredRoots, or correct ship-text FAI
   });
   assert.deepEqual(heldOut.filter((x) => x.level !== 'SKIP'), [],
     'held out, the same correct citation is simply out of scope');
+});
+
+// looksPathShaped (CWK-079 findings-back MEDIUM-1) -- feeds ONLY verify.mjs's
+// ignore-probe candidate-root derivation. Measured against the gate's own live surface
+// walk: 36 of a 51-segment population were not a directory or a file in ANY namespace
+// (the false-proof "every candidate's first segment IS a directory by construction"
+// this test replaces); appending one such name to .gitignore FAILed the shipped gate
+// on a CHANGELOG arithmetic citation with an incoherent remedy.
+test('looksPathShaped rejects the reviewer\'s own non-path exhibits', () => {
+  for (const tok of ['chars/4', 'prefer/should', 'try/finally', 'js/insecure-temporary-file', 'js/file-system-race', 'log/slog']) {
+    assert.equal(looksPathShaped(tok), false, `${tok} is not a path and must not reach the probe`);
+  }
+});
+
+test('looksPathShaped accepts a filename-shaped path, incl. one with a :line ref', () => {
+  for (const tok of ['dist-claude-ai/probe-target.md', 'scripts/lib/render.mjs', 'docs/x.md:12', 'commands/stats.md:12']) {
+    assert.equal(looksPathShaped(tok), true, `${tok} is filename-shaped and must still reach the probe`);
+  }
+});
+
+test('looksPathShaped accepts an explicit trailing-slash directory reference', () => {
+  for (const tok of ['dist-claude-ai/', '.claude/rules/ecc/', 'scripts/lib/']) {
+    assert.equal(looksPathShaped(tok), true, `${tok} ends in / and must still reach the probe`);
+  }
+});
+
+// THE RESIDUE, both directions, pinned so a future edit cannot silently narrow or
+// widen it without this test noticing -- named, not hidden, per the ruling that
+// required it.
+test('looksPathShaped residue: a trailing-slash token is accepted with no check on what precedes it', () => {
+  assert.equal(looksPathShaped('os.tmpdir()/coalmine/'), true,
+    'a function call ending in / still passes -- harmless in practice, named as residue');
+});
+
+test('looksPathShaped residue: an extensionless real path with no trailing slash is now excluded', () => {
+  assert.equal(looksPathShaped('scripts/lib'), false,
+    'reverts to the OLD silent miss for this one shape -- the accepted trade');
 });

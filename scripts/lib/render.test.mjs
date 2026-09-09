@@ -400,9 +400,12 @@ test('verify.mjs 2.11 pointers: a dead pointer and a gitignored citation each fa
     // exists: a token needs a directory component to survive the shape layer, so reaching
     // a top-level FILE means descending into it. Unrealistic as prose, and exactly why
     // the live exposure measured zero -- but the enumeration hole is real either way, and
-    // an adopting room's tree may differ.
+    // an adopting room's tree may differ. The descended-into segment carries an extension
+    // (CWK-079 findings-back MEDIUM-1's `looksPathShaped` shape test) -- an extensionless
+    // final segment would now be excluded from the ignore-probe by design, a different
+    // and unrelated class from the one this plant exists to prove.
     fs.appendFileSync(path.join(tmp, 'commands', 'update.md'),
-      NL + 'Full reasoning: `LOCAL-NOTES.md/decision`.' + NL);
+      NL + 'Full reasoning: `LOCAL-NOTES.md/decision.txt`.' + NL);
     // (d) CWK-078 LOW-1: a TRACKED file in NEITHER the walked nor the declared-out list.
     // The CoalWash defect -- the pass line reads as coverage while a surface goes unread.
     // It must FAIL by name, independent of whether it carries a bad pointer at all.
@@ -423,7 +426,7 @@ test('verify.mjs 2.11 pointers: a dead pointer and a gitignored citation each fa
       'the gate must name the citing surface AND the pointer it could not resolve');
     assert.match(r.stdout, /FAIL agents[\/]coalmine-scanner\.md cites `scratchpad\/probe\.md`.*gitignored/,
       'and an EXISTING file under a gitignored root must fail as undurable, not pass as present');
-    assert.match(r.stdout, /FAIL commands[\/]update\.md cites `LOCAL-NOTES\.md\/decision`.*gitignored/,
+    assert.match(r.stdout, /FAIL commands[\/]update\.md cites `LOCAL-NOTES\.md\/decision\.txt`.*gitignored/,
       'a gitignored top-level FILE must be probed too -- dirs-only-non-hidden was the CWK-078 hole');
     assert.match(r.stdout, /gitignored-root citations: \d+ distinct first segment/,
       'and the probe reach must be PRINTED, so a short enumeration is visible not discoverable');

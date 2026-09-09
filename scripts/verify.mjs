@@ -19,7 +19,7 @@ import { REGION_TARGETS, extractRegion } from './lib/shared-regions.mjs';
 import { checkTracked } from './lib/consistency.mjs';
 import { checkDistChangelog } from './lib/dist-changelog.mjs';
 import { checkConfigKeys, checkConfigReadPath } from './lib/config-keys.mjs';
-import { checkPointers, pointerCandidates } from './lib/pointer-check.mjs';
+import { checkPointers, pointerCandidates, looksPathShaped } from './lib/pointer-check.mjs';
 import { verifyAgainstManifest } from './lib/manifest.mjs';
 import { descriptionCapCheck, DESC_CAP } from './lib/desc-cap.mjs';
 
@@ -434,40 +434,71 @@ try {
     // MUST run AFTER `surfaces` exists and `pointerCandidates` has run over them — the
     // candidates this probe needs are not assembled until here.
     //
-    // TRAILING SLASH, structural, not a special case: `pointerCandidates` (pointer-check.mjs
-    // :209) already drops every token with no `/`, so every candidate reaching this probe
-    // has a first segment that IS a directory by construction — feed `first + '/'`. A
-    // `dir/`-anchored .gitignore pattern does not match the bare name given without the
-    // slash (measured on the same staging-dir name above: absent the slash it reads
-    // not-ignored; with it, IGNORED — git cannot infer that an absent path is a directory).
+    // TRAILING SLASH, half structural, half a shape choice -- CORRECTED (CWK-079
+    // findings-back MEDIUM-1). The no-`/` drop in `pointerCandidates` (pointer-check.mjs
+    // :209) proves a candidate token CONTAINS a slash; it proves NOTHING about what the
+    // slash separates. Appending `/` and feeding it to check-ignore is only sound for a
+    // candidate that IS a path in the first place -- `looksPathShaped()` (pointer-check.mjs)
+    // decides that, below, before a first segment ever reaches `candidateRoots`. The half
+    // that stays true and measured: for a token that IS a path, `dir/`-anchored .gitignore
+    // patterns do not match the bare name given without the slash (measured on the
+    // claude.ai staging-dir name: absent the slash it reads not-ignored; with it, IGNORED
+    // -- git cannot infer that an absent path is a directory), so `first + '/'` is still
+    // the correct feed for whatever survives the shape test.
     //
     // BATCHED, one process for every distinct first segment actually cited, not one per
     // candidate — the per-name spawn loop this replaces cost 462.2ms across 7 calls on
     // this tree (39% of the gate's own 1178ms wall time); one `--stdin` call measured
     // 71.3ms.
     //
-    // NAMED BOUND -- FOREIGN-NAME COLLISION (CWK-079). candidateRoots is fed from every
-    // CITED first segment, unlike the disk-derived shape it replaced, which could only
-    // ever contain a name that physically existed as a top-level entry in OUR OWN repo
-    // listing. That bound is gone: a citation describing the SCANNED USER's own tree
-    // (e.g. a doc line naming the user's `dist/build.js`) now probes `dist` against OUR
-    // .gitignore, and if a future pattern of ours (or a sibling room's, once this ships
-    // there per the PORT) happens to share that name, the citation FAILs as "not
-    // reachable from a clone" although it was never ours to be wrong about. Reproduced on
-    // a scratch fixture: a `.gitignore` containing `dist/` plus a doc line reading "the
-    // scanned project ships its build to `dist/build.js`" FAILs that way, though `dist/`
-    // does not exist in that fixture's tree and is cited nowhere as ours. Measured
-    // population on THIS tree today: ZERO (51 distinct first segments, 2 ignored --
-    // `.agents`/`.claude`, both held out by agentHomeRoots below). The miss is LOUD BY
-    // DESIGN, not by luck: a wrong FAIL names the file and the token, so it gets
-    // investigated within the hour, unlike a dead citation silently falling out of scope
-    // -- the same trade CWK-078 already made in this direction. No narrowing is added
-    // here; inventing one now would reach for existence or our own directory listing,
-    // which is the exact existence-dependence this ticket exists to remove.
+    // NAMED BOUND, WIDENED (CWK-079 findings-back MEDIUM-1) -- covers TWO populations,
+    // and closing one is not closing the other. Deliberately NOT backticking the two
+    // real gitignored exhibit names anywhere in this comment (the claude.ai staging dir,
+    // and the arithmetic ratio the reviewer used) -- this comment is itself a WALKED
+    // surface, and a backticked mention of either would manufacture the exact citation
+    // it is describing, exactly as happened once already this unit.
+    //
+    // (1) FOREIGN-NAME COLLISION, still open, still measured zero. A citation describing
+    // the SCANNED USER's own tree (e.g. a doc line naming the user's `dist/build.js`)
+    // still probes `dist` against OUR .gitignore, and if a future pattern of ours (or a
+    // sibling room's, once this ships there per the PORT) happens to share that name, the
+    // citation FAILs as "not reachable from a clone" although it was never ours to be
+    // wrong about. Reproduced on a scratch fixture: a `.gitignore` containing `dist/` plus
+    // a doc line reading "the scanned project ships its build to `dist/build.js`" FAILs
+    // that way, though `dist/` does not exist in that fixture's tree and is cited nowhere
+    // as ours. Measured population on THIS tree today: ZERO. The miss is LOUD BY DESIGN,
+    // not by luck: a wrong FAIL names the file and the token, so it gets investigated
+    // within the hour, unlike a dead citation silently falling out of scope -- the same
+    // trade CWK-078 already made in this direction. This population is NOT narrowed --
+    // any existence- or ourRoots-based test would re-open the exact vacuity this ticket
+    // was built to close (it would specifically re-exclude the claude.ai staging dir
+    // above, absent, untracked, and not in ourRoots -- the case that motivated CWK-079).
+    //
+    // (2) NOT-A-PATH-AT-ALL, was FALSE-STATED, now NARROWED by `looksPathShaped()`. The
+    // prior wording here claimed "every candidate's first segment IS a directory by
+    // construction" -- that was wrong, and the reviewer proved it: 36 of a 51-segment
+    // measured population were not a directory OR a file in any namespace -- a
+    // backticked ratio like N-over-4 (arithmetic), `prefer/should` (two rule-force
+    // words), `try/finally` (a language construct), `js/insecure-temporary-file` (a
+    // CodeQL query id), `log/slog` (a Go package pair). REPRODUCED LIVE: appending the
+    // ratio's own first segment plus a slash to `.gitignore` FAILed the shipped gate on
+    // the CHANGELOG's citation of that ratio, with the remedy "commit the file" --
+    // incoherent for arithmetic, and the population's members (`lib`, `bin`, `log`,
+    // `common`, `node`) are ordinary `.gitignore` names, not exotic ones. UNLIKE
+    // population (1), this one IS narrowed, by TOKEN SHAPE never existence --
+    // `looksPathShaped()`'s own comment carries its residue in both directions (a
+    // function-call token like `os.tmpdir()/` still gets through; an extensionless real
+    // path like `scripts/lib` no longer does, reverting to the OLD silent miss for that
+    // shape alone). That narrowing does not touch population (1): the claude.ai staging
+    // dir's own filename exhibit and the `dist/build.js` exhibit above both carry a
+    // `.ext`-shaped last segment and still reach the probe.
     const candidateRoots = new Set();
     for (const s of surfaces) {
       if (typeof s.text !== 'string') continue;
-      for (const tok of pointerCandidates(s.text)) candidateRoots.add(tok.split('/')[0]);
+      for (const tok of pointerCandidates(s.text)) {
+        if (!looksPathShaped(tok)) continue;
+        candidateRoots.add(tok.split('/')[0]);
+      }
     }
     // NOTE-1: `agentHomeRoots.size` is the DERIVED-SET size (every root TARGETS names),
     // not the number that actually held anything out of THIS run's candidates. Printing
@@ -519,7 +550,7 @@ try {
     // implied, so the probe's reach is stated rather than left discoverable only by a
     // reviewer who thinks to ask. A count that appeared only when the gate passes would be
     // that same shape again, and on a RED run the reach is MORE useful, not less.
-    pass(`gitignored-root citations: ${toProbe.length} distinct first segment(s) actually cited, batched through one git check-ignore call (${homesPresent} of ${agentHomeRoots.size} agent-home roots present among the candidates and held out) — ${ignoredRoots.size} gitignored`);
+    pass(`gitignored-root citations: ${candidateRoots.size} distinct first segment(s) shape-qualified and cited, ${toProbe.length} probed through one git check-ignore call (${homesPresent} of ${agentHomeRoots.size} agent-home roots held out) — ${ignoredRoots.size} gitignored`);
     if (hard.length === 0) pass(`every path this repo points at from ${surfaces.length} surfaces (${findings.checked} in-scope citations) resolves to a TRACKED file — sections and symbols are NOT checked, see scripts/lib/pointer-check.mjs`);
     for (const f of findings) {
       if (f.level === 'SKIP') console.log('  --   ' + f.msg);

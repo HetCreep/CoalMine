@@ -220,6 +220,51 @@ export function pointerCandidates(text) {
   return out;
 }
 
+// LAST-SEGMENT SHAPE TEST (CWK-079 findings-back MEDIUM-1) -- feeds ONLY the
+// ignore-probe's candidate-root derivation in verify.mjs, NEVER pointerCandidates'
+// own resolve-path population. Kept OUT of pointerCandidates deliberately: a token
+// this test rejects may still be a real, existing, TRACKED citation
+// (`.githooks/pre-commit`, `.github/workflows`) that the ordinary resolve() check must
+// keep seeing -- narrowing pointerCandidates itself would silently drop those from
+// resolution checking too, a different and unrelated regression from the one this test
+// exists to fix.
+//
+// THE DEFECT THIS CLOSES: a token containing a `/` is not necessarily a path -- the
+// no-`/` drop above (:209) proves the token HAS a slash, never what the slash
+// SEPARATES. Measured over this repo's own candidate tokens: a backticked ratio like
+// N-over-4 (arithmetic), `prefer/should` (two rule-force words), `try/finally` (a
+// language construct), `js/insecure-temporary-file` (a CodeQL query id), `log/slog` (a
+// Go package pair) all reach the ignore-probe's first-segment derivation with no path
+// in them at all. REPRODUCED LIVE: appending that ratio's own first segment plus a
+// slash to `.gitignore` makes the shipped gate FAIL the CHANGELOG's citation of the
+// ratio, with the remedy "commit the file" -- incoherent for arithmetic, and the only
+// way to silence it is editing published CHANGELOG history. (Deliberately not
+// backticking the ratio itself anywhere in this comment -- this file's own comment
+// lines are a WALKED surface, and a backticked mention would manufacture the exact
+// citation it is describing.)
+//
+// THE TEST: strip a trailing `:line(-line)?` ref (the same suffix `normalise()`
+// strips for resolution below), then either the token ends in `/` (an explicit
+// directory reference) or its LAST segment carries a `.ext`-shaped suffix (a
+// filename). Both are the deliberate, common path conventions this house's own prose
+// already uses; arithmetic, rule-force pairs, and language constructs carry neither.
+//
+// THE RESIDUE, both directions, named rather than hidden:
+//   - STILL LETS THROUGH: a token ending `/` is accepted with no check on what
+//     precedes it -- `os.tmpdir()/coalmine/` (a function call, not a directory) still
+//     reaches the probe. Harmless in practice (no real `.gitignore` pattern is named
+//     that), named here rather than papered over with a further heuristic.
+//   - NOW EXCLUDED: an extensionless real path with no trailing slash (`scripts/lib`,
+//     or a citation into the SCANNED USER's own extensionless directory) is no longer
+//     fed to the probe -- that population reverts to the OLD silent-miss behaviour this
+//     ticket otherwise removes. Narrower than the incoherent FAIL this test exists to
+//     stop, and accepted as the trade.
+export function looksPathShaped(tok) {
+  const t = tok.replace(/:\d+(-\d+)?$/, '');
+  if (t.endsWith('/')) return true;
+  return /\.[A-Za-z0-9]{1,10}$/.test(t.split('/').pop());
+}
+
 // `docs/x.md:12` and `scripts/` both name a real thing; the suffix and the trailing
 // slash are punctuation, not part of the path.
 function normalise(tok) {
