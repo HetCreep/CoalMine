@@ -14,14 +14,19 @@ on: pull_request
 permissions:
   contents: read
 
-# cancel-in-progress: FALSE, grouped PER PULL REQUEST. The job calls `gh pr merge --auto`, an
-# outward state change on the PR; cancelling it mid-call buys nothing (the job is seconds long)
-# and could leave auto-merge un-enabled on a PR whose checks then go green with nobody watching.
-# Per-PR grouping, never per-ref: two different Dependabot PRs must not serialise behind each
-# other.
+# cancel-in-progress: TRUE, grouped PER PULL REQUEST (CWK-058, conformed to
+# .github/SKILL-REPO-PATTERN.md's concurrency: bullet, CoalWorks r29 ruling). The
+# test is ATOMICITY, not read-vs-write: enabling auto-merge (`gh pr merge --auto`)
+# is IDEMPOTENT WITHIN one PR's own group, so a cancelled run corrupts nothing --
+# the next push to that same PR simply re-enables it. A prior version of this
+# comment reasoned from the SHARED-group case (where cancelling could leave
+# auto-merge un-enabled with nobody watching); that reasoning never applies once
+# the key is scoped per-PR, and is retired here rather than restated. Per-PR
+# grouping, never per-ref: two different Dependabot PRs must not serialise behind
+# each other.
 concurrency:
   group: dependabot-auto-merge-${{ github.event.pull_request.number }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   auto-merge:
