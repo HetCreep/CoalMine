@@ -42,6 +42,12 @@ test('headingSlugs: an inline code span in a heading keeps its CONTENT and drops
   assert.ok(slugs.has('coalmine-evals--rot-canary-pilot'), [...slugs].join(','));
 });
 
+test('headingSlugs: a TAB inside a heading is DROPPED, never hyphenated -- r33 RE-INSPECT LOW-A, github-slugger strips a tab as a C0 control char rather than treating it like a space', () => {
+  const slugs = headingSlugs('## a\tb\n');
+  assert.ok(slugs.has('ab'), [...slugs].join(','));
+  assert.ok(!slugs.has('a-b'));
+});
+
 test('headingSlugs: a fenced block INSIDE the doc still hides its own headings even though inline spans in a real heading no longer strip their content', () => {
   const slugs = headingSlugs('```\n# `fenced` fake heading\n```\n\n# Real `heading`\n');
   assert.strictEqual(slugs.size, 1);

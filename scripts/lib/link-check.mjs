@@ -47,25 +47,28 @@ const HTML_TAG_RE = /<\/?[a-z][^>]*>/gi;
 
 // GitHub's own algorithm (documented behaviour of github-slugger, its reference
 // implementation): strip a surviving HTML tag, lowercase, drop anything that is not a
-// word char / space / hyphen, EACH space/tab to a hyphen INDIVIDUALLY -- DELIBERATELY
-// NO trim step and DELIBERATELY NO run-collapsing. Two live, measured consequences:
-// (1) a heading starting with an emoji (common in this repo's own headings, e.g.
-// "## 🔌 Universal Agent Support") strips to a LEADING space that GitHub turns into a
-// LEADING hyphen (`-universal-agent-support`), never trimmed away -- confirmed against
-// this repo's own shipped README/CONTRIBUTING anchors, which is what caught this
-// walker's first-draft false-positive (it trimmed, GitHub does not); (2) an em dash
-// flanked by two spaces (`text — text`) strips the dash but keeps BOTH flanking spaces,
-// which a COLLAPSING replace would fold into one hyphen and a non-collapsing one
-// (this) turns into TWO -- confirmed against evals/README.md's own live heading,
-// "# CoalMine evals — `rot-canary` pilot" -> GitHub's real anchor is
+// word char / SPACE / hyphen (github-slugger's disallowed class includes the C0
+// control range \0-\x1F, which a TAB falls in -- so a tab is DROPPED here, not kept and
+// later hyphenated; r33 RE-INSPECT LOW-A, `## a<TAB>b` -> ours previously `a-b`,
+// GitHub's real `ab` -- this class no longer keeps `\t` at all), each SPACE to a hyphen
+// INDIVIDUALLY -- DELIBERATELY NO trim step and DELIBERATELY NO run-collapsing. Two
+// live, measured consequences: (1) a heading starting with an emoji (common in this
+// repo's own headings, e.g. "## 🔌 Universal Agent Support") strips to a LEADING space
+// that GitHub turns into a LEADING hyphen (`-universal-agent-support`), never trimmed
+// away -- confirmed against this repo's own shipped README/CONTRIBUTING anchors, which
+// is what caught this walker's first-draft false-positive (it trimmed, GitHub does
+// not); (2) an em dash flanked by two spaces (`text — text`) strips the dash but keeps
+// BOTH flanking spaces, which a COLLAPSING replace would fold into one hyphen and a
+// non-collapsing one (this) turns into TWO -- confirmed against evals/README.md's own
+// live heading, "# CoalMine evals — `rot-canary` pilot" -> GitHub's real anchor is
 // `coalmine-evals--rot-canary-pilot` (double hyphen), reproduced only by NOT
 // collapsing runs.
 function slugify(heading) {
   return heading
     .replace(HTML_TAG_RE, '')
     .toLowerCase()
-    .replace(/[^\w \t-]/g, '')
-    .replace(/[ \t]/g, '-');
+    .replace(/[^\w -]/g, '')
+    .replace(/ /g, '-');
 }
 
 // Every heading's slug, duplicates suffixed -1, -2, ... in document order (GitHub's
