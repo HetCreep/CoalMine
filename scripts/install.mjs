@@ -155,10 +155,21 @@ function isOwnHook(content) {
 // honours `core.hooksPath`, which can point INSIDE the worktree (this repo's own
 // `.githooks/`) -- a Coal* uninstall must never delete a file the repo's own maintainer
 // versions. `git ls-files --error-unmatch` is the oracle: exit 0 = tracked, exit 1 =
-// genuinely untracked, ANYTHING ELSE (no git binary, not a repo, a killed process) means
-// the question could not be answered -- and "could not tell" is not "it is untracked"
-// (the same `isDir` tri-state lesson from d65ae5c, applied here to a delete instead of a
-// carve-out). `hookPath` is absolute; `git ls-files` resolves it against `repoDir` fine.
+// genuinely untracked, ANYTHING ELSE means the question could not be answered -- and
+// "could not tell" is not "it is untracked" (the same `isDir` tri-state lesson from
+// d65ae5c, applied here to a delete instead of a carve-out). `hookPath` is absolute;
+// `git ls-files` resolves it against `repoDir` fine.
+//
+// LOW-1 (r33 INSPECT) -- "no git binary" is NOT a reachable producer of the `unknown`
+// verdict this function returns, despite what an earlier version of this comment (and
+// the refusal message, and the CHANGELOG) claimed: with no git binary, `resolveHooksDir`
+// never learns a configured `core.hooksPath` and always falls back to `<gitDir>/hooks`,
+// which is outside the worktree by construction and never reaches this function at all
+// (see `insideWorktree` at the call site below) -- measured directly, including against
+// a `.git` FILE pointing a gitdir INSIDE the worktree with no git binary present. The
+// one REACHABLE producer of `unknown` is a git process that started (so `r.error` is
+// unset and a `configured` path DID put us inside the worktree) but was killed or
+// otherwise failed mid-run, returning neither 0 nor 1.
 function trackedStatus(hookPath, repoDir) {
   const r = spawnSync('git', ['ls-files', '--error-unmatch', hookPath], { cwd: repoDir, encoding: 'utf8' });
   if (r.error) return 'unknown';
@@ -260,24 +271,30 @@ function uninstallGitHooks() {
         // a worse copy of one that exists, and the file is not ours to remove even with
         // a bin.
         //
-        // SCOPE, the half a first pass got wrong: the ordinary `<gitDir>/hooks` case is
-        // untracked BY CONSTRUCTION -- `.git/` sits outside the worktree git tracks, so
-        // nothing there can ever answer `tracked`. Asking git there is meaningless, and
-        // the tri-state's own `unknown` branch (a bare temp dir with no `.git` reachable
-        // from the fixture's cwd, `git ls-files` cannot answer) then refuses the ONE case
-        // this room's own hooks have always removed. So the git question is asked ONLY
-        // when the resolved hooks dir sits INSIDE the worktree -- exactly the
-        // `core.hooksPath` shape this whole ticket is about; the `<gitDir>/hooks`
-        // fallback skips straight to delete, as it always has.
-        const insideWorktree = !isUnderDir(hooksDir, gitDir);
-        const status = insideWorktree ? trackedStatus(hookPath, process.cwd()) : 'untracked';
+        // SCOPE (r33 MEDIUM-1, CONFIRMED end-to-end by INSPECT): the first pass computed
+        // `insideWorktree` as "not under gitDir", which is NOT the same predicate as
+        // "inside the worktree" -- an ABSOLUTE core.hooksPath OUTSIDE the repo entirely
+        // is also "not under gitDir", so it took the git-ask branch too. Git then answers
+        // "outside repository" (exit 128, neither 0 nor 1), so `unknown` refused --
+        // PERMANENTLY, since nothing about the repo ever changes to make git able to
+        // answer, and the printed `git rm` remedy cannot succeed on a path git has just
+        // said is outside the repository. Fixed to the predicate the name actually
+        // claims: the git question is asked ONLY when the resolved hooks dir sits INSIDE
+        // the worktree AND outside `.git/` -- exactly the `core.hooksPath` shape this
+        // ticket is about. A hooks dir outside the worktree entirely is untracked BY
+        // CONSTRUCTION for the identical reason `<gitDir>/hooks` is: git can only ever
+        // track a path under the worktree it is answering for, so nothing outside it can
+        // be `tracked`, and defaulting it to `untracked` is not a guess.
+        const worktreeRoot = process.cwd();
+        const insideWorktree = isUnderDir(hooksDir, worktreeRoot) && !isUnderDir(hooksDir, gitDir);
+        const status = insideWorktree ? trackedStatus(hookPath, worktreeRoot) : 'untracked';
         if (status !== 'untracked') {
           // `tracked` and `unknown` (could-not-tell) both refuse -- only a confirmed
           // `untracked` answer deletes. Two different sentences for two different
           // states: `unknown` must never assert the very fact it could not establish.
           const why = status === 'tracked'
             ? 'core.hooksPath points at a versioned directory'
-            : 'its tracked-ness could not be confirmed (no git binary, or the question could not be answered) -- "could not tell" is not "untracked"';
+            : 'its tracked-ness could not be confirmed (the git process was interrupted or failed) -- "could not tell" is not "untracked"';
           console.warn(`  [refused] ${hookName}: ${why} — CoalMine does not delete a file it cannot confirm is untracked. Remove it yourself with your normal git workflow (e.g. \`git rm ${hookName}\` inside the hooks directory) if you want it gone.`);
           process.exitCode = 1;
           continue;

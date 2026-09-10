@@ -37,6 +37,17 @@ test('headingSlugs: an emoji-prefixed heading slugs with a LEADING hyphen, never
   assert.ok(!slugs.has('universal-agent-support'));
 });
 
+test('headingSlugs: an inline code span in a heading keeps its CONTENT and drops only the backtick markup -- r33 INSPECT LOW-5, this repo\'s own live evals/README.md#1 heading, GitHub\'s real anchor confirmed manually', () => {
+  const slugs = headingSlugs('# CoalMine evals — `rot-canary` pilot\n');
+  assert.ok(slugs.has('coalmine-evals--rot-canary-pilot'), [...slugs].join(','));
+});
+
+test('headingSlugs: a fenced block INSIDE the doc still hides its own headings even though inline spans in a real heading no longer strip their content', () => {
+  const slugs = headingSlugs('```\n# `fenced` fake heading\n```\n\n# Real `heading`\n');
+  assert.strictEqual(slugs.size, 1);
+  assert.ok(slugs.has('real-heading'));
+});
+
 test('extractLinks: basic inline link', () => {
   const links = extractLinks('see [the docs](./docs/README.md) for more');
   assert.deepStrictEqual(links, [{ text: 'the docs', target: './docs/README.md' }]);

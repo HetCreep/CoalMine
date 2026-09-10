@@ -15,9 +15,14 @@
 // ============================================================================
 // DETECTION RULE — every step MEASURED on this repo's own shipped surfaces (re-derive
 // with `node scripts/verify.mjs`'s own 2.11 pass line, never quote a number here
-// forward -- the same rule :40's snapshot below already states for itself) before it
-// was chosen, because cry-wolf is the failure mode this room has already paid for once
-// (the tripwireMaxLines gate firing on compliant code).
+// forward -- the same rule the MEASURED-on-this-repo snapshot below already states for
+// itself) before it was chosen, because cry-wolf is the failure mode this room has
+// already paid for once (the tripwireMaxLines gate firing on compliant code).
+//
+// r33 INSPECT LOW-6: this sentence previously cited that snapshot BY LINE NUMBER
+// (":40") -- a locator transcribed into the SAME commit that moved it, the identical
+// shape as r32's own MEDIUM-1. Per this room's own r32 convention, a CONTENT anchor
+// only, never a line number, from here on.
 //
 //   The rule is TWO layers, and which layer a test belongs to is not cosmetic:
 //   SHAPE tests live in pointerCandidates (text only, no tree knowledge); SCOPE tests

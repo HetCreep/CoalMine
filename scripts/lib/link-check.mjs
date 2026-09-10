@@ -1,9 +1,10 @@
 // CW-017 — a small zero-dep walker for CoalMine's own tracked markdown: internal relative
 // links and in-doc anchors, per .github/SKILL-REPO-PATTERN.md:91's canon DEFAULT ("a small
 // scripts/lib/link-check.mjs walking the repo's own tracked .md files"). Deliberately NOT an
-// AST engine -- CoalLedger's scripts/lib/md-checks.mjs already is one (this room's own
-// CWK-092 unit measured it already satisfies the canon), and vendoring a copy here would be
-// the duplicate-ownership defect ONE FLOCK ONE COLOR bans (AGENTS.md).
+// AST engine -- CoalLedger's scripts/lib/md-checks.mjs already is one (CoalLedger's own
+// CWK-092 unit measured it already satisfies the canon -- CoalLedger holds that measurement,
+// not this room), and vendoring a copy here would be the duplicate-ownership defect ONE
+// FLOCK ONE COLOR bans (AGENTS.md).
 //
 // SCOPE: INTERNAL links only -- a relative path to another tracked file, optionally followed
 // by a #anchor, or a bare #anchor into the CITING file itself. An external http(s)/mailto/ftp
@@ -23,14 +24,20 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Strip fenced code blocks and inline code spans BEFORE extracting anything -- a
-// documentation EXAMPLE showing markdown syntax is not a real link or a real heading.
-// Fenced blocks are replaced with the same number of newlines so line-based heading
-// matching downstream is unaffected by the removal.
+// Strip FENCED code blocks only -- a line matching `^#{1,6} ...` INSIDE a fenced
+// example is not a real heading. Replaced with the same number of newlines so
+// line-based heading matching downstream is unaffected by the removal.
+function stripFencedBlocks(text) {
+  return text.replace(/```[\s\S]*?```/g, (m) => '\n'.repeat((m.match(/\n/g) || []).length));
+}
+
+// Strip fenced blocks AND inline code spans -- for LINK extraction, where a
+// documentation EXAMPLE showing markdown link syntax inside a code span is not a real
+// link to check. NEVER used for heading slugging (see headingSlugs below) -- GitHub
+// renders an inline code span's CONTENT as plain text in a heading, only the backtick
+// MARKUP is dropped, and slugify's own disallowed-char filter already does that.
 function stripCode(text) {
-  return text
-    .replace(/```[\s\S]*?```/g, (m) => '\n'.repeat((m.match(/\n/g) || []).length))
-    .replace(/`[^`\n]*`/g, '');
+  return stripFencedBlocks(text).replace(/`[^`\n]*`/g, '');
 }
 
 const HEADING_RE = /^(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$/gm;
@@ -40,25 +47,40 @@ const HTML_TAG_RE = /<\/?[a-z][^>]*>/gi;
 
 // GitHub's own algorithm (documented behaviour of github-slugger, its reference
 // implementation): strip a surviving HTML tag, lowercase, drop anything that is not a
-// word char / space / hyphen, spaces to hyphens -- DELIBERATELY NO trim step. A heading
-// starting with an emoji (common in this repo's own headings, e.g. "## 🔌 Universal
-// Agent Support") strips to a LEADING space that GitHub turns into a LEADING hyphen
-// (`-universal-agent-support`), never trimmed away -- confirmed against this repo's own
-// shipped README/CONTRIBUTING anchors, which is what caught this walker's first-draft
-// false-positive (it trimmed, GitHub does not).
+// word char / space / hyphen, EACH space/tab to a hyphen INDIVIDUALLY -- DELIBERATELY
+// NO trim step and DELIBERATELY NO run-collapsing. Two live, measured consequences:
+// (1) a heading starting with an emoji (common in this repo's own headings, e.g.
+// "## 🔌 Universal Agent Support") strips to a LEADING space that GitHub turns into a
+// LEADING hyphen (`-universal-agent-support`), never trimmed away -- confirmed against
+// this repo's own shipped README/CONTRIBUTING anchors, which is what caught this
+// walker's first-draft false-positive (it trimmed, GitHub does not); (2) an em dash
+// flanked by two spaces (`text — text`) strips the dash but keeps BOTH flanking spaces,
+// which a COLLAPSING replace would fold into one hyphen and a non-collapsing one
+// (this) turns into TWO -- confirmed against evals/README.md's own live heading,
+// "# CoalMine evals — `rot-canary` pilot" -> GitHub's real anchor is
+// `coalmine-evals--rot-canary-pilot` (double hyphen), reproduced only by NOT
+// collapsing runs.
 function slugify(heading) {
   return heading
     .replace(HTML_TAG_RE, '')
     .toLowerCase()
     .replace(/[^\w \t-]/g, '')
-    .replace(/[ \t]+/g, '-');
+    .replace(/[ \t]/g, '-');
 }
 
-// Every heading's slug, duplicates suffixed -1, -2, ... in document order (GitHub's rule).
+// Every heading's slug, duplicates suffixed -1, -2, ... in document order (GitHub's
+// rule). Only FENCED blocks are stripped before extraction -- an inline code span
+// WITHIN a real heading (`` `rot-canary` `` above) is markup GitHub renders as plain
+// text, so its CONTENT belongs in the slug; slugify's own disallowed-char filter
+// strips just the backtick markers, matching GitHub's real anchor rather than
+// erasing the whole span (the LOW-5 defect this comment replaces: the walker's
+// first-draft `headingSlugs` ran the LINK-extraction `stripCode` -- which removes an
+// inline span's content, not just its markers -- over headings too, so a doc linking
+// its own real, working GitHub anchor for a code-spanned heading was reported DEAD).
 export function headingSlugs(text) {
   const seen = new Map();
   const slugs = new Set();
-  const stripped = stripCode(text);
+  const stripped = stripFencedBlocks(text);
   let m;
   HEADING_RE.lastIndex = 0;
   while ((m = HEADING_RE.exec(stripped))) {
@@ -133,7 +155,13 @@ export function checkFiles(filePaths, repoRoot) {
 // on a findings run the way a skill-shared engine would.
 function main() {
   const files = process.argv.slice(2).map((f) => path.resolve(f));
-  const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+  // repoRoot is ONLY used to render a finding's "not found:" path -- cwd, not this
+  // script's own location, since the real workflow invokes `node scripts/lib/
+  // link-check.mjs $files` FROM the checked-out repo root (matching where its
+  // `git ls-files` scope was computed). Head finding HF-2: the prior "two dirs up
+  // from this file" derivation was correct only for a caller whose files live inside
+  // THIS repo -- a throwaway fixture elsewhere rendered a long unreadable `..` ladder.
+  const repoRoot = process.cwd();
   const findings = checkFiles(files, repoRoot);
   for (const f of findings) console.log(f);
   console.log(`${findings.length} finding(s) across ${files.length} file(s)`);

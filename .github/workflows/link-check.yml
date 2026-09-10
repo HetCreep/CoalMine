@@ -30,8 +30,14 @@ jobs:
           node-version: 22
       - name: link-check
         run: |
-          # Scope: this repo's own tracked .md, minus plugin/** (a byte-for-byte mirror of
-          # skills/** -- checking it too would just double-report the same dead link twice).
+          # Scope: this repo's own tracked .md, minus plugin/** -- NOT a byte-mirror
+          # exclusion (build-plugin.mjs RENDERS skills, inlining shared partials; 9 of
+          # 20 skills/*.md <-> plugin/skills/*.md pairs differ by hash). The real reason:
+          # plugin/ is a DERIVED artifact whose SOURCE (skills/**) this gate already
+          # checks -- named residue, not a false byte-identity claim: a dead link
+          # introduced only by the render step (inside an inlined shared partial) is
+          # invisible to this gate. Benign today, measured: 0 finding(s) across the 32
+          # excluded files.
           files=$(git ls-files '*.md' | grep -v '^plugin/')
 
           # CWK-079-class fail-open guard -- an empty file list must never read as a clean
@@ -44,6 +50,8 @@ jobs:
           fi
 
           # scripts/lib/link-check.mjs already sets process.exitCode itself on any finding
-          # (unlike a skill-shared engine that always exits 0) -- so this wrap exists only to
-          # keep the finding lines visible on failure, never to invent the exit code.
+          # (unlike a skill-shared engine that always exits 0), so there is deliberately NO
+          # wrap here -- the module owns its own exit code and a bare invocation already
+          # fails the step. Verified both ways: a planted dead link/anchor exits 1, this
+          # repo's own 60-file scope exits 0.
           node scripts/lib/link-check.mjs $files

@@ -342,8 +342,12 @@ test('a genuinely foreign hook is still backed up and restored (the ownership ch
   }
 });
 
-test('CWK-096: a tracked hook (core.hooksPath at a VERSIONED directory) SURVIVES uninstall', () => {
-  if (!gitAvailable()) { return; }
+test('CWK-096: a tracked hook (core.hooksPath at a VERSIONED directory) SURVIVES uninstall', (t) => {
+  // r33 INSPECT LOW-2: a capability gate degrades to a VISIBLE skip, never a bare
+  // `return` -- a bare return counts as a silent PASS, and this is the unit's own
+  // headline test. A green run on a git-less box must never read as "the tracked-hook
+  // guard is proven" when nothing was exercised.
+  if (!gitAvailable()) { t.skip('git binary not available'); return; }
   const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-tracked-'));
   const hooksDir = path.join(proj, '.githooks');
   const hookPath = path.join(hooksDir, 'pre-commit');
