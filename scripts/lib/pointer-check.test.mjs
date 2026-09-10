@@ -511,20 +511,26 @@ test('classifyCheckIgnoreResult: a genuine spawn error (git missing) is a FAIL n
 //
 // THE PIN, MEASURED IN THIS ROOM ONLY (CWK-092 flow-back 1) -- a claim about THIS
 // ROOM'S COVERAGE, never about the fix; re-derive rather than trust the numbers
-// below, this room's own suite drifts:
+// below, this room's own suite drifts. (INSPECT caught these rows shipped at
+// `c6f0108` carrying the PARENT `210dd96`'s numbers under a label that claimed
+// them as HEAD's -- the mechanism was sound, the transcription was not; re-derived
+// in a throwaway clone at THIS commit before writing them here, not carried
+// forward from a prior measurement):
 //   run                                             tests / pass / fail / skipped
-//   baseline (this file's HEAD)                        309  /  304 /   0  /   5
-//   `if (!verdict.ok)` -> `if (false)`, whole suite     309  /  303 /   1  /   5
-//   same mutation, the 3 wiring tests DELETED first     306  /  301 /   0  /   5
-// Row 2's single redness IS the first test below; row 3 is byte-identical to row
-// 1's pre-fix figure -- so in THIS repo the extraction, not merely the
-// classification, is what closes the class. CoalTipple ran the IDENTICAL mutation
-// in its own tree and it reddened through two pre-existing CWK-079-class
-// integration tests instead, never touching its own DI'd extraction at all -- for
-// THEIR tree the extraction was not the mechanism that closed it. An adopter
-// re-runs this mutation in ITS OWN tree and states what reddens there; CoalTipple's
-// non-reproduction is the measured counter-example this pin predicts, not an
-// exception to explain away.
+//   baseline (this file's HEAD)                        313  /  308 /   0  /   5
+//   `if (!verdict.ok)` -> `if (false)`, whole suite     313  /  306 /   2  /   5
+//   same mutation, all 5 tests driving applyCheckIgnoreProbe DELETED first
+//                                                        308  /  303 /   0  /   5
+// Row 2's TWO rednesses are the wiring test right below AND the failing-shapes
+// loop test further down -- both drive `applyCheckIgnoreProbe` directly; row 3 is
+// byte-identical to row 1's pre-fix figure -- so in THIS repo the extraction, not
+// merely the classification, is what closes the class. CoalTipple ran the
+// IDENTICAL mutation in its own tree and it reddened through two pre-existing
+// CWK-079-class integration tests instead, never touching its own DI'd extraction
+// at all -- for THEIR tree the extraction was not the mechanism that closed it. An
+// adopter re-runs this mutation in ITS OWN tree and states what reddens there;
+// CoalTipple's non-reproduction is the measured counter-example this pin predicts,
+// not an exception to explain away.
 test('applyCheckIgnoreProbe: a non-0/1 verdict calls fail() and returns an empty Set -- WIRING, not just classification', () => {
   const failed = [];
   const fail = (msg) => failed.push(msg);
@@ -575,9 +581,10 @@ test('applyCheckIgnoreProbe: probeSuffix DEFAULTS to the exported PROBE_SUFFIX (
 // TEN SHAPES (CWK-092 flow-back 2 -- CoalFace's reviewer's table, adopted; the
 // `ci.error`-FIRST ordering was ALREADY true here before this unit, per
 // pointer-check.mjs's own `classifyCheckIgnoreResult` -- this is a TEST unit, not
-// a code unit. The classifier tests above already cover four of these shapes with
-// REAL git subprocesses; the table below adds the six CoalFace found we lacked,
-// synthetic because a real `error`-carrying spawn result never also carries a real
+// a code unit. The classifier tests above already cover three of these shapes with
+// REAL git subprocesses, plus the spawn-error shape synthetically; the table below
+// adds the six CoalFace found we lacked, synthetic because a real `error`-carrying
+// spawn result never also carries a real
 // `status: 0` -- Node's own child_process contract does not produce that pairing,
 // so the only way to test the ORDERING is to construct the shape by hand.
 const TEN_SHAPES = [

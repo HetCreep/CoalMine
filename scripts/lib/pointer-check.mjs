@@ -313,12 +313,18 @@ export const PROBE_SUFFIX = '/.pointer-check-probe';
 //
 // THE PIN, MEASURED IN THIS ROOM ONLY (CWK-092 flow-back 1) -- a claim about THIS
 // ROOM'S COVERAGE, never about the fix; re-derive rather than trust the numbers
-// below, this room's own suite drifts:
+// below, this room's own suite drifts. (INSPECT caught these rows shipped at
+// `c6f0108` carrying the PARENT `210dd96`'s numbers under a label that claimed
+// them as HEAD's -- the mechanism was sound, the transcription was not; re-derived
+// in a throwaway clone at THIS commit before writing them here, not carried
+// forward from a prior measurement):
 //   run                                             tests / pass / fail / skipped
-//   baseline (this file's HEAD)                        309  /  304 /   0  /   5
-//   `if (!verdict.ok)` -> `if (false)`, whole suite     309  /  303 /   1  /   5
-//   same mutation, the 3 wiring tests DELETED first     306  /  301 /   0  /   5
-// Row 2's single redness IS the wiring test below; row 3 is byte-identical to row
+//   baseline (this file's HEAD)                        313  /  308 /   0  /   5
+//   `if (!verdict.ok)` -> `if (false)`, whole suite     313  /  306 /   2  /   5
+//   same mutation, all 5 tests driving applyCheckIgnoreProbe DELETED first
+//                                                        308  /  303 /   0  /   5
+// Row 2's TWO rednesses are the wiring test AND the failing-shapes loop test below
+// -- both drive `applyCheckIgnoreProbe` directly; row 3 is byte-identical to row
 // 1's pre-fix figure -- so in THIS repo the extraction, not merely the
 // classification, is what closes the class. CoalTipple ran the IDENTICAL mutation
 // in its own tree and it reddened through two pre-existing CWK-079-class
