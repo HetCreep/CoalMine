@@ -447,8 +447,26 @@ function preFixLogic(ci) {
 test('classifyCheckIgnoreResult: a REAL git check-ignore --stdin exit other than 0/1 (an unknown-option 129) is a FAIL, naming the status', () => {
   const tmp = mkGitRepoForIgnoreProbe();
   try {
+    // CI-RED FIX (CWK-092): the original fixture passed `input:` alongside the bad
+    // flag -- git rejects `--bogus-flag-xyz` and can exit BEFORE `spawnSync` finishes
+    // writing that input to its stdin pipe, so on a slow/loaded runner the write loses
+    // the race and Node reports a spawn-level EPIPE (`ci.error`) instead of delivering
+    // the clean 129 exit this test wants. Measured on `ubuntu-latest node 24` CI: the
+    // identical fixture passed at `210dd96` and failed here with EPIPE, on a commit
+    // that never touched this test -- a flaky fixture, not a regression.
+    //
+    // Cure chosen: DETERMINISTIC, not tolerant of both doors. This spawn never needed
+    // stdin content in the first place -- it exercises the non-0/1 EXIT-CODE branch of
+    // classifyCheckIgnoreResult, not the stdout-parsing branch, so dropping `input:`
+    // removes the write entirely: no write, no race, no EPIPE possible regardless of
+    // runner speed. Verified locally, 10/10 runs: status 129, `ci.error` undefined,
+    // every time (`ci.stdout` still comes back `''`, a string, not `undefined` --
+    // `preFixLogic` below still runs its loop and still reproduces the bug on this
+    // shape).
     const ci = spawnSync('git', ['check-ignore', '--stdin', '--bogus-flag-xyz'],
-      { cwd: tmp, encoding: 'utf8', input: 'ignored-dir/probe\n' });
+      { cwd: tmp, encoding: 'utf8' });
+    assert.equal(ci.error, undefined,
+      'this fixture is chosen to never race a stdin write -- an error here means the determinism assumption above no longer holds and needs re-checking, not silencing');
     assert.notEqual(ci.status, 0, 'this probe only proves anything if git actually took a non-0/1 exit');
     assert.notEqual(ci.status, 1, 'this probe only proves anything if git actually took a non-0/1 exit');
 
