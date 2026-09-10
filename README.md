@@ -138,7 +138,7 @@ node /path/to/CoalMine/scripts/install.mjs <agent|all|PATH>
 
 #### 3. Verify & Uninstall
 * **Verify:** `node /path/to/CoalMine/scripts/verify.mjs <agent|PATH>`
-* **Uninstall:** `node scripts/install.mjs --uninstall <agent|PATH>`
+* **Uninstall:** `node scripts/install.mjs --uninstall <agent|PATH>` — removes CoalMine's own git hooks, but never a **tracked** one: if `core.hooksPath` points at a versioned directory (e.g. a repo's own `.githooks/`) and the hook there is ours, uninstall REFUSES rather than deleting a maintainer-owned file — it prints `[refused] <hook>: <reason>` and exits non-zero; remove it yourself (e.g. `git rm <hook>`) if you want it gone.
 
 ---
 
