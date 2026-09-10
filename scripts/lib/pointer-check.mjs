@@ -13,9 +13,11 @@
 // NOT ban citations, and the shape of that restraint is the whole detection rule below.
 //
 // ============================================================================
-// DETECTION RULE — every step MEASURED on this repo's own 34 shipped surfaces
-// before it was chosen, because cry-wolf is the failure mode this room has already
-// paid for once (the tripwireMaxLines gate firing on compliant code).
+// DETECTION RULE — every step MEASURED on this repo's own shipped surfaces (re-derive
+// with `node scripts/verify.mjs`'s own 2.11 pass line, never quote a number here
+// forward -- the same rule :40's snapshot below already states for itself) before it
+// was chosen, because cry-wolf is the failure mode this room has already paid for once
+// (the tripwireMaxLines gate firing on compliant code).
 //
 //   The rule is TWO layers, and which layer a test belongs to is not cosmetic:
 //   SHAPE tests live in pointerCandidates (text only, no tree knowledge); SCOPE tests
