@@ -342,6 +342,40 @@ test('a genuinely foreign hook is still backed up and restored (the ownership ch
   }
 });
 
+test('CWK-096: a tracked hook (core.hooksPath at a VERSIONED directory) SURVIVES uninstall', () => {
+  if (!gitAvailable()) { return; }
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-tracked-'));
+  const hooksDir = path.join(proj, '.githooks');
+  const hookPath = path.join(hooksDir, 'pre-commit');
+  try {
+    assert.equal(spawnSync('git', ['init', '-q', '-b', 'main', '.'], { cwd: proj }).status, 0);
+    assert.equal(spawnSync('git', ['config', 'user.email', 'test@test.invalid'], { cwd: proj }).status, 0);
+    assert.equal(spawnSync('git', ['config', 'user.name', 'Test'], { cwd: proj }).status, 0);
+    assert.equal(spawnSync('git', ['config', 'commit.gpgsign', 'false'], { cwd: proj }).status, 0);
+    assert.equal(spawnSync('git', ['config', 'core.hooksPath', '.githooks'], { cwd: proj }).status, 0);
+
+    const install = runInstall(path.join(proj, 'skills'), proj);
+    assert.equal(install.status, 0, `install must pass:\n${install.stdout}${install.stderr}`);
+    assert.ok(fs.existsSync(hookPath), 'the hook was installed into the configured (tracked) dir');
+
+    // Commit it — this is now the repo maintainer's TRACKED file, not a CoalMine leftover.
+    assert.equal(spawnSync('git', ['add', '-A'], { cwd: proj }).status, 0);
+    assert.equal(spawnSync('git', ['commit', '-q', '-m', 'track the hooks'], { cwd: proj }).status, 0);
+    assert.equal(spawnSync('git', ['ls-files', '--error-unmatch', hookPath], { cwd: proj }).status, 0, 'fixture sanity: git itself confirms the hook is tracked');
+
+    const un = runInstall(path.join(proj, 'skills'), proj, ['--uninstall']);
+    // THE PROPERTY, not the exit code alone (the order's own rail): the file is
+    // still there. Asserted FIRST — a caller reading this test top-to-bottom sees
+    // the deliverable before the supporting signal.
+    assert.ok(fs.existsSync(hookPath), 'CWK-096: a tracked hook survives uninstall — CoalMine never deletes tracked files');
+    assert.equal(fs.readFileSync(hookPath, 'utf8').includes('CoalMine'), true, 'and it is untouched, not silently replaced with something else');
+    assert.notEqual(un.status, 0, 'the refusal is loud: uninstall exits non-zero rather than reporting quiet success');
+    assert.match(un.stdout + un.stderr, /\[refused\] pre-commit: core\.hooksPath points at a versioned directory/, 'the refusal names the file and the reason');
+  } finally {
+    fs.rmSync(proj, { recursive: true, force: true });
+  }
+});
+
 test('detectPresentAgents: only agents whose marker dir exists; claude/cline never auto-detected', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cm-detect-'));
   try {

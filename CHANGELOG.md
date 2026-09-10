@@ -2,6 +2,20 @@
 
 All notable changes to CoalMine are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer (canonical version lives in `.claude-plugin/plugin.json`).
 
+## [Unreleased]
+
+### Fixed
+- **A Coal* uninstall could delete a repo's own TRACKED hook files (CWK-096).** `uninstallGitHooks()`
+  resolves `core.hooksPath` (correct since `d1c917f`) but then unlinked whatever it found there with
+  no tracked-ness check -- in any repo whose `core.hooksPath` points at a versioned directory (this
+  room's own `.githooks/` included), that deleted the repo maintainer's tracked hooks. Tracked-ness is
+  now asked of git (`git ls-files --error-unmatch`), never inferred: a confirmed `tracked` or an
+  `unknown` (could-not-tell) answer REFUSES loudly and exits non-zero, naming the file and why; only a
+  confirmed `untracked` answer deletes. The question is asked only when the resolved hooks dir sits
+  INSIDE the worktree -- the ordinary `<gitDir>/hooks` case is untracked by construction and is
+  unaffected. Distributed via the Universal Installer (`scripts/install.mjs`), a surface outside
+  `plugin/` (Option B) -- same shipped-surface-outside-the-dist precedent as `d1c917f`.
+
 ## [3.19.0] - 2026-09-10
 
 ### Security

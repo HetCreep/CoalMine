@@ -151,6 +151,30 @@ function isOwnHook(content) {
   return content.split('\n', 5).some((line) => OWN_HOOK_RE.test(line));
 }
 
+// CWK-096 -- tracked-ness is asked of git, never inferred from a path. `resolveHooksDir`
+// honours `core.hooksPath`, which can point INSIDE the worktree (this repo's own
+// `.githooks/`) -- a Coal* uninstall must never delete a file the repo's own maintainer
+// versions. `git ls-files --error-unmatch` is the oracle: exit 0 = tracked, exit 1 =
+// genuinely untracked, ANYTHING ELSE (no git binary, not a repo, a killed process) means
+// the question could not be answered -- and "could not tell" is not "it is untracked"
+// (the same `isDir` tri-state lesson from d65ae5c, applied here to a delete instead of a
+// carve-out). `hookPath` is absolute; `git ls-files` resolves it against `repoDir` fine.
+function trackedStatus(hookPath, repoDir) {
+  const r = spawnSync('git', ['ls-files', '--error-unmatch', hookPath], { cwd: repoDir, encoding: 'utf8' });
+  if (r.error) return 'unknown';
+  if (r.status === 0) return 'tracked';
+  if (r.status === 1) return 'untracked';
+  return 'unknown';
+}
+
+// Lexical containment for a SCOPE decision (never a security boundary -- node/runtime.md
+// section 4's realpath rule binds an ownership/allowlist check, not this): is `childPath`
+// on or under `parentPath`?
+function isUnderDir(childPath, parentPath) {
+  const rel = path.relative(parentPath, childPath);
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
 // ─── Git Hooks Installation ──────────────────────────────────────────────────
 function installGitHooks() {
   try {
@@ -228,6 +252,36 @@ function uninstallGitHooks() {
         fs.unlinkSync(backupPath);
         console.log(`  restored backed-up git hook: ${hookName}`);
       } else if (fs.existsSync(hookPath) && isOwnHook(fs.readFileSync(hookPath, 'utf8'))) {
+        // CWK-096 -- a Coal* uninstall NEVER destroys a tracked file. `resolveHooksDir`
+        // CAN point at a directory the repo itself versions (this room's own
+        // `.githooks/`); deleting there deletes the maintainer's tracked hook, not a
+        // CoalMine leftover. REFUSE rather than trash-or-back-up it: the file already
+        // has a recovery net the user knows (`git checkout --`), a second bin would be
+        // a worse copy of one that exists, and the file is not ours to remove even with
+        // a bin.
+        //
+        // SCOPE, the half a first pass got wrong: the ordinary `<gitDir>/hooks` case is
+        // untracked BY CONSTRUCTION -- `.git/` sits outside the worktree git tracks, so
+        // nothing there can ever answer `tracked`. Asking git there is meaningless, and
+        // the tri-state's own `unknown` branch (a bare temp dir with no `.git` reachable
+        // from the fixture's cwd, `git ls-files` cannot answer) then refuses the ONE case
+        // this room's own hooks have always removed. So the git question is asked ONLY
+        // when the resolved hooks dir sits INSIDE the worktree -- exactly the
+        // `core.hooksPath` shape this whole ticket is about; the `<gitDir>/hooks`
+        // fallback skips straight to delete, as it always has.
+        const insideWorktree = !isUnderDir(hooksDir, gitDir);
+        const status = insideWorktree ? trackedStatus(hookPath, process.cwd()) : 'untracked';
+        if (status !== 'untracked') {
+          // `tracked` and `unknown` (could-not-tell) both refuse -- only a confirmed
+          // `untracked` answer deletes. Two different sentences for two different
+          // states: `unknown` must never assert the very fact it could not establish.
+          const why = status === 'tracked'
+            ? 'core.hooksPath points at a versioned directory'
+            : 'its tracked-ness could not be confirmed (no git binary, or the question could not be answered) -- "could not tell" is not "untracked"';
+          console.warn(`  [refused] ${hookName}: ${why} — CoalMine does not delete a file it cannot confirm is untracked. Remove it yourself with your normal git workflow (e.g. \`git rm ${hookName}\` inside the hooks directory) if you want it gone.`);
+          process.exitCode = 1;
+          continue;
+        }
         fs.unlinkSync(hookPath);
         console.log(`  removed git hook: ${hookName}`);
       }
@@ -584,7 +638,11 @@ if (isUninstall) {
   uninstallConfig(targetKey);
   uninstallGitHooks();
   console.log(`\nDone: Uninstalled ${removedCount} skill(s) and cleared configs.`);
-  process.exitCode = 0;
+  // CWK-096: this was an UNCONDITIONAL `process.exitCode = 0` -- it clobbered any
+  // exitCode = 1 a step above (uninstallGitHooks's tracked-file REFUSAL included) with
+  // a hardcoded success. `process.exitCode` defaults to 0 when nothing sets it, so
+  // deleting the line changes nothing on the clean path and stops silencing the dirty
+  // one. Same class as the install.mjs:540 no-op wrapper CWK-071 already closed.
   return;
 }
 
