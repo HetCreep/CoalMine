@@ -522,15 +522,19 @@ test('classifyCheckIgnoreResult: a genuine spawn error (git missing) is a FAIL n
 //   same mutation, all 5 tests driving applyCheckIgnoreProbe DELETED first
 //                                                        308  /  303 /   0  /   5
 // Row 2's TWO rednesses are the wiring test right below AND the failing-shapes
-// loop test further down -- both drive `applyCheckIgnoreProbe` directly; row 3 is
-// byte-identical to row 1's pre-fix figure -- so in THIS repo the extraction, not
-// merely the classification, is what closes the class. CoalTipple ran the
-// IDENTICAL mutation in its own tree and it reddened through two pre-existing
-// CWK-079-class integration tests instead, never touching its own DI'd extraction
-// at all -- for THEIR tree the extraction was not the mechanism that closed it. An
-// adopter re-runs this mutation in ITS OWN tree and states what reddens there;
-// CoalTipple's non-reproduction is the measured counter-example this pin predicts,
-// not an exception to explain away.
+// loop test further down -- both drive `applyCheckIgnoreProbe` directly; row 3
+// goes GREEN -- delete the five tests that drive the extraction and the mutation
+// stops being caught AT ALL -- so in THIS repo the extraction, not merely the
+// classification, is what closes the class. (Row 3's fail=0 is what proves it;
+// its PASS count is not a cross-reference to anything -- an earlier version of
+// this comment compared it to the pre-fix suite's own pass count, which coincided
+// only until this unit's later tests broke the coincidence. Never re-add that
+// cross-reference.) CoalTipple ran the IDENTICAL mutation in its own tree and it
+// reddened through two pre-existing CWK-079-class integration tests instead,
+// never touching its own DI'd extraction at all -- for THEIR tree the extraction
+// was not the mechanism that closed it. An adopter re-runs this mutation in ITS
+// OWN tree and states what reddens there; CoalTipple's non-reproduction is the
+// measured counter-example this pin predicts, not an exception to explain away.
 test('applyCheckIgnoreProbe: a non-0/1 verdict calls fail() and returns an empty Set -- WIRING, not just classification', () => {
   const failed = [];
   const fail = (msg) => failed.push(msg);
