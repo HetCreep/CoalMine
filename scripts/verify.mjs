@@ -803,4 +803,6 @@ if (arg) {
 }
 
 console.log(ok ? '\nVERIFY: PASS' : '\nVERIFY: FAIL');
-process.exit(ok ? 0 : 1);
+// CWK-071: this is the last statement in the file, so `process.exitCode` alone
+// halts nothing that would otherwise run -- there is nothing after it.
+process.exitCode = ok ? 0 : 1;

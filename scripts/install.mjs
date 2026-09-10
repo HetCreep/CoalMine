@@ -42,12 +42,16 @@ const PLATFORM_CONFIGS = {
 };
 
 // ─── Load shared sections (render core lives in lib/render.mjs) ────────────
+// CWK-071: returns null on failure (instead of exiting) -- every caller below
+// checks for null and returns from main() itself, which is the only thing that
+// can actually stop the remaining work from this helper's own frame.
 function loadShared() {
   try {
     return loadSharedFrom(sharedDir);
   } catch (e) {
     console.error(`Failed to load shared sections: ${e.message}`);
-    process.exit(1);
+    process.exitCode = 1;
+    return null;
   }
 }
 
@@ -471,6 +475,13 @@ function copyDefaultConfig() {
 }
 
 // ─── Main ───────────────────────────────────────────────────────────────────
+// CWK-071: wrapped in main() so every former process.exit() site can `return`
+// instead -- `process.exitCode = N` alone does not halt execution, and `return`
+// needs a function body. Body kept at its original (flat) indentation
+// deliberately: this wrapper is the whole structural change, and reindenting
+// the rest would make a mechanical, behaviour-preserving refactor hard to audit
+// against the original file.
+function main() {
 const args = process.argv.slice(2);
 const isUninstall = args.includes('--uninstall') || args.includes('-u');
 const targetArg = args.filter(x => x !== '--uninstall' && x !== '-u')[0];
@@ -478,13 +489,15 @@ const targetArg = args.filter(x => x !== '--uninstall' && x !== '-u')[0];
 if (!targetArg) {
   console.error(`Usage: node scripts/install.mjs [--uninstall | -u] <${Object.keys(TARGETS).join('|')}|all|PATH>`);
   console.error(`  all  → auto-detect every agent already configured in this project and install to each`);
-  process.exit(2);
+  process.exitCode = 2;
+  return;
 }
 const targetKey = targetArg.toLowerCase();
 
 if (!fs.existsSync(skillsSrc)) {
   console.error(`No skills/ dir at ${skillsSrc}`);
-  process.exit(1);
+  process.exitCode = 1;
+  return;
 }
 
 // Get skill dirs (exclude _shared)
@@ -493,7 +506,8 @@ try {
   skills = listSkills(skillsSrc);
 } catch (e) {
   console.error(`Error listing skills at ${skillsSrc}: ${e.message}`);
-  process.exit(1);
+  process.exitCode = 1;
+  return;
 }
 
 // ─── `all`: auto-detect every present project agent and install to each ──────
@@ -504,15 +518,18 @@ try {
 if (targetKey === 'all') {
   if (isUninstall) {
     console.error("Uninstall does not support 'all' — name the agent explicitly (destructive op, no guessing).");
-    process.exit(2);
+    process.exitCode = 2;
+    return;
   }
   const { present, absent } = detectPresentAgents(process.cwd());
   if (present.length === 0) {
     console.log(`\nCoalMine 'all': no auto-detectable agent config found under ${process.cwd()}.`);
     console.log(`  Install explicitly instead: node scripts/install.mjs <${Object.keys(TARGETS).join('|')}|PATH>`);
-    process.exit(0);
+    process.exitCode = 0;
+    return;
   }
   const shared = loadShared();
+  if (shared === null) return;
   console.log(`\nCoalMine 'all' — detected: ${present.join(', ')}${absent.length ? `  ·  skipped (not present): ${absent.join(', ')}` : ''}`);
   const seenDest = new Set();
   const seenCfg = new Set();
@@ -537,14 +554,19 @@ if (targetKey === 'all') {
   console.log(`\nDone: ${present.length} agent(s) → ${dirs} skills dir(s), ${installs} skill install(s)${fails ? `, ${fails} failed` : ''}.`);
   console.log(`  Not auto-covered (run explicitly): claude (prefer the plugin), cline. Agent still missing? Open a platform-report so we can pin it.`);
   console.log(`Verify: node scripts/verify.mjs`);
-  process.exit(process.exitCode || 0);
+  // CWK-071: this was `process.exit(process.exitCode || 0)` -- a no-op around the
+  // code (exitCode is already whatever the loop above left it at), kept only for
+  // its SIDE EFFECT of stopping here so the single-target path below never runs
+  // for the 'all' branch. `return` is that stop; no exitCode line is needed.
+  return;
 }
 
 const dest = TARGETS[targetKey] ?? path.resolve(targetArg);
 
 if (path.resolve(dest) === path.resolve(skillsSrc)) {
   console.error('Target directory cannot be the source skills directory.');
-  process.exit(1);
+  process.exitCode = 1;
+  return;
 }
 
 if (isUninstall) {
@@ -562,10 +584,12 @@ if (isUninstall) {
   uninstallConfig(targetKey);
   uninstallGitHooks();
   console.log(`\nDone: Uninstalled ${removedCount} skill(s) and cleared configs.`);
-  process.exit(0);
+  process.exitCode = 0;
+  return;
 }
 
 const shared = loadShared();
+if (shared === null) return;
 const { installed: n, failed } = installSkills(dest, skills, shared);
 applyConfig(targetKey, targetArg);
 console.log('\nConfiguring git hooks...');
@@ -573,4 +597,7 @@ installGitHooks();
 copyDefaultConfig();
 console.log(`\nDone: ${n}/${skills.length} skill(s) → ${dest}${failed ? ` (${failed} failed)` : ''}`);
 console.log(`Verify: node scripts/verify.mjs`);
+}
+
+main();
 

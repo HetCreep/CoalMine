@@ -23,12 +23,20 @@ const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const skillsSrc = path.join(repo, 'skills');
 const pluginDir = path.join(repo, 'plugin');
 
+// CWK-071: wrapped in main() so a failed loadShared() can `return` and stop the
+// rebuild -- `process.exitCode = 1` alone does not halt execution the way
+// `process.exit()` did, and `return` needs a function body to return from. Body
+// kept at its original (flat) indentation deliberately: this wrapper is the whole
+// change, and reindenting the rest would make a mechanical, behaviour-preserving
+// refactor hard to audit against the original.
+function main() {
 let shared;
 try {
   shared = loadShared(path.join(skillsSrc, '_shared'));
 } catch (e) {
   console.error(`Failed to load shared sections: ${e.message}`);
-  process.exit(1);
+  process.exitCode = 1;
+  return;
 }
 
 // Deterministic rebuild: wipe, then regenerate everything.
@@ -100,3 +108,6 @@ console.log('  copied .claude-plugin/plugin.json');
 
 console.log(`\nDone: ${n}/${skills.length} skill(s) rendered into plugin/`);
 console.log('Verify: node scripts/verify.mjs');
+}
+
+main();
