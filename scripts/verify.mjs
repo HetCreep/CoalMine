@@ -520,10 +520,13 @@ try {
       if (agentHomeRoots.has(name)) { homesPresent++; continue; }
       toProbe.push(name);
     }
-    const ignoredRoots = new Set();
-    // PROBE SUFFIX (CWK-090 fix 2): a path UNDER the root, not the bare root -- see the
-    // TRAILING SLASH comment above for why the bare-root feed is retired.
-    const PROBE_SUFFIX = '/.pointer-check-probe';
+    // PROBE SUFFIX (CWK-090 fix 2): a path UNDER the root, not the bare root -- see
+    // the TRAILING SLASH comment above for why the bare-root feed is retired. Since
+    // CWK-092 flow-back 3 this gate no longer declares or imports the literal --
+    // `applyCheckIgnoreProbe`'s own `probeSuffix` parameter DEFAULTS to
+    // pointer-check.mjs's exported `PROBE_SUFFIX`, so this call site cannot hold a
+    // copy that drifts from what it actually probes with.
+    //
     // FAIL-OPEN, CLOSED (CWK-090 fix 1, ported in substance from CoalTipple `3669fb5`
     // and CoalLedger `94e994f`); WIRING moved into `applyCheckIgnoreProbe`
     // (pointer-check.mjs, CWK-090 findings-back HIGH-1) so a unit test drives this
@@ -534,9 +537,11 @@ try {
     // not an error); any OTHER status (128 included -- a bad pattern, an unreadable
     // `.gitignore`, a broken worktree) or a genuine spawn error means the run
     // answered NOTHING, and silently continuing with an empty `ignoredRoots` would
-    // print a git-derived count over a run that derived no facts at all.
-    applyCheckIgnoreProbe({
-      toProbe, PROBE_SUFFIX, ignoredRoots, fail,
+    // print a git-derived count over a run that derived no facts at all. The Set is
+    // now RETURNED (CWK-092 flow-back 3) rather than mutated in place -- this call
+    // site consumes it, it does not own it.
+    const ignoredRoots = applyCheckIgnoreProbe({
+      toProbe, fail,
       runCheckIgnore: (input) => spawnSync('git', ['check-ignore', '--stdin'], { cwd: repo, encoding: 'utf8', input }),
     });
 

@@ -8,7 +8,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
-import { checkPointers, pointerCandidates, looksPathShaped, PENDING_POINTERS, classifyCheckIgnoreResult, applyCheckIgnoreProbe, DEFAULT_SURFACE_PLAN, collectSurfaces } from './pointer-check.mjs';
+import { checkPointers, pointerCandidates, looksPathShaped, PENDING_POINTERS, classifyCheckIgnoreResult, applyCheckIgnoreProbe, PROBE_SUFFIX, DEFAULT_SURFACE_PLAN, collectSurfaces } from './pointer-check.mjs';
 
 const NL = String.fromCharCode(10);
 // A resolver standing in for git + the filesystem. Each fixture names its own tree, so no
@@ -508,48 +508,137 @@ test('classifyCheckIgnoreResult: a genuine spawn error (git missing) is a FAIL n
 // nothing exercised that branch. This function is the EXACT code verify.mjs now
 // calls (no duplicate), driven here with an injected `runCheckIgnore` so the
 // status-128 branch is reachable without a real git process.
-test('applyCheckIgnoreProbe: a non-0/1 verdict calls fail() and leaves ignoredRoots empty -- WIRING, not just classification', () => {
+//
+// THE PIN, MEASURED IN THIS ROOM ONLY (CWK-092 flow-back 1) -- a claim about THIS
+// ROOM'S COVERAGE, never about the fix; re-derive rather than trust the numbers
+// below, this room's own suite drifts:
+//   run                                             tests / pass / fail / skipped
+//   baseline (this file's HEAD)                        309  /  304 /   0  /   5
+//   `if (!verdict.ok)` -> `if (false)`, whole suite     309  /  303 /   1  /   5
+//   same mutation, the 3 wiring tests DELETED first     306  /  301 /   0  /   5
+// Row 2's single redness IS the first test below; row 3 is byte-identical to row
+// 1's pre-fix figure -- so in THIS repo the extraction, not merely the
+// classification, is what closes the class. CoalTipple ran the IDENTICAL mutation
+// in its own tree and it reddened through two pre-existing CWK-079-class
+// integration tests instead, never touching its own DI'd extraction at all -- for
+// THEIR tree the extraction was not the mechanism that closed it. An adopter
+// re-runs this mutation in ITS OWN tree and states what reddens there; CoalTipple's
+// non-reproduction is the measured counter-example this pin predicts, not an
+// exception to explain away.
+test('applyCheckIgnoreProbe: a non-0/1 verdict calls fail() and returns an empty Set -- WIRING, not just classification', () => {
   const failed = [];
   const fail = (msg) => failed.push(msg);
-  const ignoredRoots = new Set();
-  applyCheckIgnoreProbe({
+  const ignored = applyCheckIgnoreProbe({
     toProbe: ['totally-fake-root'],
-    PROBE_SUFFIX: '/.pointer-check-probe',
-    ignoredRoots,
     fail,
     runCheckIgnore: () => ({ status: 128, stderr: 'fatal: bad pattern', stdout: '' }),
   });
   assert.equal(failed.length, 1, 'fail() must be called exactly once');
   assert.match(failed[0], /exited 128/);
-  assert.equal(ignoredRoots.size, 0, 'a run that answered nothing must record zero ignored roots');
+  assert.equal(ignored.size, 0, 'a run that answered nothing must record zero ignored roots');
 });
 
-test('applyCheckIgnoreProbe: an ok verdict records the recovered root, stripped of its probe suffix', () => {
+test('applyCheckIgnoreProbe: an ok verdict returns the recovered root, stripped of its probe suffix', () => {
   const fail = () => { throw new Error('fail() must not be called on an ok verdict'); };
-  const ignoredRoots = new Set();
-  applyCheckIgnoreProbe({
+  const ignored = applyCheckIgnoreProbe({
     toProbe: ['dist'],
-    PROBE_SUFFIX: '/.pointer-check-probe',
-    ignoredRoots,
     fail,
-    runCheckIgnore: () => ({ status: 0, stdout: 'dist/.pointer-check-probe\n', stderr: '' }),
+    runCheckIgnore: () => ({ status: 0, stdout: `dist${PROBE_SUFFIX}\n`, stderr: '' }),
   });
-  assert.deepEqual([...ignoredRoots], ['dist']);
+  assert.deepEqual([...ignored], ['dist']);
 });
 
-test('applyCheckIgnoreProbe: an empty toProbe list never spawns and never fails', () => {
+test('applyCheckIgnoreProbe: an empty toProbe list never spawns, never fails, returns an empty Set', () => {
   const fail = () => { throw new Error('fail() must not be called'); };
-  const ignoredRoots = new Set();
   let spawned = false;
-  applyCheckIgnoreProbe({
+  const ignored = applyCheckIgnoreProbe({
     toProbe: [],
-    PROBE_SUFFIX: '/.pointer-check-probe',
-    ignoredRoots,
     fail,
     runCheckIgnore: () => { spawned = true; return { status: 0, stdout: '', stderr: '' }; },
   });
   assert.equal(spawned, false);
-  assert.equal(ignoredRoots.size, 0);
+  assert.equal(ignored.size, 0);
+});
+
+test('applyCheckIgnoreProbe: probeSuffix DEFAULTS to the exported PROBE_SUFFIX (CWK-092 flow-back 3)', () => {
+  const fail = () => { throw new Error('fail() must not be called on an ok verdict'); };
+  let sentInput = null;
+  const ignored = applyCheckIgnoreProbe({
+    toProbe: ['dist'],
+    fail,
+    runCheckIgnore: (input) => { sentInput = input; return { status: 0, stdout: `dist${PROBE_SUFFIX}\n`, stderr: '' }; },
+  });
+  assert.equal(sentInput, `dist${PROBE_SUFFIX}\n`, 'with no probeSuffix override, the probe must be built from the exported constant');
+  assert.deepEqual([...ignored], ['dist']);
+});
+
+// TEN SHAPES (CWK-092 flow-back 2 -- CoalFace's reviewer's table, adopted; the
+// `ci.error`-FIRST ordering was ALREADY true here before this unit, per
+// pointer-check.mjs's own `classifyCheckIgnoreResult` -- this is a TEST unit, not
+// a code unit. The classifier tests above already cover four of these shapes with
+// REAL git subprocesses; the table below adds the six CoalFace found we lacked,
+// synthetic because a real `error`-carrying spawn result never also carries a real
+// `status: 0` -- Node's own child_process contract does not produce that pairing,
+// so the only way to test the ORDERING is to construct the shape by hand.
+const TEN_SHAPES = [
+  { name: 'status 0, clean stdout', ci: { status: 0, stdout: 'dist/probe\n', stderr: '' }, ok: true },
+  { name: 'status 1 (nothing ignored)', ci: { status: 1, stdout: '', stderr: '' }, ok: true },
+  { name: 'status 128 + stderr', ci: { status: 128, stdout: '', stderr: 'fatal: bad pattern' }, ok: false },
+  { name: 'status 128 WITH a string stdout', ci: { status: 128, stdout: 'dist/probe\n', stderr: 'fatal: bad pattern' }, ok: false },
+  { name: 'status 2', ci: { status: 2, stdout: '', stderr: '' }, ok: false },
+  { name: 'status null (killed by signal)', ci: { status: null, stdout: null, stderr: null }, ok: false },
+  { name: 'status undefined', ci: { status: undefined, stdout: undefined, stderr: undefined }, ok: false },
+  { name: 'ci.error ENOENT (git absent)', ci: { error: new Error('spawn git ENOENT'), status: null, stdout: null, stderr: null }, ok: false },
+  // THE ROW THAT PROVES ORDER MATTERS -- error carried ALONGSIDE status: 0.
+  { name: 'ci.error WITH status: 0 set -- error checked FIRST', ci: { error: new Error('spawn git EACCES'), status: 0, stdout: '', stderr: '' }, ok: false },
+  { name: 'status 0, stdout not a string', ci: { status: 0, stdout: null, stderr: '' }, ok: true },
+];
+
+test('classifyCheckIgnoreResult: the ten-shape table -- ok verdict per shape, and a failing shape names what went wrong', () => {
+  for (const { name, ci, ok } of TEN_SHAPES) {
+    const verdict = classifyCheckIgnoreResult(ci);
+    assert.equal(verdict.ok, ok, `shape "${name}" expected ok=${ok}, got ok=${verdict.ok}`);
+    if (!ok) {
+      assert.equal(typeof verdict.message, 'string', `shape "${name}" must name what went wrong`);
+      assert.ok(verdict.message.length > 0, `shape "${name}"'s message must not be empty`);
+    }
+  }
+});
+
+// RED-FIRST, via an inline counterfactual (not a source mutation): a STATUS-FIRST
+// predicate -- the shape a room could plausibly write, checking `ci.status`
+// before ever looking at `ci.error` -- reads the error+status:0 fixture as
+// SUCCESS. This is what proves the ORDERING matters, not merely the classifier's
+// existing behaviour: our real function already answers `ok: false` on this row
+// (asserted above), and a status-first sibling would have answered `ok: true` on
+// the identical input.
+function statusFirstClassify(ci) {
+  if (ci.status === 0 || ci.status === 1) {
+    return { ok: true, stdout: typeof ci.stdout === 'string' ? ci.stdout : '' };
+  }
+  const stderrLine = typeof ci.stderr === 'string' ? ci.stderr.split('\n')[0].trim() : '';
+  return { ok: false, message: `git check-ignore --stdin exited ${ci.status}${stderrLine ? ` -- ${stderrLine}` : ''}` };
+}
+
+test('classifyCheckIgnoreResult: the error+status:0 row -- a status-first predicate reads it as SUCCESS; ours does not', () => {
+  const row = TEN_SHAPES.find((s) => s.name.startsWith('ci.error WITH status: 0'));
+  assert.equal(classifyCheckIgnoreResult(row.ci).ok, false, 'the real, error-first classifier must reject this shape');
+  assert.equal(statusFirstClassify(row.ci).ok, true,
+    'a status-first predicate reads the identical shape as ok -- this is the class the ordering guards against, not a hypothetical');
+});
+
+test('applyCheckIgnoreProbe: on every FAILING shape of the ten, fail() fires exactly once and the returned Set is empty', () => {
+  for (const { name, ci, ok } of TEN_SHAPES) {
+    if (ok) continue;
+    const failed = [];
+    const ignored = applyCheckIgnoreProbe({
+      toProbe: ['totally-fake-root'],
+      fail: (msg) => failed.push(msg),
+      runCheckIgnore: () => ci,
+    });
+    assert.equal(failed.length, 1, `shape "${name}": fail() must be called exactly once`);
+    assert.equal(ignored.size, 0, `shape "${name}": a failing verdict must record zero ignored roots`);
+  }
 });
 
 // DEFAULT_SURFACE_PLAN + collectSurfaces (CWK-090 fix 3) -- the walked-surface

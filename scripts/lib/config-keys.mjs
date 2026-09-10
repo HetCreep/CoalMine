@@ -138,6 +138,7 @@ export const NOT_CONFIG = {
   scanExcludeNotice: 'rot-canary-stop.js translation key for the skip-count notice',
   askQuestions: 'a GitHub Copilot platform capability, named in the install matrix',
   systemMessage: 'the Claude Code hook OUTPUT field, not a config input',
+  emDash: "CoalLedger's own config key (doc-quality canary) -- README names it as a cross-ref only (CWK-092 flow-back 4), never ours to implement",
 };
 
 // SURFACES — chosen by MEASUREMENT, each in/out with its reason.

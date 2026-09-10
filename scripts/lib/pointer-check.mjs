@@ -291,7 +291,14 @@ export function classifyCheckIgnoreResult(ci) {
   return { ok: true, stdout: typeof ci.stdout === 'string' ? ci.stdout : '' };
 }
 
-// APPLY the check-ignore probe's verdict onto `ignoredRoots`, or FAIL loudly (CWK-090
+// THE PROBE SUFFIX -- a path UNDER a candidate root, never the bare root (CWK-090
+// fix 2; see the TRAILING SLASH comment near the call site for why a bare-root feed
+// false-matches). EXPORTED (CWK-092 flow-back 3, adopted UPWARD from CoalFace
+// `d882832`) so no consumer can hold a hand-copied literal that drifts from the
+// constant this module actually probes with.
+export const PROBE_SUFFIX = '/.pointer-check-probe';
+
+// APPLY the check-ignore probe's verdict onto a fresh Set, or FAIL loudly (CWK-090
 // findings-back HIGH-1). `classifyCheckIgnoreResult` above is pure and well
 // unit-tested; nothing tied THAT classification to the gate's own `fail()` --
 // verify.mjs's own call site was an inline `if (!verdict.ok) { fail(...) } else
@@ -303,19 +310,45 @@ export function classifyCheckIgnoreResult(ci) {
 // for the surface walk, applied to the sibling spawn site. `runCheckIgnore(input)`
 // takes the newline-joined probe input and returns the same `{status, stdout,
 // stderr, error}` shape a real `spawnSync` result carries.
-export function applyCheckIgnoreProbe({ toProbe, PROBE_SUFFIX, ignoredRoots, fail, runCheckIgnore }) {
-  if (!toProbe.length) return;
-  const ci = runCheckIgnore(toProbe.map((n) => n + PROBE_SUFFIX).join('\n') + '\n');
+//
+// THE PIN, MEASURED IN THIS ROOM ONLY (CWK-092 flow-back 1) -- a claim about THIS
+// ROOM'S COVERAGE, never about the fix; re-derive rather than trust the numbers
+// below, this room's own suite drifts:
+//   run                                             tests / pass / fail / skipped
+//   baseline (this file's HEAD)                        309  /  304 /   0  /   5
+//   `if (!verdict.ok)` -> `if (false)`, whole suite     309  /  303 /   1  /   5
+//   same mutation, the 3 wiring tests DELETED first     306  /  301 /   0  /   5
+// Row 2's single redness IS the wiring test below; row 3 is byte-identical to row
+// 1's pre-fix figure -- so in THIS repo the extraction, not merely the
+// classification, is what closes the class. CoalTipple ran the IDENTICAL mutation
+// in its own tree and it reddened through two pre-existing CWK-079-class
+// integration tests instead, never touching its own DI'd extraction at all -- for
+// THEIR tree the extraction was not the mechanism. An adopter re-runs this mutation
+// in ITS OWN tree and states what reddens there; CoalTipple's non-reproduction is
+// the measured counter-example this pin predicts, not an exception to explain away.
+//
+// PLUMBING CONTRACT (CWK-092 flow-back 3, adopted UPWARD from CoalFace `d882832`
+// rather than reconciled downward -- ship-text an adopter may lift verbatim):
+// `probeSuffix` DEFAULTS to the exported `PROBE_SUFFIX`, so there is no wrong value
+// a caller can fall into by omission -- only a caller that deliberately overrides
+// it can diverge, and that is visible at the call site. The function RETURNS the
+// recovered Set rather than mutating one the caller owns -- this function owns only
+// the probe, never the caller's state.
+export function applyCheckIgnoreProbe({ toProbe, probeSuffix = PROBE_SUFFIX, fail, runCheckIgnore }) {
+  const ignored = new Set();
+  if (!toProbe.length) return ignored;
+  const ci = runCheckIgnore(toProbe.map((n) => n + probeSuffix).join('\n') + '\n');
   const verdict = classifyCheckIgnoreResult(ci);
   if (!verdict.ok) {
     fail(verdict.message);
-    return;
+    return ignored;
   }
   for (const line of verdict.stdout.split('\n')) {
     const t = line.trim();
     if (!t) continue;
-    ignoredRoots.add(t.endsWith(PROBE_SUFFIX) ? t.slice(0, -PROBE_SUFFIX.length) : t.replace(/\/$/, ''));
+    ignored.add(t.endsWith(probeSuffix) ? t.slice(0, -probeSuffix.length) : t.replace(/\/$/, ''));
   }
+  return ignored;
 }
 
 const GLOB = /[*?[\]{}|]/;

@@ -51,6 +51,8 @@
 
 *Canaries follow **grounding in evidence, zero grade inflation, and report before fixing**. Fixes apply through a safe loop: `Stash/Commit -> Apply fix -> Run build+tests -> Auto-revert if tests fail`.*
 
+*Em-dash typography (`unspaced`/`spaced`/`off`, house style) is not one of the 9 — that rule belongs to [CoalLedger](https://github.com/TheColliery/CoalLedger)'s `doc-quality` canary (`emDash` config key, factory default `off`), never duplicated here.*
+
 ---
 
 ## 🔌 Universal Agent Support
