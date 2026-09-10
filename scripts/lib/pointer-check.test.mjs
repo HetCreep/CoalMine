@@ -8,7 +8,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
-import { checkPointers, pointerCandidates, looksPathShaped, PENDING_POINTERS, classifyCheckIgnoreResult, DEFAULT_SURFACE_PLAN, collectSurfaces } from './pointer-check.mjs';
+import { checkPointers, pointerCandidates, looksPathShaped, PENDING_POINTERS, classifyCheckIgnoreResult, applyCheckIgnoreProbe, DEFAULT_SURFACE_PLAN, collectSurfaces } from './pointer-check.mjs';
 
 const NL = String.fromCharCode(10);
 // A resolver standing in for git + the filesystem. Each fixture names its own tree, so no
@@ -499,6 +499,57 @@ test('classifyCheckIgnoreResult: a genuine spawn error (git missing) is a FAIL n
   const verdict = classifyCheckIgnoreResult({ error: new Error('spawn git ENOENT'), status: null, stdout: null, stderr: null });
   assert.equal(verdict.ok, false);
   assert.match(verdict.message, /failed to spawn: spawn git ENOENT/);
+});
+
+// applyCheckIgnoreProbe (CWK-090 findings-back HIGH-1) -- the WIRING between
+// classifyCheckIgnoreResult and the gate's own fail()/ignoredRoots. INSPECT mutated
+// verify.mjs's old inline `if (!verdict.ok)` to `if (false)` -- behaviourally the
+// pre-fix fail-open -- and the whole suite stayed byte-identically green, because
+// nothing exercised that branch. This function is the EXACT code verify.mjs now
+// calls (no duplicate), driven here with an injected `runCheckIgnore` so the
+// status-128 branch is reachable without a real git process.
+test('applyCheckIgnoreProbe: a non-0/1 verdict calls fail() and leaves ignoredRoots empty -- WIRING, not just classification', () => {
+  const failed = [];
+  const fail = (msg) => failed.push(msg);
+  const ignoredRoots = new Set();
+  applyCheckIgnoreProbe({
+    toProbe: ['totally-fake-root'],
+    PROBE_SUFFIX: '/.pointer-check-probe',
+    ignoredRoots,
+    fail,
+    runCheckIgnore: () => ({ status: 128, stderr: 'fatal: bad pattern', stdout: '' }),
+  });
+  assert.equal(failed.length, 1, 'fail() must be called exactly once');
+  assert.match(failed[0], /exited 128/);
+  assert.equal(ignoredRoots.size, 0, 'a run that answered nothing must record zero ignored roots');
+});
+
+test('applyCheckIgnoreProbe: an ok verdict records the recovered root, stripped of its probe suffix', () => {
+  const fail = () => { throw new Error('fail() must not be called on an ok verdict'); };
+  const ignoredRoots = new Set();
+  applyCheckIgnoreProbe({
+    toProbe: ['dist'],
+    PROBE_SUFFIX: '/.pointer-check-probe',
+    ignoredRoots,
+    fail,
+    runCheckIgnore: () => ({ status: 0, stdout: 'dist/.pointer-check-probe\n', stderr: '' }),
+  });
+  assert.deepEqual([...ignoredRoots], ['dist']);
+});
+
+test('applyCheckIgnoreProbe: an empty toProbe list never spawns and never fails', () => {
+  const fail = () => { throw new Error('fail() must not be called'); };
+  const ignoredRoots = new Set();
+  let spawned = false;
+  applyCheckIgnoreProbe({
+    toProbe: [],
+    PROBE_SUFFIX: '/.pointer-check-probe',
+    ignoredRoots,
+    fail,
+    runCheckIgnore: () => { spawned = true; return { status: 0, stdout: '', stderr: '' }; },
+  });
+  assert.equal(spawned, false);
+  assert.equal(ignoredRoots.size, 0);
 });
 
 // DEFAULT_SURFACE_PLAN + collectSurfaces (CWK-090 fix 3) -- the walked-surface

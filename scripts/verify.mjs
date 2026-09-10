@@ -19,7 +19,7 @@ import { REGION_TARGETS, extractRegion } from './lib/shared-regions.mjs';
 import { checkTracked } from './lib/consistency.mjs';
 import { checkDistChangelog } from './lib/dist-changelog.mjs';
 import { checkConfigKeys, checkConfigReadPath } from './lib/config-keys.mjs';
-import { checkPointers, pointerCandidates, looksPathShaped, DEFAULT_SURFACE_PLAN, collectSurfaces, classifyCheckIgnoreResult } from './lib/pointer-check.mjs';
+import { checkPointers, pointerCandidates, looksPathShaped, DEFAULT_SURFACE_PLAN, collectSurfaces, applyCheckIgnoreProbe } from './lib/pointer-check.mjs';
 import { verifyAgainstManifest } from './lib/manifest.mjs';
 import { descriptionCapCheck, DESC_CAP } from './lib/desc-cap.mjs';
 
@@ -524,28 +524,21 @@ try {
     // PROBE SUFFIX (CWK-090 fix 2): a path UNDER the root, not the bare root -- see the
     // TRAILING SLASH comment above for why the bare-root feed is retired.
     const PROBE_SUFFIX = '/.pointer-check-probe';
-    if (toProbe.length) {
-      const ci = spawnSync('git', ['check-ignore', '--stdin'],
-        { cwd: repo, encoding: 'utf8', input: toProbe.map((n) => n + PROBE_SUFFIX).join('\n') + '\n' });
-      // FAIL-OPEN, CLOSED (CWK-090 fix 1, ported in substance from CoalTipple `3669fb5`
-      // and CoalLedger `94e994f`). The classification itself is pure and lives in
-      // `classifyCheckIgnoreResult` (pointer-check.mjs) so it is unit-testable without a
-      // real git child -- exit 0 and exit 1 both SUCCEED (1 = "none of the fed paths
-      // are ignored", not an error); any OTHER status (128 included -- a bad pattern, an
-      // unreadable `.gitignore`, a broken worktree) or a genuine spawn error means the
-      // run answered NOTHING, and silently continuing with an empty `ignoredRoots` would
-      // print a git-derived count over a run that derived no facts at all.
-      const verdict = classifyCheckIgnoreResult(ci);
-      if (!verdict.ok) {
-        fail(verdict.message);
-      } else {
-        for (const line of verdict.stdout.split('\n')) {
-          const t = line.trim();
-          if (!t) continue;
-          ignoredRoots.add(t.endsWith(PROBE_SUFFIX) ? t.slice(0, -PROBE_SUFFIX.length) : t.replace(/\/$/, ''));
-        }
-      }
-    }
+    // FAIL-OPEN, CLOSED (CWK-090 fix 1, ported in substance from CoalTipple `3669fb5`
+    // and CoalLedger `94e994f`); WIRING moved into `applyCheckIgnoreProbe`
+    // (pointer-check.mjs, CWK-090 findings-back HIGH-1) so a unit test drives this
+    // exact branch with an injected `runCheckIgnore`, not a duplicated copy -- the
+    // classify-then-fail-or-record logic that used to sit here as an inline
+    // `if (!verdict.ok)` is unit-tested directly there, never by mutating this call
+    // site. Exit 0 and exit 1 both SUCCEED (1 = "none of the fed paths are ignored",
+    // not an error); any OTHER status (128 included -- a bad pattern, an unreadable
+    // `.gitignore`, a broken worktree) or a genuine spawn error means the run
+    // answered NOTHING, and silently continuing with an empty `ignoredRoots` would
+    // print a git-derived count over a run that derived no facts at all.
+    applyCheckIgnoreProbe({
+      toProbe, PROBE_SUFFIX, ignoredRoots, fail,
+      runCheckIgnore: (input) => spawnSync('git', ['check-ignore', '--stdin'], { cwd: repo, encoding: 'utf8', input }),
+    });
 
     const findings = checkPointers({
       surfaces,

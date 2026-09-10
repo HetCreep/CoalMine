@@ -277,7 +277,45 @@ export function classifyCheckIgnoreResult(ci) {
       message: `git check-ignore --stdin exited ${ci.status}${stderrLine ? ` -- ${stderrLine}` : ''} -- cannot tell which cited roots are gitignored`,
     };
   }
+  // NAMED BOUND (CWK-090 findings-back LOW-1) -- exit 0 means AT LEAST ONE fed path
+  // matched, but a non-string or empty-of-content stdout here would still answer
+  // ok with zero recovered roots: git said something matched, this classifier would
+  // conclude nothing did. UNREACHABLE today, on both halves -- `encoding: 'utf8'`
+  // makes `ci.stdout` a string whenever the spawn itself did not error (caught by the
+  // branch above), and verify.mjs never passes `-q` (the one flag that pairs a
+  // silent, empty stdout with exit 0). A stated bound, not a guard: adding a branch
+  // for a case nothing can reach is the over-hardening this room's own rules ban,
+  // the same register as the two NAMED BOUNDs already carrying that exact phrase --
+  // ROOT-LEVEL MASKING, `checkPointers` below in this file (CWK-078), and the
+  // WIDENED bound in verify.mjs (CWK-079 findings-back MEDIUM-1).
   return { ok: true, stdout: typeof ci.stdout === 'string' ? ci.stdout : '' };
+}
+
+// APPLY the check-ignore probe's verdict onto `ignoredRoots`, or FAIL loudly (CWK-090
+// findings-back HIGH-1). `classifyCheckIgnoreResult` above is pure and well
+// unit-tested; nothing tied THAT classification to the gate's own `fail()` --
+// verify.mjs's own call site was an inline `if (!verdict.ok) { fail(...) } else
+// {...}`, and mutating that one condition to `if (false)` left the whole suite
+// byte-identically green (306/301/0/5), because nothing exercised the branch. Moved
+// out of verify.mjs into this exported function so a unit test can drive the EXACT
+// code verify.mjs runs, with an injected `runCheckIgnore` in place of a real
+// `spawnSync` -- the same DI shape `collectSurfaces(repo, plan, io)` already uses
+// for the surface walk, applied to the sibling spawn site. `runCheckIgnore(input)`
+// takes the newline-joined probe input and returns the same `{status, stdout,
+// stderr, error}` shape a real `spawnSync` result carries.
+export function applyCheckIgnoreProbe({ toProbe, PROBE_SUFFIX, ignoredRoots, fail, runCheckIgnore }) {
+  if (!toProbe.length) return;
+  const ci = runCheckIgnore(toProbe.map((n) => n + PROBE_SUFFIX).join('\n') + '\n');
+  const verdict = classifyCheckIgnoreResult(ci);
+  if (!verdict.ok) {
+    fail(verdict.message);
+    return;
+  }
+  for (const line of verdict.stdout.split('\n')) {
+    const t = line.trim();
+    if (!t) continue;
+    ignoredRoots.add(t.endsWith(PROBE_SUFFIX) ? t.slice(0, -PROBE_SUFFIX.length) : t.replace(/\/$/, ''));
+  }
 }
 
 const GLOB = /[*?[\]{}|]/;
